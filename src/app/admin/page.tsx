@@ -3,6 +3,7 @@
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProductSummary {
   name: string;
@@ -48,6 +49,12 @@ interface OrderItem {
   };
 }
 
+interface AnalyticsData {
+  totalRevenue: number;
+  totalSold: number;
+  chartData: { date: string; revenue: number }[];
+}
+
 export default function AdminPage() {
   const { t, language, setLanguage } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -56,7 +63,11 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
 
   // Tab mode
-  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'products' | 'orders'>('single');
+  const [activeTab, setActiveTab] = useState<'overview' | 'single' | 'batch' | 'products' | 'orders'>('overview');
+
+  // Analytics state
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Single form state
   const [productName, setProductName] = useState('');
@@ -137,6 +148,21 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch('/api/admin/analytics');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setAnalyticsData(json.data);
+      }
+    } catch (err: unknown) {
+      console.error('Gagal memuat analitik:', err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
@@ -151,6 +177,7 @@ export default function AdminPage() {
             await refreshStocks();
             await loadProductOptions();
             await loadOrders();
+            await loadAnalytics();
           } else {
             setIsAuthenticated(false);
           }
@@ -168,11 +195,10 @@ export default function AdminPage() {
     }
 
     initializeAuth();
-
     return () => {
       ignore = true;
     };
-  }, [refreshStocks, loadProductOptions, loadOrders]);
+  }, [refreshStocks, loadProductOptions, loadOrders, loadAnalytics]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -193,6 +219,7 @@ export default function AdminPage() {
       await refreshStocks();
       await loadProductOptions();
       await loadOrders();
+      await loadAnalytics();
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
     }
@@ -497,10 +524,20 @@ export default function AdminPage() {
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl">
           {/* Tab Selector */}
           <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-pink-100">
-            <div className="inline-flex bg-pink-50 p-1 rounded-2xl border border-pink-200 gap-1">
+            <div className="inline-flex bg-pink-50 p-1 rounded-2xl border border-pink-200 gap-1 overflow-x-auto max-w-full hide-scrollbar">
+              <button
+                onClick={() => { setActiveTab('overview'); loadAnalytics(); }}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'overview'
+                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
+                    : 'text-neutral-600 hover:text-pink-600'
+                }`}
+              >
+                {t.tabOverview}
+              </button>
               <button
                 onClick={() => setActiveTab('single')}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'single'
                     ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
                     : 'text-neutral-600 hover:text-pink-600'
@@ -510,7 +547,7 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={() => setActiveTab('batch')}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'batch'
                     ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
                     : 'text-neutral-600 hover:text-pink-600'
@@ -520,7 +557,7 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={() => { setActiveTab('products'); setEditMessage(''); setEditingProduct(null); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'products'
                     ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
                     : 'text-neutral-600 hover:text-pink-600'
@@ -530,7 +567,7 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={() => { setActiveTab('orders'); loadOrders(); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'orders'
                     ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
                     : 'text-neutral-600 hover:text-pink-600'
@@ -543,6 +580,85 @@ export default function AdminPage() {
               <p className="text-[10px] text-neutral-400 font-medium">{t.encryptionNote}</p>
             </div>
           </div>
+
+          {/* === OVERVIEW / ANALYTICS TAB === */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {analyticsLoading && !analyticsData ? (
+                <div className="text-center py-10 text-neutral-400 font-medium animate-pulse">
+                  {t.loadingAnalytics || 'Loading analytics...'}
+                </div>
+              ) : analyticsData ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-gradient-to-br from-pink-500 to-rose-500 p-5 rounded-2xl shadow-lg text-white">
+                      <p className="text-xs font-bold text-pink-100 uppercase tracking-wider mb-1">
+                        {t.statTotalRevenue || 'Total Revenue'}
+                      </p>
+                      <h3 className="text-2xl sm:text-3xl font-black">
+                        {formatRupiah(analyticsData.totalRevenue)}
+                      </h3>
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-500 to-violet-500 p-5 rounded-2xl shadow-lg text-white">
+                      <p className="text-xs font-bold text-indigo-100 uppercase tracking-wider mb-1">
+                        {t.statTotalSold || 'Total Sold'}
+                      </p>
+                      <h3 className="text-2xl sm:text-3xl font-black">
+                        {analyticsData.totalSold} <span className="text-sm font-semibold text-indigo-200">Akun</span>
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-neutral-100 shadow-sm">
+                    <h4 className="text-sm font-bold text-neutral-800 mb-4">{t.chartTitle || 'Last 7 Days Revenue'}</h4>
+                    <div className="h-[250px] sm:h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={analyticsData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis 
+                            dataKey="date" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} 
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} 
+                            tickFormatter={(value) => `Rp${(value / 1000)}k`}
+                          />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <Tooltip
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                            labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+                            formatter={(value: any) => [formatRupiah(Number(value) || 0), t.statTotalRevenue || 'Revenue']}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="revenue" 
+                            stroke="#ec4899" 
+                            strokeWidth={3}
+                            fillOpacity={1} 
+                            fill="url(#colorRevenue)" 
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-10 text-rose-500 font-medium">
+                  {t.errAnalytics || 'Failed to load analytics.'}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* === SINGLE INPUT FORM === */}
           {activeTab === 'single' && (
