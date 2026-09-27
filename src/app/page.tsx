@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface Product {
@@ -26,6 +27,7 @@ export default function HomePage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   const [searchInvoice, setSearchInvoice] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -212,22 +214,43 @@ export default function HomePage() {
               <h2 className="text-base sm:text-2xl font-black text-pink-700 tracking-wide">
                 {t.catalogTitle}
               </h2>
-              <p className="text-[10px] sm:text-xs text-pink-500 font-medium">{t.catalogSubtitle}</p>
+              <p className="text-[10px] sm:text-xs text-pink-500 font-medium mb-3 sm:mb-0">{t.catalogSubtitle}</p>
             </div>
-            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-pink-200 text-pink-800 text-[9px] sm:text-xs font-bold rounded-full">
-              {t.badge}
-            </span>
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+              <input
+                type="text"
+                placeholder={t.searchPlaceholder || 'Cari produk...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white/70 border-2 border-pink-200 rounded-xl px-3 py-2 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-pink-500 w-full sm:w-64 transition"
+              />
+              <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-pink-200 text-pink-800 text-[9px] sm:text-xs font-bold rounded-full whitespace-nowrap">
+                {t.badge}
+              </span>
+            </div>
           </div>
 
           {loading ? (
             <div className="text-center py-12 text-pink-600 font-semibold animate-pulse text-xs sm:text-sm">
               {t.loadingCatalog}
             </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-12 text-neutral-500 text-xs sm:text-sm">{t.emptyCatalog}</div>
           ) : (
-            <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6">
-              {products.map((product) => {
+            (() => {
+              const filteredProducts = products.filter(p => 
+                p.name.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredProducts.length === 0) {
+                return (
+                  <div className="text-center py-12 text-neutral-500 text-xs sm:text-sm">
+                    {searchQuery ? (t.searchEmpty || 'Produk tidak ditemukan.') : t.emptyCatalog}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6">
+                  {filteredProducts.map((product) => {
                 const isReady = product.stockAvailable > 0;
                 return (
                   <div
@@ -276,6 +299,8 @@ export default function HomePage() {
                 );
               })}
             </div>
+              );
+            })()
           )}
         </div>
       </div>
@@ -349,6 +374,30 @@ export default function HomePage() {
         </svg>
         <span className="text-[11px] sm:text-xs font-bold tracking-wide">{t.contactAdmin}</span>
       </a>
+
+      {/* Footer */}
+      <footer className="mt-12 w-full max-w-6xl mx-auto pb-6 px-4">
+        <div className="bg-white/60 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-pink-100 shadow-sm flex flex-col items-center justify-center text-center">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-4">
+            <Link href="#" className="text-xs sm:text-sm font-semibold text-pink-600 hover:text-pink-800 transition">
+              {t.footerFAQ || 'FAQ'}
+            </Link>
+            <span className="text-pink-200 hidden sm:inline">•</span>
+            <Link href="#" className="text-xs sm:text-sm font-semibold text-pink-600 hover:text-pink-800 transition">
+              {t.footerTerms || 'Terms & Conditions'}
+            </Link>
+          </div>
+          <p className="text-xs text-neutral-500 font-medium mb-2">
+            {t.footerCopyright || 'Copyright © 2026 Cloudy Pink Store'}
+          </p>
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-neutral-400 font-medium bg-pink-50/50 px-3 py-1.5 rounded-full border border-pink-100">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+            <span>{t.footerSecuredBy || 'Secured Payment by Midtrans'}</span>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
