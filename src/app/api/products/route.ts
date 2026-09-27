@@ -23,6 +23,7 @@ export async function GET() {
       name: product.name,
       slug: product.slug,
       price: product.price,
+      category: product.category,
       stockAvailable: product.stocks.length,
     }));
 

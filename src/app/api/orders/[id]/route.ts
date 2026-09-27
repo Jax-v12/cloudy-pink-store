@@ -1,32 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { decryptData } from '@/lib/crypto';
 
-function decrypt(text: string): string {
+function safeDecrypt(encryptedText: string): string {
   try {
-    const rawKey = process.env.ENCRYPTION_KEY || '';
-    
-    // Samakan pembersihnya dengan yang ada di admin/stock
-    const keyHex = rawKey.replace(/[^a-fA-F0-9]/g, '').slice(0, 64);
-    
-    if (keyHex.length !== 64) {
-      throw new Error('Key tidak valid.');
-    }
-    
-    const key = Buffer.from(keyHex, 'hex');
-    const textParts = text.split(':');
-    if (textParts.length < 2) return text;
-    
-    const iv = Buffer.from(textParts.shift() || '', 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    
-    return decrypted.toString('utf-8');
+    return decryptData(encryptedText);
   } catch (err: unknown) {
-    console.error('Gagal mendekripsi data:', err);
-    return '***[Gagal dekripsi]***';
+    console.error('Gagal mendekripsi data (kemungkinan data stok lama):', err);
+    return '[Data stok lama tidak kompatibel]';
   }
 }
 
@@ -66,7 +47,7 @@ export async function GET(
       if (isAuthorized) {
         accountData = {
           emailAccount: order.accountStock.emailAccount,
-          passwordAccount: decrypt(order.accountStock.passwordAccount),
+          passwordAccount: safeDecrypt(order.accountStock.passwordAccount),
           profileName: order.accountStock.profileName,
           pin: order.accountStock.pin,
           additionalInfo: order.accountStock.additionalInfo,

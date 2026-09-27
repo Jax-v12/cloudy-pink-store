@@ -25,6 +25,15 @@ interface ProductOption {
   id: number;
   name: string;
   price: number;
+  category: string | null;
+  stockAvailable: number;
+}
+
+interface EditingProduct {
+  id: number;
+  name: string;
+  price: string;
+  category: string;
 }
 
 export default function AdminPage() {
@@ -35,7 +44,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
 
   // Tab mode
-  const [activeTab, setActiveTab] = useState<'single' | 'batch'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'products'>('single');
 
   // Single form state
   const [productName, setProductName] = useState('');
@@ -61,6 +70,12 @@ export default function AdminPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchMessage, setBatchMessage] = useState('');
   const [batchIsSuccess, setBatchIsSuccess] = useState(false);
+
+  // Product management state
+  const [editingProduct, setEditingProduct] = useState<EditingProduct | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editMessage, setEditMessage] = useState('');
+  const [editIsSuccess, setEditIsSuccess] = useState(false);
 
   const [stocks, setStocks] = useState<StockItem[]>([]);
 
@@ -301,6 +316,38 @@ export default function AdminPage() {
     }).format(val);
   };
 
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
+    setEditLoading(true);
+    setEditMessage('');
+
+    try {
+      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingProduct.name,
+          price: Number(editingProduct.price),
+          category: editingProduct.category,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || t.editError);
+      }
+      setEditIsSuccess(true);
+      setEditMessage(t.editSuccess);
+      setEditingProduct(null);
+      await loadProductOptions();
+      await refreshStocks();
+    } catch (err: unknown) {
+      setEditIsSuccess(false);
+      setEditMessage(err instanceof Error ? err.message : t.editError);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <main
@@ -436,6 +483,16 @@ export default function AdminPage() {
                 }`}
               >
                 {t.tabBatch}
+              </button>
+              <button
+                onClick={() => { setActiveTab('products'); setEditMessage(''); setEditingProduct(null); }}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                  activeTab === 'products'
+                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
+                    : 'text-neutral-600 hover:text-pink-600'
+                }`}
+              >
+                {t.tabProducts}
               </button>
             </div>
             <div>
@@ -690,6 +747,131 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* === PRODUCT MANAGEMENT TAB === */}
+          {activeTab === 'products' && (
+            <div className="space-y-4">
+              {/* Global feedback message */}
+              {editMessage && (
+                <div
+                  className={`text-xs p-3 rounded-2xl border font-bold ${
+                    editIsSuccess
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+                >
+                  {editMessage}
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
+                      <th className="py-3 px-3 rounded-l-xl">{t.colProductName}</th>
+                      <th className="py-3 px-3">{t.colProductPrice}</th>
+                      <th className="py-3 px-3">{t.colProductCategory}</th>
+                      <th className="py-3 px-3 text-center">{t.colProductStock}</th>
+                      <th className="py-3 px-3 rounded-r-xl text-center">{t.colActions}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-100">
+                    {productOptions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-neutral-400 font-medium">
+                          {t.loadingProducts}
+                        </td>
+                      </tr>
+                    ) : (
+                      productOptions.map((product) => {
+                        const isEditing = editingProduct?.id === product.id;
+                        return (
+                          <tr key={product.id} className={`transition ${isEditing ? 'bg-pink-50/60' : 'hover:bg-pink-50/30'}`}>
+                            <td className="py-3 px-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editingProduct.name}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                                />
+                              ) : (
+                                <span className="font-bold text-neutral-800">{product.name}</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editingProduct.price}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
+                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                                />
+                              ) : (
+                                <span className="font-black text-pink-600">{formatRupiah(product.price)}</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editingProduct.category}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                                />
+                              ) : (
+                                <span className="text-neutral-500">{product.category || '-'}</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300">
+                                {product.stockAvailable}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={handleSaveProduct}
+                                    disabled={editLoading}
+                                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-[10px] transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {editLoading ? t.btnSavingEdit : t.btnSave}
+                                  </button>
+                                  <button
+                                    onClick={() => { setEditingProduct(null); setEditMessage(''); }}
+                                    disabled={editLoading}
+                                    className="px-3 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold rounded-lg text-[10px] transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {t.btnCancel}
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingProduct({
+                                      id: product.id,
+                                      name: product.name,
+                                      price: String(product.price),
+                                      category: product.category || '',
+                                    });
+                                    setEditMessage('');
+                                  }}
+                                  className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-[10px] border border-pink-200 transition active:scale-95 cursor-pointer"
+                                >
+                                  {t.btnEdit}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
 
