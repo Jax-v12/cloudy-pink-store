@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const { productId, customerEmail, paymentMethod } = body;
 
     if (!productId || !customerEmail) {
-      return NextResponse.json({ message: 'Data tidak lengkap' }, { status: 400 });
+      return NextResponse.json({ errorCode: 'INCOMPLETE_DATA', message: 'Data tidak lengkap' }, { status: 400 });
     }
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
@@ -138,21 +138,21 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json({ 
-        message: 'Payment gateway sedang gangguan. Stok akun telah kami kembalikan, silakan coba lagi.' 
+        errorCode: 'GATEWAY_ERROR', message: 'Payment gateway sedang gangguan. Stok akun telah kami kembalikan, silakan coba lagi.' 
       }, { status: 500 });
     }
 
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.message === 'STOCK_EMPTY') {
-        return NextResponse.json({ message: 'Maaf, stok sudah habis.' }, { status: 400 });
+        return NextResponse.json({ errorCode: 'STOCK_EMPTY', message: 'Maaf, stok sudah habis.' }, { status: 400 });
       }
       if (error.message === 'RACE_CONDITION') {
-        return NextResponse.json({ message: 'Stok sedang diproses pembeli lain, coba lagi dalam beberapa detik.' }, { status: 409 });
+        return NextResponse.json({ errorCode: 'RACE_CONDITION', message: 'Stok sedang diproses pembeli lain, coba lagi dalam beberapa detik.' }, { status: 409 });
       }
     }
     
     console.error('Checkout error:', error);
-    return NextResponse.json({ message: 'Terjadi kesalahan sistem' }, { status: 500 });
+    return NextResponse.json({ errorCode: 'SYSTEM_ERROR', message: 'Terjadi kesalahan sistem' }, { status: 500 });
   }
 }

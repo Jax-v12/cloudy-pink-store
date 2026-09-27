@@ -91,17 +91,28 @@ export default function HomePage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Checkout gagal');
+        throw new Error(json.errorCode || 'SYSTEM_ERROR');
       }
 
       if (!json.data?.invoice || !json.data?.accessToken || !json.data?.qrisUrl) {
-        throw new Error('Respons pembayaran tidak lengkap');
+        throw new Error('SYSTEM_ERROR');
       }
 
       localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken);
       router.push(`/order/${json.data.invoice}`);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Terjadi kesalahan');
+      if (err instanceof Error) {
+        switch (err.message) {
+          case 'INCOMPLETE_DATA': setErrorMessage(t.errIncompleteData); break;
+          case 'STOCK_EMPTY': setErrorMessage(t.errStockEmpty); break;
+          case 'RACE_CONDITION': setErrorMessage(t.errRaceCondition); break;
+          case 'GATEWAY_ERROR': setErrorMessage(t.errGateway); break;
+          case 'SYSTEM_ERROR': setErrorMessage(t.errSystem); break;
+          default: setErrorMessage(err.message); break;
+        }
+      } else {
+        setErrorMessage(t.errSystem);
+      }
     } finally {
       setCheckoutLoading(false);
     }

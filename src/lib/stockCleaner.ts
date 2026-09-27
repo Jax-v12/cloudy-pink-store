@@ -20,16 +20,16 @@ export async function releaseExpiredOrders(): Promise<number> {
 
   for (const order of expiredOrders) {
     await prisma.$transaction(async (tx) => {
-      // Ubah status order menjadi EXPIRED
-      await tx.order.update({
-        where: { id: order.id },
+      // Ubah status order menjadi EXPIRED (hanya jika masih PENDING)
+      const updatedOrder = await tx.order.updateMany({
+        where: { id: order.id, status: 'PENDING' },
         data: { status: 'EXPIRED' },
       });
 
-      // Kembalikan stok akun ke READY jika sebelumnya ter-LOCKED
-      if (order.accountStockId) {
-        await tx.accountStock.update({
-          where: { id: order.accountStockId },
+      // Kembalikan stok akun ke READY (hanya jika order berhasil diupdate dan stok masih LOCKED)
+      if (updatedOrder.count > 0 && order.accountStockId) {
+        await tx.accountStock.updateMany({
+          where: { id: order.accountStockId, status: 'LOCKED' },
           data: { status: 'READY' },
         });
       }
