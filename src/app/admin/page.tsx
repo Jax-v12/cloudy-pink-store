@@ -36,6 +36,18 @@ interface EditingProduct {
   category: string;
 }
 
+interface OrderItem {
+  id: number;
+  invoice: string;
+  customerEmail: string;
+  totalAmount: number;
+  status: 'PENDING' | 'PAID' | 'EXPIRED';
+  createdAt: string;
+  product: {
+    name: string;
+  };
+}
+
 export default function AdminPage() {
   const { t, language, setLanguage } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -44,7 +56,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
 
   // Tab mode
-  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'products'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'products' | 'orders'>('single');
 
   // Single form state
   const [productName, setProductName] = useState('');
@@ -77,6 +89,10 @@ export default function AdminPage() {
   const [editMessage, setEditMessage] = useState('');
   const [editIsSuccess, setEditIsSuccess] = useState(false);
 
+  // Orders state
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
   const [stocks, setStocks] = useState<StockItem[]>([]);
 
   const refreshStocks = useCallback(async () => {
@@ -106,6 +122,21 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await fetch('/api/admin/orders');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setOrders(json.data);
+      }
+    } catch (err: unknown) {
+      console.error('Gagal memuat data order:', err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
@@ -119,6 +150,7 @@ export default function AdminPage() {
             setIsAuthenticated(true);
             await refreshStocks();
             await loadProductOptions();
+            await loadOrders();
           } else {
             setIsAuthenticated(false);
           }
@@ -140,7 +172,8 @@ export default function AdminPage() {
     return () => {
       ignore = true;
     };
-  }, [refreshStocks, loadProductOptions]);
+  }, [refreshStocks, loadProductOptions, loadOrders]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +192,7 @@ export default function AdminPage() {
       setPasswordInput('');
       await refreshStocks();
       await loadProductOptions();
+      await loadOrders();
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
     }
@@ -493,6 +527,16 @@ export default function AdminPage() {
                 }`}
               >
                 {t.tabProducts}
+              </button>
+              <button
+                onClick={() => { setActiveTab('orders'); loadOrders(); }}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                  activeTab === 'orders'
+                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
+                    : 'text-neutral-600 hover:text-pink-600'
+                }`}
+              >
+                {t.tabOrders}
               </button>
             </div>
             <div>
@@ -867,6 +911,83 @@ export default function AdminPage() {
                           </tr>
                         );
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* === TRANSACTION HISTORY TAB === */}
+          {activeTab === 'orders' && (
+            <div className="space-y-4">
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={loadOrders}
+                  disabled={ordersLoading}
+                  className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-xs border border-pink-200 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {ordersLoading ? t.loadingOrders : 'Refresh'}
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
+                      <th className="py-3 px-3 rounded-l-xl">{t.tblOrderInvoice}</th>
+                      <th className="py-3 px-3">{t.tblOrderDate}</th>
+                      <th className="py-3 px-3">{t.tblOrderCustomer}</th>
+                      <th className="py-3 px-3">{t.tblOrderProduct}</th>
+                      <th className="py-3 px-3">{t.tblOrderTotal}</th>
+                      <th className="py-3 px-3 rounded-r-xl text-center">{t.tblOrderStatus}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-100">
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-neutral-400 font-medium">
+                          {ordersLoading ? t.loadingOrders : t.tblOrderEmpty}
+                        </td>
+                      </tr>
+                    ) : (
+                      orders.map((order) => (
+                        <tr key={order.id} className="hover:bg-pink-50/30 transition">
+                          <td className="py-3 px-3 font-mono font-bold text-neutral-800">
+                            {order.invoice}
+                          </td>
+                          <td className="py-3 px-3 text-neutral-500 whitespace-nowrap">
+                            {new Date(order.createdAt).toLocaleDateString('id-ID', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="py-3 px-3 text-neutral-700 font-medium">
+                            {order.customerEmail}
+                          </td>
+                          <td className="py-3 px-3 text-neutral-800 font-bold">
+                            {order.product?.name || '-'}
+                          </td>
+                          <td className="py-3 px-3 font-black text-pink-600">
+                            {formatRupiah(order.totalAmount)}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span
+                              className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase ${
+                                order.status === 'PAID'
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                  : order.status === 'PENDING'
+                                  ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                                  : 'bg-rose-100 text-rose-700 border border-rose-300'
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
