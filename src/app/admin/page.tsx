@@ -1,5 +1,7 @@
 'use client';
 
+import { useLanguage } from '@/context/LanguageContext';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
@@ -21,6 +23,7 @@ interface StockItem {
 }
 
 export default function AdminPage() {
+  const { t, language, setLanguage } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
@@ -259,7 +262,7 @@ export default function AdminPage() {
                 Admin Panel Active
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-pink-700">Dashboard Manajemen Stok</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-pink-700">{t.adminTitle}</h1>
             <p className="text-xs text-neutral-500">Kelola katalog produk dan stok akun terenkripsi</p>
           </div>
 
@@ -293,7 +296,7 @@ export default function AdminPage() {
 
           <form onSubmit={handleAddStock} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Nama Produk</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProductName}</label>
               <input
                 type="text"
                 required
@@ -305,7 +308,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Harga Satuan (IDR)</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPrice}</label>
               <input
                 type="number"
                 required
@@ -317,7 +320,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Kategori</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminCategory}</label>
               <input
                 type="text"
                 value={category}
@@ -327,7 +330,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Nama Profil (Opsional)</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
               <input
                 type="text"
                 placeholder="Contoh: Anya / Profil 1"
@@ -338,7 +341,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Email / Akun</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminEmail}</label>
               <input
                 type="text"
                 required
@@ -350,7 +353,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Password Akun (Rahasia)</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPassword}</label>
               <input
                 type="text"
                 required
@@ -362,7 +365,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">PIN Profil (Opsional)</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPin}</label>
               <input
                 type="text"
                 placeholder="Contoh: 1234"
@@ -373,7 +376,7 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">Catatan Tambahan (Opsional)</label>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminNotes}</label>
               <input
                 type="text"
                 placeholder="Contoh: Dilarang mengganti password"
@@ -401,7 +404,7 @@ export default function AdminPage() {
                 disabled={formLoading}
                 className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                {formLoading ? 'Menyimpan & Mengenkripsi...' : 'Simpan Stok Akun ke Database'}
+                {formLoading ? t.btnSaving : t.btnSaveStock}
               </button>
             </div>
           </form>
@@ -411,14 +414,14 @@ export default function AdminPage() {
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-pink-100">
             <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-800">Daftar Stok di Database</h2>
-              <p className="text-[11px] text-neutral-400">Total data: {stocks.length} akun</p>
+              <h2 className="text-base sm:text-lg font-black text-neutral-800">{t.adminTitle}</h2>
+              <p className="text-[11px] text-neutral-400">{t.totalData} {stocks.length}</p>
             </div>
             <button
               onClick={refreshStocks}
               className="text-xs font-bold text-pink-600 hover:text-pink-700 bg-pink-50 px-3 py-1 rounded-xl border border-pink-200 transition"
             >
-              Refresh Tabel
+              {t.btnRefreshTable}
             </button>
           </div>
 
@@ -426,17 +429,17 @@ export default function AdminPage() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
-                  <th className="py-3 px-3 rounded-l-xl">Produk & Harga</th>
-                  <th className="py-3 px-3">Email Akun</th>
-                  <th className="py-3 px-3">Profil / PIN</th>
-                  <th className="py-3 px-3 rounded-r-xl text-center">Status</th>
+                  <th className="py-3 px-3 rounded-l-xl">{t.tblProduct}</th>
+                  <th className="py-3 px-3">{t.tblEmail}</th>
+                  <th className="py-3 px-3">{t.tblProfile}</th>
+                  <th className="py-3 px-3 rounded-r-xl text-center">{t.tblStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-pink-100">
                 {stocks.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-8 text-center text-neutral-400 font-medium">
-                      Belum ada stok akun yang dimasukkan. Silakan isi formulir di atas.
+                      {t.tblEmpty}
                     </td>
                   </tr>
                 ) : (
@@ -478,3 +481,6 @@ export default function AdminPage() {
     </main>
   );
 }
+
+
+

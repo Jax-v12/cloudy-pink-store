@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { encryptData } from '@/lib/crypto';
 
 // 1. Fungsi Cek Auth (Sudah pakai Hash SHA-256)
 function verifyAdminAuth(req: Request, cookieStore: Awaited<ReturnType<typeof cookies>>): boolean {
@@ -18,28 +19,6 @@ function verifyAdminAuth(req: Request, cookieStore: Awaited<ReturnType<typeof co
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
   return sessionCookie === hashedAdminPassword || bearerToken === hashedAdminPassword;
-}
-
-// 2. Fungsi Enkripsi Data Akun (AES-256-CBC)
-function encryptData(text: string): string {
-  const rawKey = process.env.ENCRYPTION_KEY || '';
-  
-  // SOLUSI JALAN PINTAS: 
-  // Hapus semua simbol/spasi/karakter aneh, lalu potong paksa pas di 64 karakter pertama!
-  const keyHex = rawKey.replace(/[^a-fA-F0-9]/g, '').slice(0, 64);
-
-  if (keyHex.length !== 64) {
-    throw new Error(
-      `Key di .env kamu kurang dari 64 karakter valid! Cek lagi file .env kamu.`
-    );
-  }
-
-  const key = Buffer.from(keyHex, 'hex');
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 
 // 3. Method POST (Untuk nambah stok baru dari Dashboard)
