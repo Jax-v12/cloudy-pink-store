@@ -1,8 +1,7 @@
 'use client';
 
 import { useLanguage } from '@/context/LanguageContext';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 interface ProductSummary {
@@ -22,6 +21,12 @@ interface StockItem {
   product: ProductSummary;
 }
 
+interface ProductOption {
+  id: number;
+  name: string;
+  price: number;
+}
+
 export default function AdminPage() {
   const { t, language, setLanguage } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,7 +34,10 @@ export default function AdminPage() {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Form input stok
+  // Tab mode
+  const [activeTab, setActiveTab] = useState<'single' | 'batch'>('single');
+
+  // Single form state
   const [productName, setProductName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Apps Premium');
@@ -38,13 +46,51 @@ export default function AdminPage() {
   const [profileName, setProfileName] = useState('');
   const [pin, setPin] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
-
-  const [stocks, setStocks] = useState<StockItem[]>([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formMessage, setFormMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Inisialisasi cek session saat halaman pertama kali dimuat
+  // Batch form state
+  const [batchText, setBatchText] = useState('');
+  const [batchProductMode, setBatchProductMode] = useState<'existing' | 'new'>('existing');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [batchNewProductName, setBatchNewProductName] = useState('');
+  const [batchNewProductPrice, setBatchNewProductPrice] = useState('');
+  const [batchNewCategory, setBatchNewCategory] = useState('Apps Premium');
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchMessage, setBatchMessage] = useState('');
+  const [batchIsSuccess, setBatchIsSuccess] = useState(false);
+
+  const [stocks, setStocks] = useState<StockItem[]>([]);
+
+  const refreshStocks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/stock');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setStocks(json.data);
+      }
+    } catch (err: unknown) {
+      console.error('Gagal memuat data stok:', err);
+    }
+  }, []);
+
+  const loadProductOptions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/products', {
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setProductOptions(json.data);
+        if (json.data.length > 0) setSelectedProductId(String(json.data[0].id));
+      }
+    } catch (err: unknown) {
+      console.error('Gagal memuat produk:', err);
+    }
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
@@ -56,11 +102,8 @@ export default function AdminPage() {
         if (!ignore) {
           if (res.ok && json.authenticated) {
             setIsAuthenticated(true);
-            const stockRes = await fetch('/api/admin/stock');
-            const stockJson = await stockRes.json();
-            if (!ignore && stockJson.success && Array.isArray(stockJson.data)) {
-              setStocks(stockJson.data);
-            }
+            await refreshStocks();
+            await loadProductOptions();
           } else {
             setIsAuthenticated(false);
           }
@@ -82,19 +125,7 @@ export default function AdminPage() {
     return () => {
       ignore = true;
     };
-  }, []);
-
-  const refreshStocks = async () => {
-    try {
-      const res = await fetch('/api/admin/stock');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setStocks(json.data);
-      }
-    } catch (err: unknown) {
-      console.error('Gagal memuat data stok:', err);
-    }
-  };
+  }, [refreshStocks, loadProductOptions]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +143,7 @@ export default function AdminPage() {
       setIsAuthenticated(true);
       setPasswordInput('');
       await refreshStocks();
+      await loadProductOptions();
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
     }
@@ -152,7 +184,7 @@ export default function AdminPage() {
       }
 
       setIsSuccess(true);
-      setFormMessage('Stok akun berhasil disimpan dan dienkripsi!');
+      setFormMessage(t.encryptionNote);
       setEmailAccount('');
       setPasswordAccount('');
       setProfileName('');
@@ -161,9 +193,103 @@ export default function AdminPage() {
       await refreshStocks();
     } catch (err: unknown) {
       setIsSuccess(false);
-      setFormMessage(err instanceof Error ? err.message : 'Terjadi kesalahan.');
+      setFormMessage(err instanceof Error ? err.message : t.errSystem);
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleBatchUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBatchLoading(true);
+    setBatchMessage('');
+    setBatchIsSuccess(false);
+
+    // Parse textarea — flexible: 2 to 4 pipe-separated parts per line
+    const lines = batchText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) {
+      setBatchMessage(t.batchErrorEmpty);
+      setBatchLoading(false);
+      return;
+    }
+
+    const parsedStocks: { emailAccount: string; passwordAccount: string; profileName: string | null; pin: string | null }[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const parts = lines[i].split('|');
+      const email = parts[0]?.trim();
+      const pass = parts[1]?.trim();
+
+      if (!email || !pass) {
+        setBatchMessage(t.batchErrorFormat.replace('{line}', String(i + 1)));
+        setBatchLoading(false);
+        return;
+      }
+
+      parsedStocks.push({
+        emailAccount: email,
+        passwordAccount: pass,
+        profileName: parts[2]?.trim() || null,
+        pin: parts[3]?.trim() || null,
+      });
+    }
+
+    // Resolve product info
+    let resolvedProductName: string;
+    let resolvedPrice: number;
+    let resolvedCategory: string;
+
+    if (batchProductMode === 'existing') {
+      const found = productOptions.find((p) => String(p.id) === selectedProductId);
+      if (!found) {
+        setBatchMessage(t.batchErrorEmpty);
+        setBatchLoading(false);
+        return;
+      }
+      resolvedProductName = found.name;
+      resolvedPrice = found.price;
+      resolvedCategory = 'Apps Premium';
+    } else {
+      if (!batchNewProductName || !batchNewProductPrice) {
+        setBatchMessage(t.batchErrorEmpty);
+        setBatchLoading(false);
+        return;
+      }
+      resolvedProductName = batchNewProductName;
+      resolvedPrice = Number(batchNewProductPrice);
+      resolvedCategory = batchNewCategory;
+    }
+
+    try {
+      const res = await fetch('/api/admin/stock/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: resolvedProductName,
+          price: resolvedPrice,
+          category: resolvedCategory,
+          stocks: parsedStocks,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || t.errSystem);
+      }
+
+      setBatchIsSuccess(true);
+      setBatchMessage(t.batchSuccess.replace('{count}', String(json.data?.insertedCount ?? parsedStocks.length)));
+      setBatchText('');
+      await refreshStocks();
+      await loadProductOptions();
+    } catch (err: unknown) {
+      setBatchIsSuccess(false);
+      setBatchMessage(err instanceof Error ? err.message : t.errSystem);
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -189,7 +315,6 @@ export default function AdminPage() {
     );
   }
 
-  // Tampilan Login Admin Bertema Anime
   if (!isAuthenticated) {
     return (
       <main
@@ -244,7 +369,6 @@ export default function AdminPage() {
     );
   }
 
-  // Tampilan Dashboard Manajemen Stok Bertema Cloudy Pink
   return (
     <main
       className="min-h-screen p-3 sm:p-6 md:p-10 font-sans relative bg-fixed bg-cover bg-center pb-24"
@@ -263,10 +387,16 @@ export default function AdminPage() {
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-pink-700">{t.adminTitle}</h1>
-            <p className="text-xs text-neutral-500">Kelola katalog produk dan stok akun terenkripsi</p>
+            <p className="text-xs text-neutral-500">{t.encryptionNote}</p>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Language switcher */}
+            <div className="inline-flex bg-white/95 backdrop-blur-sm p-1 rounded-2xl border border-pink-300 shadow-sm mr-1">
+              <button onClick={() => setLanguage('ID')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'ID' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>ID</button>
+              <button onClick={() => setLanguage('MY')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'MY' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>MY</button>
+              <button onClick={() => setLanguage('EN')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'EN' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>EN</button>
+            </div>
             <Link
               href="/"
               className="px-3.5 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-xl text-xs transition border border-pink-200"
@@ -284,130 +414,283 @@ export default function AdminPage() {
 
         {/* Card Form Tambah Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl">
-          <div className="flex items-center justify-between pb-3 mb-5 border-b-2 border-pink-100">
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-800">Tambah Stok Akun Baru</h2>
-              <p className="text-[11px] text-neutral-400">Password akun otomatis dienkripsi AES-256-CBC</p>
-            </div>
-            <span className="text-xs font-black text-pink-600 bg-pink-50 px-3 py-1 rounded-xl border border-pink-200">
-              Input Form
-            </span>
-          </div>
-
-          <form onSubmit={handleAddStock} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProductName}</label>
-              <input
-                type="text"
-                required
-                placeholder="Contoh: Netflix Premium 1 Bulan"
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPrice}</label>
-              <input
-                type="number"
-                required
-                placeholder="Contoh: 35000"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminCategory}</label>
-              <input
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
-              <input
-                type="text"
-                placeholder="Contoh: Anya / Profil 1"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminEmail}</label>
-              <input
-                type="text"
-                required
-                placeholder="user.netflix@gmail.com"
-                value={emailAccount}
-                onChange={(e) => setEmailAccount(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPassword}</label>
-              <input
-                type="text"
-                required
-                placeholder="PasswordRahasia123!"
-                value={passwordAccount}
-                onChange={(e) => setPasswordAccount(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPin}</label>
-              <input
-                type="text"
-                placeholder="Contoh: 1234"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminNotes}</label>
-              <input
-                type="text"
-                placeholder="Contoh: Dilarang mengganti password"
-                value={additionalInfo}
-                onChange={(e) => setAdditionalInfo(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-              />
-            </div>
-
-            <div className="sm:col-span-2 mt-2">
-              {formMessage && (
-                <div
-                  className={`text-xs p-3 rounded-2xl border mb-3 font-bold ${
-                    isSuccess
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}
-                >
-                  {formMessage}
-                </div>
-              )}
-
+          {/* Tab Selector */}
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-pink-100">
+            <div className="inline-flex bg-pink-50 p-1 rounded-2xl border border-pink-200 gap-1">
               <button
-                type="submit"
-                disabled={formLoading}
-                className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                onClick={() => setActiveTab('single')}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                  activeTab === 'single'
+                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
+                    : 'text-neutral-600 hover:text-pink-600'
+                }`}
               >
-                {formLoading ? t.btnSaving : t.btnSaveStock}
+                {t.tabSingle}
+              </button>
+              <button
+                onClick={() => setActiveTab('batch')}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer ${
+                  activeTab === 'batch'
+                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
+                    : 'text-neutral-600 hover:text-pink-600'
+                }`}
+              >
+                {t.tabBatch}
               </button>
             </div>
-          </form>
+            <div>
+              <p className="text-[10px] text-neutral-400 font-medium">{t.encryptionNote}</p>
+            </div>
+          </div>
+
+          {/* === SINGLE INPUT FORM === */}
+          {activeTab === 'single' && (
+            <form onSubmit={handleAddStock} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProductName}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Netflix Premium 1 Bulan"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPrice}</label>
+                <input
+                  type="number"
+                  required
+                  placeholder="Contoh: 35000"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminCategory}</label>
+                <input
+                  type="text"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Anya / Profil 1"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminEmail}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="user.netflix@gmail.com"
+                  value={emailAccount}
+                  onChange={(e) => setEmailAccount(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPassword}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="PasswordRahasia123!"
+                  value={passwordAccount}
+                  onChange={(e) => setPasswordAccount(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPin}</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 1234"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminNotes}</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Dilarang mengganti password"
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div className="sm:col-span-2 mt-2">
+                {formMessage && (
+                  <div
+                    className={`text-xs p-3 rounded-2xl border mb-3 font-bold ${
+                      isSuccess
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}
+                  >
+                    {formMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {formLoading ? t.btnSaving : t.btnSaveStock}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* === BATCH UPLOAD FORM === */}
+          {activeTab === 'batch' && (
+            <form onSubmit={handleBatchUpload} className="space-y-5">
+              {/* Product Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <div className="inline-flex bg-pink-50 p-1 rounded-xl border border-pink-200 gap-1 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setBatchProductMode('existing')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        batchProductMode === 'existing'
+                          ? 'bg-pink-500 text-white'
+                          : 'text-neutral-600 hover:text-pink-600'
+                      }`}
+                    >
+                      {t.batchProductSelect}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBatchProductMode('new')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        batchProductMode === 'new'
+                          ? 'bg-pink-500 text-white'
+                          : 'text-neutral-600 hover:text-pink-600'
+                      }`}
+                    >
+                      {t.batchProductNew}
+                    </button>
+                  </div>
+
+                  {batchProductMode === 'existing' ? (
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      required
+                      className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                    >
+                      {productOptions.length === 0 && (
+                        <option value="">{t.batchProductNew}</option>
+                      )}
+                      {productOptions.map((p) => (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.name} — {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p.price)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-1">
+                        <input
+                          type="text"
+                          required
+                          placeholder={t.adminProductName}
+                          value={batchNewProductName}
+                          onChange={(e) => setBatchNewProductName(e.target.value)}
+                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          required
+                          placeholder={t.adminPrice}
+                          value={batchNewProductPrice}
+                          onChange={(e) => setBatchNewProductPrice(e.target.value)}
+                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          placeholder={t.adminCategory}
+                          value={batchNewCategory}
+                          onChange={(e) => setBatchNewCategory(e.target.value)}
+                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Textarea */}
+              <div>
+                <div className="flex items-start justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-neutral-700">{t.batchInstruction}</label>
+                </div>
+                <div className="mb-2 flex flex-wrap gap-2 items-center">
+                  <code className="text-[10px] bg-neutral-100 text-neutral-700 px-2 py-1 rounded-lg border border-neutral-200 font-mono">
+                    {t.batchFormat}
+                  </code>
+                  <span className="text-[10px] text-neutral-400">{t.batchFormatNote}</span>
+                </div>
+                <textarea
+                  required
+                  rows={8}
+                  value={batchText}
+                  onChange={(e) => setBatchText(e.target.value)}
+                  placeholder={t.batchPlaceholder}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-2xl px-3.5 py-3 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono resize-y placeholder-neutral-400 leading-relaxed"
+                />
+                <p className="text-[10px] text-neutral-400 mt-1">
+                  {batchText.split('\n').filter((l) => l.trim()).length} {t.totalData.toLowerCase()} baris
+                </p>
+              </div>
+
+              {/* Feedback & Submit */}
+              <div>
+                {batchMessage && (
+                  <div
+                    className={`text-xs p-3 rounded-2xl border mb-3 font-bold ${
+                      batchIsSuccess
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}
+                  >
+                    {batchMessage}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={batchLoading}
+                  className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {batchLoading ? t.btnProcessingBatch : t.btnProcessBatch}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Card Tabel Stok */}
@@ -481,6 +764,3 @@ export default function AdminPage() {
     </main>
   );
 }
-
-
-
