@@ -1,38 +1,37 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { verifyAdminAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-function verifyAdminAuth(req: Request, cookieStore: Awaited<ReturnType<typeof cookies>>): boolean {
-  const rawPassword = process.env.ADMIN_PASSWORD || '';
-  const adminPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
-  if (!adminPassword) {
-    throw new Error('ADMIN_PASSWORD belum dikonfigurasi di environment server.');
-  }
-  const hashedAdminPassword = crypto.createHash('sha256').update(adminPassword).digest('hex');
-  const sessionCookie = cookieStore.get('admin_session')?.value;
-  const authHeader = req.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  return sessionCookie === hashedAdminPassword || bearerToken === hashedAdminPassword;
-}
-
 export async function GET(req: Request) {
   try {
-    const cookieStore = await cookies();
-    if (!verifyAdminAuth(req, cookieStore)) {
+    if (!(await verifyAdminAuth(req))) {
       return NextResponse.json(
         { success: false, message: 'Akses ditolak (Unauthorized).' },
         { status: 401 }
       );
     }
 
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get('limit') || '50', 10) || 50;
+    const cursorStr = searchParams.get('cursor');
+    const cursor = cursorStr ? parseInt(cursorStr, 10) : null;
+
     const orders = await prisma.order.findMany({
+      take: limit + 1,
+      ...(cursor && !isNaN(cursor) ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: {
         createdAt: 'desc',
       },
-      include: {
+      select: {
+        id: true,
+        invoice: true,
+        customerEmail: true,
+        totalAmount: true,
+        status: true,
+        qrisUrl: true,
+        createdAt: true,
         product: {
           select: {
             name: true,
@@ -41,13 +40,19 @@ export async function GET(req: Request) {
       },
     });
 
+    let nextCursor: number | null = null;
+    if (orders.length > limit) {
+      const nextItem = orders.pop();
+      nextCursor = nextItem!.id;
+    }
+
     return NextResponse.json({
       success: true,
       data: orders,
+      pagination: { nextCursor },
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Gagal memuat riwayat transaksi.';
-    console.error('[Admin Orders GET] Error:', errMessage);
-    return NextResponse.json({ success: false, message: errMessage }, { status: 500 });
+    console.error('[Admin Orders GET] Error:', error);
+    return NextResponse.json({ success: false, message: 'Gagal memuat riwayat transaksi.' }, { status: 500 });
   }
 }

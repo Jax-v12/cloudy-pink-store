@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,29 +14,15 @@ interface MidtransNotificationBody {
   fraud_status?: string;
 }
 
-// Helper Telegram
-async function sendTelegramNotification(message: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim().replace(/^["']|["']$/g, '');
-  const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim().replace(/^["']|["']$/g, '');
-
-  if (!token || !chatId) return;
-
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
-    });
-  } catch (error) {
-    console.error('[Telegram] Error:', error);
-  }
-}
-
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as MidtransNotificationBody;
-    const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = body;
+    let body: MidtransNotificationBody;
+    try {
+      body = (await req.json()) as MidtransNotificationBody;
+    } catch {
+      return NextResponse.json({ message: 'Invalid JSON format' }, { status: 400 });
+    }
+    const { order_id, status_code, gross_amount, signature_key } = body;
 
     if (!order_id || !status_code || !gross_amount || !signature_key) {
       return NextResponse.json({ message: 'Payload tidak lengkap' }, { status: 400 });
@@ -60,25 +47,43 @@ export async function POST(req: Request) {
 
     if (!order) return NextResponse.json({ message: 'Order tidak ditemukan' }, { status: 404 });
 
-    // 3. Validasi Nominal Ketat (Medium Severity Fix)
-    const receivedAmount = Math.round(Number(gross_amount));
-    if (receivedAmount !== order.totalAmount) {
-      console.error(`Peringatan Manipulasi Nominal: Diharapkan ${order.totalAmount}, Diterima ${receivedAmount}`);
+    // 3. Verifikasi Status dan Nominal melalui API Midtrans (menghindari trust pada webhook input)
+    const midtransUrl = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
+      ? `https://api.midtrans.com/v2/${order_id}/status`
+      : `https://api.sandbox.midtrans.com/v2/${order_id}/status`;
+
+    const authString = Buffer.from(`${serverKey}:`).toString('base64');
+    const statusRes = await fetch(midtransUrl, {
+      headers: { 'Authorization': `Basic ${authString}` }
+    });
+    
+    if (!statusRes.ok) {
+      return NextResponse.json({ message: 'Failed to verify transaction status' }, { status: 400 });
+    }
+    
+    const confirmed = await statusRes.json();
+    
+    if (confirmed.status_code !== '200' && confirmed.status_code !== '201' && confirmed.status_code !== '202') {
+      return NextResponse.json({ message: 'Transaction not valid on gateway' }, { status: 400 });
+    }
+
+    const amount = Number(confirmed.gross_amount);
+    if (!Number.isFinite(amount) || amount !== order.totalAmount) {
+      console.error(`Peringatan Manipulasi Nominal: Diharapkan ${order.totalAmount}, Diterima ${amount}`);
       return NextResponse.json({ message: 'Amount mismatch' }, { status: 400 });
     }
 
-    const isPaymentSuccess =
-      (transaction_status === 'capture' && fraud_status === 'accept') ||
-      transaction_status === 'settlement';
+    const isPaymentSuccess = confirmed.status_code === '200' &&
+      (confirmed.transaction_status === 'capture' || confirmed.transaction_status === 'settlement') &&
+      (!confirmed.fraud_status || confirmed.fraud_status === 'accept');
 
     const isPaymentFailedOrExpired =
-      transaction_status === 'deny' || transaction_status === 'expire' || transaction_status === 'cancel';
+      confirmed.transaction_status === 'deny' || confirmed.transaction_status === 'expire' || confirmed.transaction_status === 'cancel';
 
     // 4. Update Atomik & Transisi Status Monotonic (High Severity Fix)
     if (isPaymentSuccess) {
       try {
         await prisma.$transaction(async (tx) => {
-          // Hanya izinkan PENDING -> PAID
           const updatedOrder = await tx.order.updateMany({
             where: { id: order.id, status: 'PENDING' },
             data: { status: 'PAID' },
@@ -89,14 +94,13 @@ export async function POST(req: Request) {
           }
 
           if (order.accountStockId) {
-            // Hanya izinkan LOCKED -> SOLD
             const updatedStock = await tx.accountStock.updateMany({
               where: { id: order.accountStockId, status: 'LOCKED' },
               data: { status: 'SOLD' },
             });
-            
-            if (updatedStock.count === 0) {
-              throw new Error('STOCK_NOT_LOCKED');
+
+            if (updatedStock.count !== 1) {
+              throw new Error('STOCK_STATE_CONFLICT');
             }
           }
         });
@@ -120,7 +124,7 @@ export async function POST(req: Request) {
         await sendTelegramNotification(telegramMsg);
 
       } catch (error: unknown) {
-        if (error instanceof Error && (error.message === 'STATUS_NOT_PENDING' || error.message === 'STOCK_NOT_LOCKED')) {
+        if (error instanceof Error && error.message === 'STATUS_NOT_PENDING') {
           console.log(`[Idempotent] Order ${order.invoice} sudah diproses sebelumnya.`);
           return NextResponse.json({ message: 'Already processed' }, { status: 200 });
         }
@@ -130,22 +134,23 @@ export async function POST(req: Request) {
     } else if (isPaymentFailedOrExpired) {
       try {
         await prisma.$transaction(async (tx) => {
-          // Hanya izinkan PENDING -> EXPIRED
-          const updatedOrder = await tx.order.updateMany({
-            where: { id: order.id, status: 'PENDING' },
-            data: { status: 'EXPIRED' },
+          // Hanya izinkan PENDING -> EXPIRED/CANCELLED
+          const targetStatus = confirmed.transaction_status === 'cancel' ? 'CANCELLED' : 'EXPIRED';
+          const expired = await tx.order.updateMany({
+            where: { id: order.id, status: 'PENDING', accountStockId: order.accountStockId },
+            data: { status: targetStatus, accountStockId: null },
           });
-
-          if (updatedOrder.count > 0 && order.accountStockId) {
-            // Hanya kembalikan stok jika stok masih LOCKED
-            await tx.accountStock.updateMany({
+          
+          if (expired.count > 0 && order.accountStockId) {
+            const released = await tx.accountStock.updateMany({
               where: { id: order.accountStockId, status: 'LOCKED' },
               data: { status: 'READY' },
             });
+            if (released.count !== 1) throw new Error('STOCK_STATE_CONFLICT');
           }
         });
       } catch (error) {
-        console.error('Gagal rollback order expired:', error);
+        console.error('Gagal update order expired:', error);
       }
     }
 

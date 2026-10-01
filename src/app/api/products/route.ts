@@ -6,10 +6,19 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
-      include: {
-        stocks: {
-          where: {
-            status: 'READY',
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        category: true,
+        _count: {
+          select: {
+            stocks: {
+              where: {
+                status: 'READY',
+              },
+            },
           },
         },
       },
@@ -24,7 +33,7 @@ export async function GET() {
       slug: product.slug,
       price: product.price,
       category: product.category,
-      stockAvailable: product.stocks.length,
+      stockAvailable: product._count.stocks,
     }));
 
     return NextResponse.json({
@@ -32,10 +41,9 @@ export async function GET() {
       data: formattedProducts,
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Gagal memuat produk';
-    console.error('Error fetch products:', errMessage);
+    console.error('Error fetch products:', error);
     return NextResponse.json(
-      { success: false, message: errMessage },
+      { success: false, message: 'Gagal memuat produk' },
       { status: 500 }
     );
   }

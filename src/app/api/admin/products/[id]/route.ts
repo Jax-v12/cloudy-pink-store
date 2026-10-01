@@ -1,30 +1,15 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { verifyAdminAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
-
-function verifyAdminAuth(req: Request, cookieStore: Awaited<ReturnType<typeof cookies>>): boolean {
-  const rawPassword = process.env.ADMIN_PASSWORD || '';
-  const adminPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
-  if (!adminPassword) {
-    throw new Error('ADMIN_PASSWORD belum dikonfigurasi di environment server.');
-  }
-  const hashedAdminPassword = crypto.createHash('sha256').update(adminPassword).digest('hex');
-  const sessionCookie = cookieStore.get('admin_session')?.value;
-  const authHeader = req.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  return sessionCookie === hashedAdminPassword || bearerToken === hashedAdminPassword;
-}
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    if (!verifyAdminAuth(req, cookieStore)) {
+    if (!(await verifyAdminAuth(req))) {
       return NextResponse.json(
         { success: false, message: 'Akses ditolak (Unauthorized).' },
         { status: 401 }
@@ -32,26 +17,37 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const productId = parseInt(id, 10);
-    if (isNaN(productId)) {
+    
+    if (!/^\d+$/.test(id)) {
       return NextResponse.json(
         { success: false, message: 'ID produk tidak valid.' },
         { status: 400 }
       );
     }
+    const productId = parseInt(id, 10);
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON format' }, { status: 400 });
+    }
+    
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 });
+    }
+
     const { name, price, category } = body;
 
-    if (!name || price === undefined || price === null) {
+    if (typeof name !== 'string' || !name.trim() || typeof price !== 'number') {
       return NextResponse.json(
-        { success: false, message: 'Nama dan harga produk wajib diisi.' },
+        { success: false, message: 'Nama dan harga produk wajib diisi dengan format yang benar.' },
         { status: 400 }
       );
     }
 
-    const parsedPrice = Math.round(Number(price));
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+    const parsedPrice = Math.round(price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
       return NextResponse.json(
         { success: false, message: 'Harga harus berupa angka bulat positif.' },
         { status: 400 }
@@ -81,8 +77,7 @@ export async function PUT(
       data: updated,
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Gagal memperbarui produk.';
-    console.error('[Admin Products PUT] Error:', errMessage);
-    return NextResponse.json({ success: false, message: errMessage }, { status: 500 });
+    console.error('[Admin Products PUT] Error:', error);
+    return NextResponse.json({ success: false, message: 'Gagal memperbarui produk.' }, { status: 500 });
   }
 }

@@ -4,10 +4,15 @@ import { decryptData } from '@/lib/crypto';
 
 function safeDecrypt(encryptedText: string): string {
   try {
+    const parts = encryptedText.split(':');
+    // IV is 16 bytes (32 hex chars), authTag is 16 bytes (32 hex chars)
+    if (parts.length !== 3 || parts[0].length !== 32 || parts[1].length !== 32) {
+      return encryptedText; // Fallback for old plaintext
+    }
     return decryptData(encryptedText);
   } catch (err: unknown) {
-    console.error('Gagal mendekripsi data (kemungkinan data stok lama):', err);
-    return '[Data stok lama tidak kompatibel]';
+    console.error('Gagal mendekripsi data:', err);
+    return '[Data tidak dapat didekripsi]';
   }
 }
 
@@ -18,7 +23,7 @@ export async function GET(
   try {
     const { id } = await params;
     const url = new URL(req.url);
-    const token = url.searchParams.get('token');
+    const token = req.headers.get('x-order-token') || url.searchParams.get('token');
 
     const order = await prisma.order.findUnique({
       where: { invoice: id },
@@ -35,24 +40,23 @@ export async function GET(
 
     if (!order) {
       return NextResponse.json(
-        { success: false, message: 'Pesanan tidak ditemukan.' },
+        { success: false, errorCode: 'ORDER_NOT_FOUND', message: 'Pesanan tidak ditemukan.' },
         { status: 404 }
       );
     }
 
-    let accountData = null;
     const isAuthorized = Boolean(token && token === order.accessToken);
 
-    if (order.status === 'PAID' && order.accountStock) {
-      if (isAuthorized) {
-        accountData = {
-          emailAccount: order.accountStock.emailAccount,
-          passwordAccount: safeDecrypt(order.accountStock.passwordAccount),
-          profileName: order.accountStock.profileName,
-          pin: order.accountStock.pin,
-          additionalInfo: order.accountStock.additionalInfo,
-        };
-      }
+    let accountData = null;
+
+    if (order.status === 'PAID' && order.accountStock && isAuthorized) {
+      accountData = {
+        emailAccount: safeDecrypt(order.accountStock.emailAccount),
+        passwordAccount: safeDecrypt(order.accountStock.passwordAccount),
+        profileName: order.accountStock.profileName,
+        pin: order.accountStock.pin ? safeDecrypt(order.accountStock.pin) : null,
+        additionalInfo: order.accountStock.additionalInfo ? safeDecrypt(order.accountStock.additionalInfo) : null,
+      };
     }
 
     return NextResponse.json({
@@ -71,12 +75,15 @@ export async function GET(
         account: accountData,
         isAuthorized,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-store',
+      },
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Terjadi kesalahan sistem saat mengambil data pesanan.';
-    console.error('Fetch order error:', errMessage);
+    console.error('Fetch order error:', error);
     return NextResponse.json(
-      { success: false, message: errMessage },
+      { success: false, message: 'Terjadi kesalahan sistem saat mengambil data pesanan.' },
       { status: 500 }
     );
   }

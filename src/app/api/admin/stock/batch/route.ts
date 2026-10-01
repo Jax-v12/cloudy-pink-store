@@ -1,24 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { encryptData } from '@/lib/crypto';
 import crypto from 'crypto';
+import { verifyAdminAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
-
-// Reusable admin auth verification (SHA-256)
-function verifyAdminAuth(req: Request, cookieStore: Awaited<ReturnType<typeof cookies>>): boolean {
-  const rawPassword = process.env.ADMIN_PASSWORD || '';
-  const adminPassword = rawPassword.trim().replace(/^["']|["']$/g, '');
-  if (!adminPassword) {
-    throw new Error('ADMIN_PASSWORD belum dikonfigurasi di environment server.');
-  }
-  const hashedAdminPassword = crypto.createHash('sha256').update(adminPassword).digest('hex');
-  const sessionCookie = cookieStore.get('admin_session')?.value;
-  const authHeader = req.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  return sessionCookie === hashedAdminPassword || bearerToken === hashedAdminPassword;
-}
 
 interface BatchStockItem {
   emailAccount: string;
@@ -36,24 +22,33 @@ interface BatchRequestBody {
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    if (!verifyAdminAuth(req, cookieStore)) {
+    if (!(await verifyAdminAuth(req))) {
       return NextResponse.json({ success: false, message: 'Akses ditolak (Unauthorized).' }, { status: 401 });
     }
 
-    const body = (await req.json()) as BatchRequestBody;
+    let body: BatchRequestBody;
+    try {
+      body = (await req.json()) as BatchRequestBody;
+    } catch {
+      return NextResponse.json({ success: false, message: 'Invalid JSON format' }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 });
+    }
+
     const { productName, price, category, stocks } = body;
 
     // Validate required fields
-    if (!productName || !price || !Array.isArray(stocks) || stocks.length === 0) {
+    if (typeof productName !== 'string' || !productName.trim() || typeof price !== 'number' || !Array.isArray(stocks) || stocks.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'productName, price, dan stocks[] wajib diisi.' },
+        { success: false, message: 'productName, price, dan stocks[] wajib diisi dengan tipe yang benar.' },
         { status: 400 }
       );
     }
 
-    const parsedPrice = Math.round(Number(price));
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+    const parsedPrice = Math.round(price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
       return NextResponse.json(
         { success: false, message: 'Harga harus berupa angka bulat positif.' },
         { status: 400 }
@@ -63,27 +58,41 @@ export async function POST(req: Request) {
     // Validate all stock entries before touching DB
     for (let i = 0; i < stocks.length; i++) {
       const item = stocks[i];
-      if (!item.emailAccount || !item.passwordAccount) {
+      if (!item || typeof item !== 'object') {
+         return NextResponse.json({ success: false, message: `Item ke-${i + 1} tidak valid.` }, { status: 400 });
+      }
+      if (typeof item.emailAccount !== 'string' || !item.emailAccount.trim() || typeof item.passwordAccount !== 'string' || !item.passwordAccount) {
         return NextResponse.json(
-          { success: false, message: `Item ke-${i + 1} tidak valid: emailAccount dan passwordAccount wajib ada.` },
+          { success: false, message: `Item ke-${i + 1} tidak valid: emailAccount dan passwordAccount wajib ada dan berupa string.` },
           { status: 400 }
         );
       }
     }
 
     // Encrypt all passwords BEFORE the transaction (CPU-bound work outside DB lock)
-    const encryptedStocks = stocks.map((item) => ({
-      emailAccount: String(item.emailAccount).trim().slice(0, 150),
-      passwordAccount: encryptData(String(item.passwordAccount)),
-      profileName: item.profileName ? String(item.profileName).trim().slice(0, 50) : null,
-      pin: item.pin ? String(item.pin).trim().slice(0, 20) : null,
-    }));
+    // Create fingerprint for each stock
+    const cleanName = productName.trim().slice(0, 100);
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const stockSecret = process.env.CRON_SECRET || 'fallback_secret'; // Or any secret
+
+    const encryptedStocks = stocks.map((item) => {
+      const cleanEmail = item.emailAccount.trim().slice(0, 150);
+      const cleanProfile = item.profileName ? String(item.profileName).trim().slice(0, 50) : null;
+      
+      const identityString = `${cleanName}:${cleanEmail}:${cleanProfile || ''}`;
+      const fingerprint = crypto.createHmac('sha256', stockSecret).update(identityString).digest('hex');
+
+      return {
+        emailAccount: cleanEmail,
+        passwordAccount: encryptData(item.passwordAccount),
+        profileName: cleanProfile,
+        pin: item.pin ? String(item.pin).trim().slice(0, 20) : null,
+        fingerprint,
+      };
+    });
 
     // Atomic transaction: upsert product + batch insert stocks
     const result = await prisma.$transaction(async (tx) => {
-      const cleanName = String(productName).trim().slice(0, 100);
-      const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-
       // Find or create product
       let product = await tx.product.findFirst({ where: { name: cleanName } });
       if (!product) {
@@ -92,7 +101,7 @@ export async function POST(req: Request) {
             name: cleanName,
             slug: `${slug}-${Date.now()}`,
             price: parsedPrice,
-            category: category ? String(category).trim().slice(0, 50) : 'Apps Premium',
+            category: typeof category === 'string' && category.trim() ? category.trim().slice(0, 50) : 'Apps Premium',
           },
         });
       }
@@ -105,6 +114,7 @@ export async function POST(req: Request) {
           passwordAccount: s.passwordAccount,
           profileName: s.profileName,
           pin: s.pin,
+          fingerprint: s.fingerprint,
           status: 'READY',
         })),
         skipDuplicates: true,
@@ -119,8 +129,7 @@ export async function POST(req: Request) {
       data: { productId: result.productId, insertedCount: result.insertedCount },
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Gagal memproses batch stok.';
-    console.error('[Batch Stock] Error:', errMessage);
-    return NextResponse.json({ success: false, message: errMessage }, { status: 500 });
+    console.error('[Batch Stock] Error:', error);
+    return NextResponse.json({ success: false, message: 'Gagal memproses batch stok.' }, { status: 500 });
   }
 }

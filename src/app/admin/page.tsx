@@ -637,6 +637,7 @@ export default function AdminPage() {
                           <Tooltip
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                             labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+                            /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                             formatter={(value: any) => [formatRupiah(Number(value) || 0), t.statTotalRevenue || 'Revenue']}
                           />
                           <Area 

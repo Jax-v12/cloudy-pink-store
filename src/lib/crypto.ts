@@ -1,9 +1,14 @@
 import crypto from 'crypto';
 
+const secret = process.env.ENCRYPTION_KEY;
+if (!secret || !secret.trim()) {
+  throw new Error('ENCRYPTION_KEY_REQUIRED');
+}
+
 // Kunci enkripsi diambil dari .env dan di-hash jadi 32 byte pasti
 const SECRET_KEY = crypto
   .createHash('sha256')
-  .update(String(process.env.ENCRYPTION_KEY || 'default-secret-key-change-it'))
+  .update(secret)
   .digest();
 
 const ALGORITHM = 'aes-256-gcm';

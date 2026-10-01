@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useRef } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -9,7 +9,7 @@ interface OrderDetail {
   invoice: string;
   customerEmail: string;
   totalAmount: number;
-  status: 'PENDING' | 'PAID' | 'EXPIRED';
+  status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   paymentMethod: string;
   qrisUrl: string | null;
   product: {
@@ -34,49 +34,59 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState('');
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedString, setCopiedString] = useState(false);
+  
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+
+  const ignoreRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusRef = useRef<'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'UNKNOWN' | 'NOT_FOUND'>('UNKNOWN');
 
   useEffect(() => {
-    let ignore = false;
-    let intervalId: NodeJS.Timeout | null = null;
-
+    ignoreRef.current = false;
+    
     async function loadOrder() {
       try {
         const storedToken = typeof window !== 'undefined' ? localStorage.getItem(`token_${id}`) : null;
-        const url = storedToken ? `/api/orders/${id}?token=${encodeURIComponent(storedToken)}` : `/api/orders/${id}`;
+        const url = `/api/orders/${id}`;
 
-        const res = await fetch(url);
+        const headers: HeadersInit = {};
+        if (storedToken) {
+          headers['x-order-token'] = storedToken;
+        }
+
+        const res = await fetch(url, { headers });
         const json = await res.json();
 
-        if (!ignore) {
+        if (!ignoreRef.current) {
           if (!res.ok || !json.success) {
+            if (res.status === 404) statusRef.current = 'NOT_FOUND';
             throw new Error(json.message || 'Order tidak ditemukan');
           }
           setOrder(json.data);
-
-          if (json.data.status !== 'PENDING' && intervalId) {
-            clearInterval(intervalId);
-          }
+          setError(''); // clear old error on success
+          statusRef.current = json.data.status;
         }
       } catch (err: unknown) {
-        if (!ignore) {
+        if (!ignoreRef.current) {
           setError(err instanceof Error ? err.message : 'Gagal memuat pesanan');
         }
       } finally {
-        if (!ignore) {
+        if (!ignoreRef.current) {
           setLoading(false);
+          if (statusRef.current === 'PENDING' || statusRef.current === 'UNKNOWN') {
+             timeoutRef.current = setTimeout(loadOrder, 4000);
+          }
         }
       }
     }
 
     loadOrder();
 
-    intervalId = setInterval(() => {
-      loadOrder();
-    }, 4000);
-
     return () => {
-      ignore = true;
-      if (intervalId) clearInterval(intervalId);
+      ignoreRef.current = true;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [id]);
 
@@ -110,9 +120,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const downloadQrisImage = async () => {
     if (!order?.qrisUrl) return;
     try {
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
-        order.qrisUrl
-      )}`;
+      const qrImageUrl = order.qrisUrl.startsWith('http')
+        ? order.qrisUrl
+        : `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(order.qrisUrl)}`;
       const response = await fetch(qrImageUrl);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -125,6 +135,30 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       window.URL.revokeObjectURL(blobUrl);
     } catch (err: unknown) {
       console.error('Failed downloading QRIS image:', err);
+    }
+  };
+
+  const handleRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryLoading(true);
+    setRecoveryError('');
+    try {
+      const res = await fetch(`/api/orders/${id}/recover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: recoveryEmail }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Verifikasi gagal');
+      }
+      localStorage.setItem(`token_${id}`, json.token);
+      setRecoveryEmail('');
+      window.location.reload(); // reload to get account data
+    } catch (err: unknown) {
+      setRecoveryError(err instanceof Error ? err.message : 'Terjadi kesalahan');
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -215,6 +249,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   ? 'bg-emerald-100 text-emerald-700'
                   : order.status === 'PENDING'
                   ? 'bg-amber-100 text-amber-700 animate-pulse'
+                  : order.status === 'CANCELLED'
+                  ? 'bg-red-100 text-red-700'
                   : 'bg-neutral-200 text-neutral-600'
               }`}
             >
@@ -222,6 +258,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 ? t.statusPaid
                 : order.status === 'PENDING'
                 ? t.statusWaiting
+                : order.status === 'CANCELLED'
+                ? t.statusCancelled
                 : t.statusExpired}
             </span>
           </div>
@@ -257,9 +295,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
               <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-                    order.qrisUrl
-                  )}`}
+                  src={
+                    order.qrisUrl.startsWith('http')
+                      ? order.qrisUrl
+                      : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(order.qrisUrl)}`
+                  }
                   alt="QRIS Barcode"
                   className="w-56 h-56 mx-auto rounded-xl"
                 />
@@ -332,19 +372,36 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
           {/* PAID: Tanpa Akses Kredensial */}
           {order.status === 'PAID' && !order.account && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 text-center">
-              <p className="text-xs text-blue-800 font-bold mb-1">Pesanan Ini Sudah Selesai</p>
-              <p className="text-[11px] text-blue-600">
-                Butiran akaun telah dihantar ke emel pembeli (<strong>{order.customerEmail}</strong>).
-                Buka pautan dari emel atau pelayar semasa membuat tempahan untuk melihat akaun.
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+              <p className="text-xs text-blue-800 font-bold mb-2 text-center">{t.accessLockedTitle}</p>
+              <p className="text-[11px] text-blue-600 mb-4 text-center">
+                {t.accessLockedSubtitle.replace('{email}', order.customerEmail)}
               </p>
+              <form onSubmit={handleRecoverySubmit} className="flex flex-col gap-2 max-w-sm mx-auto">
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder={t.placeholderEmail}
+                  className="px-3 py-2 text-xs border border-blue-300 rounded-xl outline-none focus:border-blue-500"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={recoveryLoading}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50"
+                >
+                  {recoveryLoading ? t.btnVerifying : t.btnVerify}
+                </button>
+                {recoveryError && <p className="text-[10px] text-rose-600 text-center font-bold">{recoveryError}</p>}
+              </form>
             </div>
           )}
 
-          {/* EXPIRED */}
-          {order.status === 'EXPIRED' && (
+          {/* EXPIRED atau CANCELLED */}
+          {(order.status === 'EXPIRED' || order.status === 'CANCELLED') && (
             <div className="text-center py-6">
-              <p className="text-xs text-rose-600 font-bold mb-3">{t.expiredNotice}</p>
+              <p className="text-xs text-rose-600 font-bold mb-3">{order.status === 'EXPIRED' ? t.expiredNotice : t.orderCancelled}</p>
               <Link
                 href="/"
                 className="px-4 py-2 bg-pink-500 text-white font-bold rounded-xl text-xs hover:bg-pink-600 inline-block"

@@ -23,8 +23,7 @@ export async function GET(req: Request) {
       releasedCount,
     });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : 'Gagal memproses cleanup';
-    console.error('Cron cleanup error:', errMessage);
-    return NextResponse.json({ success: false, message: errMessage }, { status: 500 });
+    console.error('Cron cleanup error:', error);
+    return NextResponse.json({ success: false, message: 'Gagal memproses cleanup' }, { status: 500 });
   }
 }
