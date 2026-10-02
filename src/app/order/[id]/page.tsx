@@ -1,17 +1,17 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState, use, useRef } from 'react';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
   invoice: string;
-  customerEmail: string;
   totalAmount: number;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   paymentMethod: string;
   qrisUrl: string | null;
+  qrisCode: string | null;
   product: {
     name: string;
   };
@@ -35,59 +35,38 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedString, setCopiedString] = useState(false);
   
-  const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [recoveryLoading, setRecoveryLoading] = useState(false);
-  const [recoveryError, setRecoveryError] = useState('');
-
-  const ignoreRef = useRef(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const statusRef = useRef<'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'UNKNOWN' | 'NOT_FOUND'>('UNKNOWN');
-
   useEffect(() => {
-    ignoreRef.current = false;
-    
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
     async function loadOrder() {
+      let poll = true;
       try {
-        const storedToken = typeof window !== 'undefined' ? localStorage.getItem(`token_${id}`) : null;
-        const url = `/api/orders/${id}`;
-
-        const headers: HeadersInit = {};
-        if (storedToken) {
-          headers['x-order-token'] = storedToken;
+        const token = localStorage.getItem(`token_${id}`);
+        if (!token) { poll = false; throw new Error('ORDER_NOT_FOUND'); }
+        const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+          headers: { 'x-order-token': token }, signal: controller.signal,
+        });
+        const json = await response.json();
+        if (!response.ok || !json.success) {
+          if (response.status === 404) poll = false;
+          throw new Error(response.status === 404 ? 'ORDER_NOT_FOUND' : 'SYSTEM_ERROR');
         }
-
-        const res = await fetch(url, { headers });
-        const json = await res.json();
-
-        if (!ignoreRef.current) {
-          if (!res.ok || !json.success) {
-            if (res.status === 404) statusRef.current = 'NOT_FOUND';
-            throw new Error(json.message || 'Order tidak ditemukan');
-          }
-          setOrder(json.data);
-          setError(''); // clear old error on success
-          statusRef.current = json.data.status;
-        }
-      } catch (err: unknown) {
-        if (!ignoreRef.current) {
-          setError(err instanceof Error ? err.message : 'Gagal memuat pesanan');
-        }
+        if (cancelled) return;
+        setOrder(json.data);
+        setError('');
+        poll = json.data.status === 'PENDING';
+      } catch (error) {
+        if (!cancelled) setError(error instanceof Error && error.message === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'SYSTEM_ERROR');
       } finally {
-        if (!ignoreRef.current) {
+        if (!cancelled) {
           setLoading(false);
-          if (statusRef.current === 'PENDING' || statusRef.current === 'UNKNOWN') {
-             timeoutRef.current = setTimeout(loadOrder, 4000);
-          }
+          if (poll) timer = setTimeout(loadOrder, 4000);
         }
       }
     }
-
-    loadOrder();
-
-    return () => {
-      ignoreRef.current = true;
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+    void loadOrder();
+    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
   }, [id]);
 
   const formatRupiah = (amount: number) => {
@@ -111,8 +90,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   };
 
   const handleCopyString = () => {
-    if (!order?.qrisUrl) return;
-    navigator.clipboard.writeText(order.qrisUrl);
+    if (!order?.qrisCode) return;
+    navigator.clipboard.writeText(order.qrisCode);
     setCopiedString(true);
     setTimeout(() => setCopiedString(false), 2000);
   };
@@ -120,10 +99,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const downloadQrisImage = async () => {
     if (!order?.qrisUrl) return;
     try {
-      const qrImageUrl = order.qrisUrl.startsWith('http')
-        ? order.qrisUrl
-        : `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(order.qrisUrl)}`;
-      const response = await fetch(qrImageUrl);
+      const response = await fetch(order.qrisUrl);
+      if (!response.ok) throw new Error('QR_DOWNLOAD_FAILED');
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -138,34 +115,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
-  const handleRecoverySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRecoveryLoading(true);
-    setRecoveryError('');
-    try {
-      const res = await fetch(`/api/orders/${id}/recover`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: recoveryEmail }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Verifikasi gagal');
-      }
-      localStorage.setItem(`token_${id}`, json.token);
-      setRecoveryEmail('');
-      window.location.reload(); // reload to get account data
-    } catch (err: unknown) {
-      setRecoveryError(err instanceof Error ? err.message : 'Terjadi kesalahan');
-    } finally {
-      setRecoveryLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-pink-50">
-        <div className="text-pink-600 font-bold animate-pulse">Memuat detail pesanan...</div>
+        <div className="text-pink-600 font-bold animate-pulse">{t.loadingOrder}</div>
       </main>
     );
   }
@@ -174,7 +127,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-pink-50">
         <div className="bg-white p-6 rounded-3xl border-2 border-pink-200 text-center max-w-md shadow-lg">
-          <p className="text-rose-600 font-bold mb-4">{error || 'Pesanan tidak ditemukan'}</p>
+          <p className="text-rose-600 font-bold mb-4">{error === 'ORDER_NOT_FOUND' ? t.orderAccessUnavailable : t.errSystem}</p>
           <Link
             href="/"
             className="px-4 py-2 bg-pink-500 text-white font-bold rounded-xl text-xs hover:bg-pink-600"
@@ -295,11 +248,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
               <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
                 <img
-                  src={
-                    order.qrisUrl.startsWith('http')
-                      ? order.qrisUrl
-                      : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(order.qrisUrl)}`
-                  }
+                  src={order.qrisUrl}
                   alt="QRIS Barcode"
                   className="w-56 h-56 mx-auto rounded-xl"
                 />
@@ -313,6 +262,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   {t.btnDownloadQris}
                 </button>
                 <button
+                  disabled={!order.qrisCode}
                   onClick={handleCopyString}
                   className="flex-1 py-2 px-3 bg-white border border-pink-300 text-pink-600 font-bold rounded-xl text-xs hover:bg-pink-50 transition active:scale-95 cursor-pointer"
                 >
@@ -370,32 +320,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </div>
           )}
 
-          {/* PAID: Tanpa Akses Kredensial */}
-          {order.status === 'PAID' && !order.account && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
-              <p className="text-xs text-blue-800 font-bold mb-2 text-center">{t.accessLockedTitle}</p>
-              <p className="text-[11px] text-blue-600 mb-4 text-center">
-                {t.accessLockedSubtitle.replace('{email}', order.customerEmail)}
-              </p>
-              <form onSubmit={handleRecoverySubmit} className="flex flex-col gap-2 max-w-sm mx-auto">
-                <input
-                  type="email"
-                  value={recoveryEmail}
-                  onChange={(e) => setRecoveryEmail(e.target.value)}
-                  placeholder={t.placeholderEmail}
-                  className="px-3 py-2 text-xs border border-blue-300 rounded-xl outline-none focus:border-blue-500"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={recoveryLoading}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50"
-                >
-                  {recoveryLoading ? t.btnVerifying : t.btnVerify}
-                </button>
-                {recoveryError && <p className="text-[10px] text-rose-600 text-center font-bold">{recoveryError}</p>}
-              </form>
-            </div>
+          {((order.status === 'PENDING' && !order.qrisUrl) || (order.status === 'PAID' && !order.account)) && (
+            <p className="text-sm text-blue-800 text-center">{t.paymentNeedsHelp}</p>
           )}
 
           {/* EXPIRED atau CANCELLED */}

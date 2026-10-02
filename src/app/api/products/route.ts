@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logFailure } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,7 @@ export async function GET() {
       data: formattedProducts,
     });
   } catch (error: unknown) {
-    console.error('Error fetch products:', error);
+    logFailure('Product listing failed', error);
     return NextResponse.json(
       { success: false, message: 'Gagal memuat produk' },
       { status: 500 }

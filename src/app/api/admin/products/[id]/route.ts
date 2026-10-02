@@ -1,83 +1,29 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminAuth } from '@/lib/auth';
+import { InputError, readJson, textField, positiveInt, logFailure, privateHeaders } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAdminAuth(req))) {
-      return NextResponse.json(
-        { success: false, message: 'Akses ditolak (Unauthorized).' },
-        { status: 401 }
-      );
-    }
-
+    if (!(await verifyAdminAuth(req))) return NextResponse.json({ success: false }, { status: 401 });
     const { id } = await params;
-    
-    if (!/^\d+$/.test(id)) {
-      return NextResponse.json(
-        { success: false, message: 'ID produk tidak valid.' },
-        { status: 400 }
-      );
-    }
-    const productId = parseInt(id, 10);
-
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ success: false, message: 'Invalid JSON format' }, { status: 400 });
-    }
-    
-    if (!body || typeof body !== 'object') {
-      return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 });
-    }
-
-    const { name, price, category } = body;
-
-    if (typeof name !== 'string' || !name.trim() || typeof price !== 'number') {
-      return NextResponse.json(
-        { success: false, message: 'Nama dan harga produk wajib diisi dengan format yang benar.' },
-        { status: 400 }
-      );
-    }
-
-    const parsedPrice = Math.round(price);
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      return NextResponse.json(
-        { success: false, message: 'Harga harus berupa angka bulat positif.' },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.product.findUnique({ where: { id: productId } });
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, message: 'Produk tidak ditemukan.' },
-        { status: 404 }
-      );
-    }
-
-    const updated = await prisma.product.update({
-      where: { id: productId },
-      data: {
-        name: String(name).trim().slice(0, 100),
-        price: parsedPrice,
-        category: category ? String(category).trim().slice(0, 50) : existing.category,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Produk berhasil diperbarui.',
-      data: updated,
-    });
-  } catch (error: unknown) {
-    console.error('[Admin Products PUT] Error:', error);
-    return NextResponse.json({ success: false, message: 'Gagal memperbarui produk.' }, { status: 500 });
+    const productId = Number(id);
+    if (!/^\d+$/.test(id) || !positiveInt(productId)) throw new InputError();
+    const body = await readJson(req, 4096);
+    const name = textField(body.name, 100)!;
+    const category = textField(body.category, 50, true);
+    if (!positiveInt(body.price)) throw new InputError();
+    const existing = await prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
+    if (!existing) return NextResponse.json({ success: false }, { status: 404 });
+    const data = await prisma.product.update({ where: { id: productId }, data: {
+      name, price: body.price, ...(category ? { category } : {}),
+    } });
+    return NextResponse.json({ success: true, data }, { headers: privateHeaders });
+  } catch (error) {
+    if (error instanceof InputError) return NextResponse.json({ success: false, errorCode: 'INVALID_INPUT' }, { status: error.status });
+    logFailure('Product update failed', error);
+    return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500 });
   }
 }

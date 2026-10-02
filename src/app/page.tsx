@@ -96,7 +96,7 @@ export default function HomePage() {
         throw new Error(json.errorCode || 'SYSTEM_ERROR');
       }
 
-      if (!json.data?.invoice || !json.data?.accessToken || !json.data?.qrisUrl) {
+      if (!json.data?.invoice || !json.data?.accessToken) {
         throw new Error('SYSTEM_ERROR');
       }
 
@@ -105,12 +105,14 @@ export default function HomePage() {
     } catch (err: unknown) {
       if (err instanceof Error) {
         switch (err.message) {
+          case 'INVALID_INPUT':
           case 'INCOMPLETE_DATA': setErrorMessage(t.errIncompleteData); break;
           case 'STOCK_EMPTY': setErrorMessage(t.errStockEmpty); break;
           case 'RACE_CONDITION': setErrorMessage(t.errRaceCondition); break;
+          case 'RATE_LIMIT_EXCEEDED': setErrorMessage(t.rateLimited); break;
           case 'GATEWAY_ERROR': setErrorMessage(t.errGateway); break;
           case 'SYSTEM_ERROR': setErrorMessage(t.errSystem); break;
-          default: setErrorMessage(err.message); break;
+          default: setErrorMessage(t.errSystem); break;
         }
       } else {
         setErrorMessage(t.errSystem);

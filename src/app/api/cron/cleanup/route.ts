@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { releaseExpiredOrders } from '@/lib/stockCleaner';
+import { logFailure } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
       releasedCount,
     });
   } catch (error: unknown) {
-    console.error('Cron cleanup error:', error);
+    logFailure('Cron cleanup failed', error);
     return NextResponse.json({ success: false, message: 'Gagal memproses cleanup' }, { status: 500 });
   }
 }

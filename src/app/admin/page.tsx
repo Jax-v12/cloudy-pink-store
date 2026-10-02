@@ -14,9 +14,7 @@ interface ProductSummary {
 interface StockItem {
   id: number;
   productId: number;
-  emailAccount: string;
   profileName: string | null;
-  pin: string | null;
   status: 'READY' | 'LOCKED' | 'SOLD';
   createdAt: string;
   product: ProductSummary;
@@ -42,7 +40,7 @@ interface OrderItem {
   invoice: string;
   customerEmail: string;
   totalAmount: number;
-  status: 'PENDING' | 'PAID' | 'EXPIRED';
+  status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   createdAt: string;
   product: {
     name: string;
@@ -105,17 +103,26 @@ export default function AdminPage() {
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   const [stocks, setStocks] = useState<StockItem[]>([]);
+  const [stockCursor, setStockCursor] = useState<number | null>(null);
+  const [orderCursor, setOrderCursor] = useState<number | null>(null);
+  const [stocksLoading, setStocksLoading] = useState(false);
+  const [pageError, setPageError] = useState(false);
 
-  const refreshStocks = useCallback(async () => {
+  const refreshStocks = useCallback(async (cursor?: number) => {
+    setStocksLoading(true);
     try {
-      const res = await fetch('/api/admin/stock');
+      const res = await fetch('/api/admin/stock' + (cursor ? '?cursor=' + cursor : ''));
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setStocks(json.data);
+      if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
+      if (Array.isArray(json.data)) {
+        setStocks(previous => cursor ? [...previous, ...json.data] : json.data);
+        setStockCursor(json.pagination.nextCursor);
+        setPageError(false);
       }
     } catch (err: unknown) {
       console.error('Gagal memuat data stok:', err);
-    }
+      setPageError(true);
+    } finally { setStocksLoading(false); }
   }, []);
 
   const loadProductOptions = useCallback(async () => {
@@ -124,7 +131,8 @@ export default function AdminPage() {
         headers: { 'ngrok-skip-browser-warning': 'true' },
       });
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
+      if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
+      if (Array.isArray(json.data)) {
         setProductOptions(json.data);
         if (json.data.length > 0) setSelectedProductId(String(json.data[0].id));
       }
@@ -133,16 +141,20 @@ export default function AdminPage() {
     }
   }, []);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (cursor?: number) => {
     setOrdersLoading(true);
     try {
-      const res = await fetch('/api/admin/orders');
+      const res = await fetch('/api/admin/orders' + (cursor ? '?cursor=' + cursor : ''));
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setOrders(json.data);
+      if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
+      if (Array.isArray(json.data)) {
+        setOrders(previous => cursor ? [...previous, ...json.data] : json.data);
+        setOrderCursor(json.pagination.nextCursor);
+        setPageError(false);
       }
     } catch (err: unknown) {
       console.error('Gagal memuat data order:', err);
+      setPageError(true);
     } finally {
       setOrdersLoading(false);
     }
@@ -212,7 +224,7 @@ export default function AdminPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Password salah.');
+        throw new Error(t.loginFailed);
       }
       setIsAuthenticated(true);
       setPasswordInput('');
@@ -221,16 +233,20 @@ export default function AdminPage() {
       await loadOrders();
       await loadAnalytics();
     } catch (err: unknown) {
-      setLoginError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
+      setLoginError(err instanceof Error ? err.message : t.loginFailed);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/admin/auth', { method: 'DELETE' });
+      const response = await fetch('/api/admin/auth', { method: 'DELETE' });
+      if (!response.ok) throw new Error('LOGOUT_FAILED');
+      setStocks([]);
+      setOrders([]);
       setIsAuthenticated(false);
     } catch (err: unknown) {
       console.error('Logout error:', err);
+      setPageError(true);
     }
   };
 
@@ -345,6 +361,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          productId: batchProductMode === 'existing' ? Number(selectedProductId) : undefined,
           productName: resolvedProductName,
           price: resolvedPrice,
           category: resolvedCategory,
@@ -1038,13 +1055,14 @@ export default function AdminPage() {
           {/* === TRANSACTION HISTORY TAB === */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
-              <div className="flex justify-end mb-2">
+              <div className="flex justify-end mb-2 gap-2">
+                {orderCursor !== null && <button disabled={ordersLoading} onClick={() => loadOrders(orderCursor)} className="text-xs font-bold text-pink-600">{t.loadMore}</button>}
                 <button
-                  onClick={loadOrders}
+                  onClick={() => loadOrders()}
                   disabled={ordersLoading}
                   className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-xs border border-pink-200 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  {ordersLoading ? t.loadingOrders : 'Refresh'}
+                  {ordersLoading ? t.loadingOrders : t.btnRefreshTable}
                 </button>
               </div>
               <div className="overflow-x-auto">
@@ -1113,15 +1131,18 @@ export default function AdminPage() {
           )}
         </div>
 
+        {pageError && <p role="alert" className="text-rose-700 bg-white p-3">{t.errSystem}</p>}
         {/* Card Tabel Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-pink-100">
             <div>
               <h2 className="text-base sm:text-lg font-black text-neutral-800">{t.adminTitle}</h2>
               <p className="text-[11px] text-neutral-400">{t.totalData} {stocks.length}</p>
+              {stockCursor !== null && <button disabled={stocksLoading} onClick={() => refreshStocks(stockCursor)} className="text-xs font-bold text-pink-600">{t.loadMore}</button>}
             </div>
             <button
-              onClick={refreshStocks}
+              disabled={stocksLoading}
+              onClick={() => refreshStocks()}
               className="text-xs font-bold text-pink-600 hover:text-pink-700 bg-pink-50 px-3 py-1 rounded-xl border border-pink-200 transition"
             >
               {t.btnRefreshTable}
@@ -1155,10 +1176,10 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="py-3 px-3 font-mono text-neutral-700 font-medium">
-                        {item.emailAccount}
+                        {t.credentialsHidden}
                       </td>
                       <td className="py-3 px-3 text-neutral-600">
-                        {item.profileName || '-'} {item.pin ? `(PIN: ${item.pin})` : ''}
+                        {item.profileName || '-'}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span

@@ -1,55 +1,34 @@
 import { prisma } from '@/lib/prisma';
+import { getGatewayStatus } from '@/lib/midtrans';
+import { applyPaymentStatus } from '@/lib/payments';
+import { logFailure } from '@/lib/http';
 
 export async function releaseExpiredOrders(): Promise<number> {
   const now = new Date();
-
-  const expiredOrders = await prisma.order.findMany({
-    where: {
-      status: 'PENDING',
-      expiresAt: { lt: now },
-      accountStockId: { not: null },
-    },
-    select: {
-      id: true,
-      accountStockId: true,
-    },
-    take: 100,
+  const orders = await prisma.order.findMany({
+    where: { status: 'PENDING', expiresAt: { lt: now } },
+    select: { id: true, invoice: true, totalAmount: true },
+    orderBy: { expiresAt: 'asc' }, take: 20,
   });
-
-  if (expiredOrders.length === 0) {
-    return 0;
-  }
-
-  let releasedCount = 0;
-
-  for (const order of expiredOrders) {
-    try {
-      await prisma.$transaction(async (tx) => {
-        const expired = await tx.order.updateMany({
-          where: { 
-            id: order.id, 
-            status: 'PENDING', 
-            expiresAt: { lt: now }, 
-            accountStockId: order.accountStockId 
-          },
-          data: { status: 'EXPIRED', accountStockId: null },
-        });
-
-        if (expired.count === 0 || order.accountStockId === null) return;
-
-        const released = await tx.accountStock.updateMany({
-          where: { id: order.accountStockId, status: 'LOCKED' },
-          data: { status: 'READY' },
-        });
-        
-        if (released.count !== 1) throw new Error('STOCK_STATE_CONFLICT');
-        
-        releasedCount++;
-      });
-    } catch (e) {
-      console.error(`Failed to release order ${order.id}:`, e);
+  let released = 0;
+  let failed = false;
+  // Bounded concurrency keeps the cron request bounded without flooding the gateway.
+  for (let offset = 0; offset < orders.length; offset += 5) {
+    const results = await Promise.allSettled(orders.slice(offset, offset + 5).map(async order => {
+      const status = await getGatewayStatus(order.invoice, order.totalAmount);
+      return applyPaymentStatus(order.id, status, now);
+    }));
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        if (result.value === 'released') released++;
+      } else {
+        failed = true;
+        logFailure('Expired payment reconciliation failed', result.reason);
+      }
     }
   }
-
-  return releasedCount;
+  await prisma.rateLimit.deleteMany({ where: { expiresAt: { lt: now } } });
+  await prisma.adminSession.deleteMany({ where: { expiresAt: { lt: now } } });
+  if (failed) throw new Error('CLEANUP_REQUIRES_RETRY');
+  return released;
 }

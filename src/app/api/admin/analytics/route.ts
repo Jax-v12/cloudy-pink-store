@@ -1,90 +1,31 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminAuth } from '@/lib/auth';
+import { logFailure, privateHeaders } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
-    if (!(await verifyAdminAuth(req))) {
-      return NextResponse.json(
-        { success: false, message: 'Akses ditolak (Unauthorized).' },
-        { status: 401 }
-      );
-    }
-
-    // 1. Total Revenue (PAID orders)
-    const totalRevenueAggr = await prisma.order.aggregate({
-      _sum: {
-        totalAmount: true,
-      },
-      where: {
-        status: 'PAID',
-      },
-    });
-    const totalRevenue = totalRevenueAggr._sum.totalAmount || 0;
-
-    // 2. Total Sold (SOLD accounts)
-    const totalSold = await prisma.accountStock.count({
-      where: {
-        status: 'SOLD',
-      },
-    });
-
-    // 3. Time-series for last 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const recentOrders = await prisma.order.findMany({
-      where: {
-        status: 'PAID',
-        createdAt: {
-          gte: sevenDaysAgo,
-        },
-      },
-      select: {
-        totalAmount: true,
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    // Group by date (DD MMM format)
-    const dailyData: Record<string, number> = {};
-
-    // Initialize the last 7 days with 0 revenue
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateString = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      dailyData[dateString] = 0;
-    }
-
-    recentOrders.forEach(order => {
-      const dateString = order.createdAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      if (dailyData[dateString] !== undefined) {
-        dailyData[dateString] += order.totalAmount;
-      }
-    });
-
-    const chartData = Object.keys(dailyData).map(date => ({
-      date,
-      revenue: dailyData[date],
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        totalRevenue,
-        totalSold,
-        chartData,
-      },
-    });
-  } catch (error: unknown) {
-    console.error('[Admin Analytics GET] Error:', error);
-    return NextResponse.json({ success: false, message: 'Gagal memuat analitik.' }, { status: 500 });
+    if (!(await verifyAdminAuth(req))) return NextResponse.json({ success: false }, { status: 401 });
+    const today = new Date(Date.now() + 7 * 60 * 60_000).toISOString().slice(0, 10);
+    const midnight = new Date(`${today}T00:00:00+07:00`).getTime();
+    const days = Array.from({ length: 7 }, (_, index) => new Date(midnight - (6 - index) * 86_400_000));
+    // Database aggregates bound memory regardless of the number of paid orders.
+    const [total, totalSold, chartData] = await Promise.all([
+      prisma.order.aggregate({ where: { status: 'PAID' }, _sum: { totalAmount: true } }),
+      prisma.accountStock.count({ where: { status: 'SOLD' } }),
+      Promise.all(days.map(async start => {
+        const sum = await prisma.order.aggregate({
+          where: { status: 'PAID', createdAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } },
+          _sum: { totalAmount: true },
+        });
+        return { date: start.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short' }), revenue: sum._sum.totalAmount || 0 };
+      })),
+    ]);
+    return NextResponse.json({ success: true, data: { totalRevenue: total._sum.totalAmount || 0, totalSold, chartData } }, { headers: privateHeaders });
+  } catch (error) {
+    logFailure('Analytics failed', error);
+    return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500 });
   }
 }

@@ -2,125 +2,63 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { verifyAdminAuth } from '@/lib/auth';
+import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
+import { InputError, logFailure, privateHeaders, readJson } from '@/lib/http';
 
 export async function POST(req: Request) {
   try {
-    const rateLimitId = 'admin_login_attempt';
-    const now = new Date();
-    
-    let rateLimit = await prisma.rateLimit.findUnique({ where: { id: rateLimitId } });
-    if (!rateLimit || rateLimit.expiresAt < now) {
-      rateLimit = await prisma.rateLimit.upsert({
-        where: { id: rateLimitId },
-        update: { points: 1, expiresAt: new Date(now.getTime() + 15 * 60 * 1000) }, // 15 menit
-        create: { id: rateLimitId, points: 1, expiresAt: new Date(now.getTime() + 15 * 60 * 1000) },
-      });
-    } else {
-      if (rateLimit.points >= 5) {
-        return NextResponse.json({ success: false, message: 'Terlalu banyak percobaan login. Coba lagi nanti.' }, { status: 429 });
-      }
+    if (!(await consumeRateLimit('admin-login', clientKey(req), 5, 15 * 60_000))) {
+      return NextResponse.json({ success: false, errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429, headers: privateHeaders });
     }
-
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ success: false, message: 'Invalid JSON format' }, { status: 400 });
+    const { password } = await readJson(req, 4096);
+    if (typeof password !== 'string' || password.length === 0 || password.length > 1024) throw new InputError();
+    const expected = process.env.ADMIN_PASSWORD?.trim().replace(/^["']|["']$/g, '');
+    if (!expected) throw new Error('ADMIN_PASSWORD_REQUIRED');
+    const digest = (value: string) => crypto.createHash('sha256').update(value).digest();
+    if (!crypto.timingSafeEqual(digest(password), digest(expected))) {
+      return NextResponse.json({ success: false, errorCode: 'INVALID_CREDENTIALS' }, { status: 401, headers: privateHeaders });
     }
-    const { password } = body;
-    if (typeof password !== 'string') {
-      return NextResponse.json({ success: false, message: 'Password tidak valid' }, { status: 400 });
-    }
-    const rawPasswordEnv = process.env.ADMIN_PASSWORD || '';
-    const adminPasswordEnv = rawPasswordEnv.trim().replace(/^["']|["']$/g, '');
-
-    if (!adminPasswordEnv) {
-      return NextResponse.json(
-        { success: false, message: 'Server belum dikonfigurasi (ADMIN_PASSWORD kosong).' },
-        { status: 500 }
-      );
-    }
-
-    if (password === adminPasswordEnv) {
-      // Login berhasil, reset rate limit
-      await prisma.rateLimit.delete({ where: { id: rateLimitId } }).catch(() => {});
-      const sessionToken = crypto.randomBytes(32).toString('base64url');
-      const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 hari
-      
-      await prisma.adminSession.create({
-        data: {
-          tokenHash,
-          expiresAt,
-        }
-      });
-
-      const cookieStore = await cookies();
-      cookieStore.set('admin_session_token', sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 60 * 60 * 24, // 1 hari
-        path: '/',
-      });
-
-      return NextResponse.json({ success: true, message: 'Login berhasil' });
-    }
-
-    // Login gagal, increment rate limit
-    await prisma.rateLimit.update({
-      where: { id: rateLimitId },
-      data: { points: rateLimit.points + 1 },
-    }).catch(() => {});
-
-    return NextResponse.json({ success: false, message: 'Password salah' }, { status: 401 });
-  } catch (err: unknown) {
-    console.error('Error saat login:', err);
-    return NextResponse.json({ success: false, message: 'Terjadi kesalahan' }, { status: 500 });
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = digest(token).toString('hex');
+    await prisma.adminSession.create({ data: { tokenHash, expiresAt: new Date(Date.now() + 86_400_000) } });
+    const cookieStore = await cookies();
+    cookieStore.delete('admin_session');
+    cookieStore.set('admin_session_token', token, {
+      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', maxAge: 86_400, path: '/',
+    });
+    return NextResponse.json({ success: true }, { headers: privateHeaders });
+  } catch (error) {
+    if (error instanceof InputError) return NextResponse.json({ success: false, errorCode: 'INVALID_INPUT' }, { status: error.status });
+    logFailure('Admin login failed', error);
+    return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  try {
+    const authenticated = await verifyAdminAuth(req);
+    return NextResponse.json({ authenticated }, { status: authenticated ? 200 : 401, headers: privateHeaders });
+  } catch (error) {
+    logFailure('Admin session lookup failed', error);
+    return NextResponse.json({ authenticated: false }, { status: 503, headers: privateHeaders });
+  }
+}
+
+export async function DELETE(req: Request) {
   try {
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('admin_session_token')?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json({ authenticated: false }, { status: 401 });
+    const bearer = req.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
+    const tokens = [cookieStore.get('admin_session_token')?.value, bearer].filter((token): token is string => Boolean(token));
+    if (tokens.length) {
+      await prisma.adminSession.deleteMany({ where: { tokenHash: { in: tokens.map(token => crypto.createHash('sha256').update(token).digest('hex')) } } });
     }
-
-    const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
-    
-    const session = await prisma.adminSession.findUnique({
-      where: { tokenHash }
-    });
-
-    if (session && session.expiresAt > new Date()) {
-      return NextResponse.json({ authenticated: true });
-    }
-    
-    return NextResponse.json({ authenticated: false }, { status: 401 });
-  } catch (error: unknown) {
-    console.error('Error cek sesi:', error);
-    return NextResponse.json({ authenticated: false }, { status: 500 });
+    // Do not claim logout succeeded if revocation failed.
+    cookieStore.delete('admin_session_token');
+    cookieStore.delete('admin_session');
+    return NextResponse.json({ success: true }, { headers: privateHeaders });
+  } catch (error) {
+    logFailure('Admin session revocation failed', error);
+    return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 503, headers: privateHeaders });
   }
-}
-
-export async function DELETE() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('admin_session_token')?.value;
-  
-  if (sessionToken) {
-    const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
-    try {
-      await prisma.adminSession.deleteMany({
-        where: { tokenHash }
-      });
-    } catch (err) {
-      console.error('Error revoking session:', err);
-    }
-  }
-
-  cookieStore.delete('admin_session_token');
-  return NextResponse.json({ success: true, message: 'Logout berhasil' });
 }

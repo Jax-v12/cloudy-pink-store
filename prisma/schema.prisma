@@ -36,16 +36,17 @@ model AccountStock {
   id              Int         @id @default(autoincrement())
   productId       Int
   product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  emailAccount    String
-  passwordAccount String
+  emailAccount    String      @db.Text
+  passwordAccount String      @db.Text
   profileName     String?
-  pin             String?
+  pin             String?     @db.Text
   additionalInfo  String?     @db.Text
   status          StockStatus @default(READY)
   fingerprint     String      @unique @default(uuid())
   order           Order?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  @@index([productId, status])
 }
 
 model Order {
@@ -67,6 +68,8 @@ model Order {
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  @@index([status, expiresAt])
+  @@index([status, createdAt])
 }
 
 model AdminSession {
@@ -74,10 +77,12 @@ model AdminSession {
   tokenHash String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+  @@index([expiresAt])
 }
 
 model RateLimit {
   id        String   @id
   points    Int      @default(0)
   expiresAt DateTime
+  @@index([expiresAt])
 }
