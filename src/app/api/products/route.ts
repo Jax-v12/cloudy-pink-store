@@ -1,51 +1,28 @@
 import { NextResponse } from 'next/server';
+import { ProductType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { logFailure } from '@/lib/http';
+import { checkoutEnabled } from '@/lib/commerce';
+import { apiError } from '@/lib/apiError';
+import { InputError, pagination, pageResult } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const products = await prisma.product.findMany({
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        category: true,
-        _count: {
-          select: {
-            stocks: {
-              where: {
-                status: 'READY',
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
+    const q = new URL(req.url).searchParams;
+    const type = q.get('type') || 'APPS';
+    if (!Object.values(ProductType).includes(type as ProductType)) throw new InputError();
+    const { limit, cursor } = pagination(req);
+    const rows = await prisma.product.findMany({ where: { type: type as ProductType, active: true,
+      ...(q.get('slug') ? { slug: q.get('slug')! } : {}), ...(cursor ? { id: { lt: cursor } } : {}) },
+      take: limit + 1, orderBy: { id: 'desc' }, select: {
+        id: true, name: true, slug: true, price: true, type: true, category: true, coverImage: true,
+        variants: { where: { active: true }, orderBy: { price: 'asc' }, select: { id: true, name: true, price: true, units: true, method: true, gamepassPrice: true, requiresZone: true } },
+        _count: { select: { stocks: { where: { status: 'READY', order: null } } } },
       },
     });
-
-    const formattedProducts = products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      price: product.price,
-      category: product.category,
-      stockAvailable: product._count.stocks,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: formattedProducts,
-    });
-  } catch (error: unknown) {
-    logFailure('Product listing failed', error);
-    return NextResponse.json(
-      { success: false, message: 'Gagal memuat produk' },
-      { status: 500 }
-    );
-  }
+    const page = pageResult(rows, limit);
+    return NextResponse.json({ success: true, ...page, data: page.data.map(({ _count, ...p }) => ({ ...p,
+      stockAvailable: _count.stocks, checkoutEnabled: checkoutEnabled(p.type),
+    })) }, { headers: { 'Cache-Control': 'public, max-age=0, s-maxage=15' } });
+  } catch (e) { return apiError(e); }
 }

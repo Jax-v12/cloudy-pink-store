@@ -1,3 +1,4 @@
+import { sameOrigin } from '@/lib/csrf';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
@@ -8,6 +9,7 @@ import { InputError, logFailure, privateHeaders, readJson } from '@/lib/http';
 
 export async function POST(req: Request) {
   try {
+    if (req.headers.get('origin') && !sameOrigin(req)) throw new InputError(403);
     if (!(await consumeRateLimit('admin-login', clientKey(req), 5, 15 * 60_000))) {
       return NextResponse.json({ success: false, errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429, headers: privateHeaders });
     }
@@ -29,7 +31,9 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ success: true }, { headers: privateHeaders });
   } catch (error) {
-    if (error instanceof InputError) return NextResponse.json({ success: false, errorCode: 'INVALID_INPUT' }, { status: error.status });
+    if (error instanceof InputError) return NextResponse.json({ success: false, errorCode: error.status === 403 ? 'CSRF_REJECTED' : 'INVALID_INPUT' }, { status: error.status, headers: privateHeaders });
+    if (error && typeof error === 'object' && 'code' in error && ['P2021', 'P2022'].includes(String(error.code))) return NextResponse.json({ success: false, errorCode: 'DATABASE_SCHEMA_OUTDATED' }, { status: 503, headers: privateHeaders });
+    if (error instanceof Error && error.message === 'ADMIN_PASSWORD_REQUIRED') return NextResponse.json({ success: false, errorCode: 'ADMIN_NOT_CONFIGURED' }, { status: 503, headers: privateHeaders });
     logFailure('Admin login failed', error);
     return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500 });
   }
@@ -48,6 +52,7 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const cookieStore = await cookies();
+    if (cookieStore.get('admin_session_token') && !sameOrigin(req)) throw new InputError(403);
     const bearer = req.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
     const tokens = [cookieStore.get('admin_session_token')?.value, bearer].filter((token): token is string => Boolean(token));
     if (tokens.length) {
@@ -58,6 +63,7 @@ export async function DELETE(req: Request) {
     cookieStore.delete('admin_session');
     return NextResponse.json({ success: true }, { headers: privateHeaders });
   } catch (error) {
+    if (error instanceof InputError) return NextResponse.json({ success: false }, { status: error.status, headers: privateHeaders });
     logFailure('Admin session revocation failed', error);
     return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 503, headers: privateHeaders });
   }

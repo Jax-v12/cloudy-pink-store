@@ -224,8 +224,15 @@ export default function AdminPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(t.loginFailed);
+        const messages: Record<string, string> = {
+          INVALID_CREDENTIALS: t.loginFailed, RATE_LIMIT_EXCEEDED: t.rateLimited,
+          DATABASE_SCHEMA_OUTDATED: t.loginDatabaseError, CSRF_REJECTED: t.loginOriginError,
+          ADMIN_NOT_CONFIGURED: t.loginConfigError,
+        };
+        throw new Error(messages[json.errorCode] || t.loginSystemError);
       }
+      const sessionCheck = await fetch('/api/admin/auth', { cache: 'no-store' });
+      if (!sessionCheck.ok || !(await sessionCheck.json()).authenticated) throw new Error(t.loginSessionError);
       setIsAuthenticated(true);
       setPasswordInput('');
       await refreshStocks();
@@ -502,6 +509,7 @@ export default function AdminPage() {
       <div className="fixed inset-0 bg-pink-950/45 backdrop-blur-[2px] pointer-events-none"></div>
 
       <div className="relative z-10 max-w-5xl mx-auto space-y-6">
+        <a href="/admin/commerce" className="inline-block rounded-xl bg-white text-pink-700 p-3 font-bold">{t.commerce.fulfillmentAdmin} · {t.commerce.catalogAdmin}</a>
         {/* Top Bar Dashboard */}
         <div className="bg-white/95 backdrop-blur-md p-4 sm:p-6 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>

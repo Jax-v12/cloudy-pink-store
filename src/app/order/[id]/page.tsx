@@ -7,6 +7,13 @@ import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
   invoice: string;
+  type: 'APPS' | 'GAME' | 'ROBLOX';
+  fulfillmentStatus: 'NOT_READY' | 'QUEUED' | 'PROCESSING' | 'WAITING_CUSTOMER' | 'COMPLETED' | 'REQUIRES_REVIEW';
+  refundStatus: 'NONE' | 'REQUIRED' | 'COMPLETED';
+  variantName: string | null;
+  units: number;
+  robloxDetail: { method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN'; username: string; gamepassPrice: number | null } | null;
+  gameDetail: { userId: string; zoneId: string | null } | null;
   totalAmount: number;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   paymentMethod: string;
@@ -53,9 +60,12 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           throw new Error(response.status === 404 ? 'ORDER_NOT_FOUND' : 'SYSTEM_ERROR');
         }
         if (cancelled) return;
+        if (json.data.status === 'PENDING') {
+          void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers: { 'x-order-token': token }, signal: controller.signal }).catch(() => {});
+        }
         setOrder(json.data);
         setError('');
-        poll = json.data.status === 'PENDING';
+        poll = json.data.status === 'PENDING' || (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED');
       } catch (error) {
         if (!cancelled) setError(error instanceof Error && error.message === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'SYSTEM_ERROR');
       } finally {
@@ -147,6 +157,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       <div className="fixed inset-0 bg-pink-950/40 backdrop-blur-[2px] pointer-events-none"></div>
 
       <div className="relative z-10 max-w-2xl mx-auto">
+        <section className="bg-white rounded-2xl p-5 mb-4 space-y-2" aria-live="polite">
+          <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
+          {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
+          {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
+          {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
+          {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
+          {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
+        </section>
         <div className="flex justify-between items-center mb-4">
           <Link
             href="/"
@@ -194,7 +212,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b-2 border-pink-100 gap-2 mb-6">
             <div>
               <h1 className="text-xl font-black text-pink-700">{t.orderTitle}</h1>
-              <p className="text-xs text-neutral-500">{t.orderSubtitle}</p>
+              <p className="text-xs text-neutral-500">{order.type === 'APPS' ? t.orderSubtitle : order.type === 'GAME' ? t.commerce.gameDescription : t.commerce.robloxDescription}</p>
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase self-start sm:self-auto ${

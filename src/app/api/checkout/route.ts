@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { createCheckout } from '@/lib/checkout';
+import { CommerceError } from '@/lib/commerce';
 import { prisma } from '@/lib/prisma';
 import { InputError, readJson, positiveInt, privateHeaders, logFailure } from '@/lib/http';
 import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
@@ -9,7 +11,8 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { productId, customerEmail } = await readJson(req, 4096);
+    const body = await readJson(req, 12_288);
+    const { productId, customerEmail } = body;
     if (!positiveInt(productId) || typeof customerEmail !== 'string' || customerEmail.length > 150 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) throw new InputError();
     const email = customerEmail.trim().toLowerCase();
@@ -18,20 +21,10 @@ export async function POST(req: Request) {
         !(await consumeRateLimit('checkout-email', email, 5, 60 * 60_000))) {
       return NextResponse.json({ errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
     }
-    const order = await prisma.$transaction(async tx => {
-      const stock = await tx.accountStock.findFirst({
-        where: { productId, status: 'READY', order: null },
-        select: { id: true, product: { select: { price: true } } }, orderBy: { id: 'asc' },
-      });
-      if (!stock) throw new Error('STOCK_EMPTY');
-      const locked = await tx.accountStock.updateMany({ where: { id: stock.id, status: 'READY' }, data: { status: 'LOCKED' } });
-      if (locked.count !== 1) throw new Error('RACE_CONDITION');
-      return tx.order.create({ data: {
-        invoice: `INV-${crypto.randomUUID()}`, productId, accountStockId: stock.id,
-        customerEmail: email, totalAmount: stock.product.price, status: 'PENDING',
-        paymentMethod: 'QRIS', expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
-      } });
-    });
+    const { order, created } = await createCheckout(body, req.headers.get('idempotency-key') || crypto.randomUUID());
+    if (!created) return NextResponse.json({ success: true, data: {
+      invoice: order.invoice, accessToken: order.accessToken, qrisUrl: order.qrisUrl,
+    } }, { status: order.qrisUrl ? 200 : 202, headers: privateHeaders });
     let qr: string | null = null;
     try {
       const response = await fetch(`${gatewayBase()}/v2/charge`, {
@@ -56,6 +49,7 @@ export async function POST(req: Request) {
       invoice: order.invoice, accessToken: order.accessToken, qrisUrl: qr,
     } }, { status: qr ? 200 : 202, headers: privateHeaders });
   } catch (error) {
+    if (error instanceof CommerceError) return NextResponse.json({ success: false, errorCode: error.code }, { status: error.status, headers: privateHeaders });
     if (error instanceof InputError) return NextResponse.json({ errorCode: 'INVALID_INPUT' }, { status: error.status });
     if (error instanceof Error && ['STOCK_EMPTY', 'RACE_CONDITION'].includes(error.message)) {
       return NextResponse.json({ errorCode: error.message }, { status: error.message === 'STOCK_EMPTY' ? 400 : 409 });

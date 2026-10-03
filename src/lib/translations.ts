@@ -1,7 +1,14 @@
+import { commerceTranslations } from './commerceTranslations';
 export type Language = 'ID' | 'EN' | 'MY';
 
 export const translations = {
   ID: {
+    loginDatabaseError: "Database belum diperbarui. Jalankan migrasi Prisma sebelum login.",
+    loginOriginError: "Alamat website tidak sesuai konfigurasi APP_ORIGIN. Periksa domain dan HTTPS.",
+    loginConfigError: "Password admin belum diatur pada server. Periksa ADMIN_PASSWORD lalu restart aplikasi.",
+    loginSystemError: "Server atau database sedang bermasalah. Coba lagi atau periksa log server.",
+    loginSessionError: "Sesi login tidak tersimpan. Gunakan HTTPS dan izinkan cookie website.",
+    commerce: commerceTranslations.ID,
     loadingOrder: "Memuat detail pesanan...",
     orderAccessUnavailable: "Pesanan tidak ditemukan atau akses tidak tersedia. Buka melalui browser saat checkout. Jika akses hilang, hubungi admin untuk bantuan.",
     paymentNeedsHelp: "Pembayaran sedang diperiksa. Jangan membuat pesanan ulang. Simpan invoice ini dan hubungi admin jika QRIS atau akun belum tersedia.",
@@ -140,6 +147,12 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   MY: {
+    loginDatabaseError: "Database belum dikemas kini. Jalankan migrasi Prisma sebelum log masuk.",
+    loginOriginError: "Alamat laman tidak sepadan dengan APP_ORIGIN. Semak domain dan HTTPS.",
+    loginConfigError: "Kata laluan pentadbir belum ditetapkan pada pelayan. Tetapkan ADMIN_PASSWORD dan mulakan semula aplikasi.",
+    loginSystemError: "Pelayan atau database bermasalah. Cuba lagi atau semak log pelayan.",
+    loginSessionError: "Sesi log masuk tidak disimpan. Gunakan HTTPS dan benarkan kuki laman.",
+    commerce: commerceTranslations.MY,
     loadingOrder: "Memuatkan butiran pesanan...",
     orderAccessUnavailable: "Pesanan tidak ditemui atau akses tidak tersedia. Buka melalui pelayar semasa pembayaran. Hubungi pentadbir jika akses hilang.",
     paymentNeedsHelp: "Pembayaran sedang disemak. Jangan buat pesanan semula. Simpan invois ini dan hubungi pentadbir jika QRIS atau akaun belum tersedia.",
@@ -278,6 +291,12 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   EN: {
+    loginDatabaseError: "The database schema is outdated. Apply Prisma migrations before signing in.",
+    loginOriginError: "The website address does not match APP_ORIGIN. Check the domain and HTTPS.",
+    loginConfigError: "The server admin password is not configured. Set ADMIN_PASSWORD and restart the app.",
+    loginSystemError: "The server or database is unavailable. Try again or check the server logs.",
+    loginSessionError: "The login session was not saved. Use HTTPS and allow website cookies.",
+    commerce: commerceTranslations.EN,
     loadingOrder: "Loading order details...",
     orderAccessUnavailable: "Order not found or access unavailable. Open it in the browser used at checkout. Contact support if you lost access.",
     paymentNeedsHelp: "Your payment is being checked. Do not place another order. Save this invoice and contact support if the QR code or account is still unavailable.",

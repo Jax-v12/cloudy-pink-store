@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Authorize in the query, before reading the associated credentials.
     const order = await prisma.order.findFirst({
       where: { invoice: id, accessToken: token },
-      include: { product: { select: { name: true } }, accountStock: true },
+      include: { product: { select: { name: true } }, accountStock: true, robloxDetail: { select: { method: true, username: true, gamepassPrice: true } }, gameDetail: { select: { userId: true, zoneId: true } } },
     });
     if (!order) return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
     const stock = order.status === 'PAID' ? order.accountStock : null;
@@ -32,8 +32,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       : order.qrisUrl && isGatewayQrUrl(order.qrisUrl) ? order.qrisUrl : null;
     return NextResponse.json({ success: true, data: {
       invoice: order.invoice, totalAmount: order.totalAmount, status: order.status,
+      type: order.type, currency: order.currency, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
+      variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
-      expiresAt: order.expiresAt, product: order.product, account, isAuthorized: true,
+      expiresAt: order.expiresAt, product: { name: order.productName || order.product.name }, account, isAuthorized: true,
     } }, { headers: privateHeaders });
   } catch (error) {
     logFailure('Order retrieval failed', error);

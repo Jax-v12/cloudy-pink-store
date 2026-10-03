@@ -39,7 +39,7 @@ export async function addStocks(body: Record<string, unknown>, batch: boolean) {
   return prisma.$transaction(async tx => {
     let product = body.productId !== undefined
       ? await tx.product.findUnique({ where: { id: body.productId as number } })
-      : await tx.product.findFirst({ where: { name }, orderBy: { id: 'asc' } });
+      : await tx.product.findFirst({ where: { name, type: 'APPS' }, orderBy: { id: 'asc' } });
     if (!product && body.productId !== undefined) throw new InputError(404);
     if (!product) {
       // A deterministic unique slug makes simultaneous product creation conflict
@@ -47,6 +47,7 @@ export async function addStocks(body: Record<string, unknown>, batch: boolean) {
       const slug = `product-${crypto.createHash('sha256').update(name.toLowerCase()).digest('hex')}`;
       product = await tx.product.create({ data: { name, slug, price: body.price as number, category } });
     }
+    if (product.type !== 'APPS') throw new InputError();
     const rows = stocks.map(item => ({
       productId: product.id, emailAccount: item.emailAccount, passwordAccount: item.passwordAccount,
       profileName: item.profile, pin: item.pinEncrypted, additionalInfo: item.infoEncrypted,

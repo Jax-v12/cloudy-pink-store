@@ -1,0 +1,38 @@
+import { NextResponse } from 'next/server';
+import { ProductType, FulfillmentStatus } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { adminAccess } from '@/lib/adminAccess';
+import { apiError } from '@/lib/apiError';
+import { InputError, pagination, pageResult, privateHeaders } from '@/lib/http';
+
+export async function GET(req: Request) {
+  try {
+    const session = await adminAccess(req);
+    const { limit, cursor } = pagination(req);
+    const query = new URL(req.url).searchParams;
+    const type = query.get('type'); const status = query.get('status');
+    if (type && !Object.values(ProductType).includes(type as ProductType)) throw new InputError();
+    if (status && !Object.values(FulfillmentStatus).includes(status as FulfillmentStatus)) throw new InputError();
+    const rows = await prisma.order.findMany({ where: {
+      ...(type ? { type: type as ProductType } : {}),
+      ...(status ? { fulfillmentStatus: status as FulfillmentStatus } : {}),
+      ...(cursor ? { id: { lt: cursor } } : {}),
+    }, take: limit + 1, orderBy: { id: 'desc' }, select: {
+      id: true, invoice: true, type: true, status: true, fulfillmentStatus: true, refundStatus: true,
+      totalAmount: true, productName: true, variantName: true, units: true, createdAt: true,
+      robloxDetail: true, gameDetail: true,
+      job: { select: { ownerSessionId: true, evidence: true, attempts: { take: 10, orderBy: { id: 'desc' }, select: { id: true, operation: true, outcome: true, createdAt: true } } } },
+      audits: { take: 10, orderBy: { id: 'desc' }, select: { id: true, action: true, createdAt: true } },
+    } });
+    const page = pageResult(rows, limit);
+    const [heartbeat, reviewCount, pendingCount] = await Promise.all([
+      prisma.workerHeartbeat.findUnique({ where: { name: 'fulfillment' } }),
+      prisma.order.count({ where: { fulfillmentStatus: 'REQUIRES_REVIEW' } }),
+      prisma.order.count({ where: { fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } } }),
+    ]);
+    return NextResponse.json({ success: true, ...page, data: page.data.map(row => ({ ...row, owned: row.job?.ownerSessionId === session.id,
+      job: row.job ? { evidence: row.job.evidence, attempts: row.job.attempts } : null })),
+      monitoring: { lastRun: heartbeat?.succeededAt ?? null, overdue: !heartbeat || Date.now() - heartbeat.succeededAt.getTime() > 180_000, reviewCount, pendingCount },
+    }, { headers: privateHeaders });
+  } catch (e) { return apiError(e); }
+}

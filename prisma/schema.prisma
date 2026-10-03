@@ -30,6 +30,11 @@ model Product {
   updatedAt      DateTime       @updatedAt
   stocks         AccountStock[]
   orders         Order[]
+  type ProductType @default(APPS)
+  active Boolean @default(true)
+  coverImage String? @db.Text
+  variants ProductVariant[]
+  @@index([type, active, id])
 }
 
 model AccountStock {
@@ -68,6 +73,22 @@ model Order {
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  type ProductType @default(APPS)
+  currency String @default("IDR")
+  productName String?
+  variantName String?
+  units Int @default(1)
+  fulfillmentStatus FulfillmentStatus @default(NOT_READY)
+  refundStatus RefundStatus @default(NONE)
+  refundReference String? @db.Text
+  checkoutKey String? @unique
+  requestHash String?
+  gameDetail GameOrderDetail?
+  robloxDetail RobloxOrderDetail?
+  secret OrderSecret?
+  job FulfillmentJob?
+  audits AdminAudit[]
+  @@index([type, fulfillmentStatus, id])
   @@index([status, expiresAt])
   @@index([status, createdAt])
 }
@@ -75,6 +96,7 @@ model Order {
 model AdminSession {
   id        String   @id @default(uuid())
   tokenHash String   @unique
+  reauthenticatedAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
   @@index([expiresAt])
@@ -85,4 +107,103 @@ model RateLimit {
   points    Int      @default(0)
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+enum ProductType {
+  APPS
+  GAME
+  ROBLOX
+}
+enum RobloxMethod {
+  GAMEPASS
+  GIFT_USERNAME
+  LOGIN
+}
+enum FulfillmentStatus {
+  NOT_READY
+  QUEUED
+  PROCESSING
+  WAITING_CUSTOMER
+  COMPLETED
+  REQUIRES_REVIEW
+}
+enum RefundStatus {
+  NONE
+  REQUIRED
+  COMPLETED
+}
+model ProductVariant {
+  id Int @id @default(autoincrement())
+  productId Int
+  product Product @relation(fields: [productId], references: [id])
+  name String
+  price Int
+  units Int
+  active Boolean @default(false)
+  method RobloxMethod?
+  gamepassPrice Int?
+  providerSku String?
+  requiresZone Boolean @default(false)
+  capacityCheckedAt DateTime?
+  @@index([productId, active])
+}
+model GameOrderDetail {
+  orderId Int @id
+  order Order @relation(fields: [orderId], references: [id])
+  userId String
+  zoneId String?
+  provider String
+  providerSku String
+}
+model RobloxOrderDetail {
+  orderId Int @id
+  order Order @relation(fields: [orderId], references: [id])
+  method RobloxMethod
+  username String
+  gamepassUrl String? @db.Text
+  gamepassPrice Int?
+}
+model OrderSecret {
+  orderId Int @id
+  order Order @relation(fields: [orderId], references: [id])
+  ciphertext String @db.Text
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+model FulfillmentJob {
+  id Int @id @default(autoincrement())
+  orderId Int @unique
+  order Order @relation(fields: [orderId], references: [id])
+  reference String @unique @default(uuid())
+  ownerSessionId String?
+  leaseToken String?
+  leaseUntil DateTime?
+  attemptedAt DateTime?
+  nextRunAt DateTime @default(now())
+  completedAt DateTime?
+  evidence String? @db.Text
+  attempts ProviderAttempt[]
+  @@index([completedAt, nextRunAt])
+}
+model ProviderAttempt {
+  id Int @id @default(autoincrement())
+  jobId Int
+  job FulfillmentJob @relation(fields: [jobId], references: [id])
+  operation String
+  outcome String
+  createdAt DateTime @default(now())
+  @@index([jobId, id])
+}
+model AdminAudit {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id])
+  sessionId String
+  action String
+  createdAt DateTime @default(now())
+  @@index([orderId, id])
+}
+model WorkerHeartbeat {
+  name String @id
+  succeededAt DateTime
 }
