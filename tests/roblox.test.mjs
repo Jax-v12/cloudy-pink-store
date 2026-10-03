@@ -4,6 +4,25 @@ import { robloxGamepassPrice } from '../src/lib/roblox.ts';
 import { parseDetails } from '../src/lib/commerce.ts';
 import { verifyRobloxDetails } from '../src/lib/robloxVerification.ts';
 import { robloxAvatarUrl } from '../src/lib/robloxApi.ts';
+import { quoteGamepass } from '../src/lib/gamepassPricing.ts';
+
+test('slider price scales from the configured base rate with exact IDR rounding', () => {
+  const rate = { units: 50, price: 7000, maxUnits: 5000, unitStep: 5 };
+  assert.deepEqual(quoteGamepass(rate, 50), { units: 50, totalAmount: 7000 });
+  assert.deepEqual(quoteGamepass(rate, 55), { units: 55, totalAmount: 7700 });
+  assert.deepEqual(quoteGamepass(rate, 100), { units: 100, totalAmount: 14000 });
+  assert.deepEqual(quoteGamepass(rate, 5000), { units: 5000, totalAmount: 700000 });
+  assert.equal(quoteGamepass({ ...rate, price: 7001 }, 55).totalAmount, 7702);
+  for (const quantity of [0, 49, 51, 100.5, 5005, NaN, Infinity]) assert.throws(() => quoteGamepass(rate, quantity));
+  assert.throws(() => quoteGamepass({ ...rate, price: 2147483647 }, 100));
+  assert.throws(() => quoteGamepass({ ...rate, unitStep: 0 }, 100));
+});
+
+test('legacy fixed Gamepass packages keep their price and reject custom amounts', () => {
+  const legacy = { units: 100, price: 14000, maxUnits: null, unitStep: 1 };
+  assert.deepEqual(quoteGamepass(legacy), { units: 100, totalAmount: 14000 });
+  assert.throws(() => quoteGamepass(legacy, 105));
+});
 
 test('Gamepass calculator rounds up without floating-point overcharging', () => {
   assert.equal(robloxGamepassPrice(100), 143);

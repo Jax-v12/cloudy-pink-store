@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from './StoreShell';
+import GamepassCheckout from './GamepassCheckout';
+import RobloxServiceCards from './RobloxServiceCards';
 import RobloxMethodSelector from './RobloxMethodSelector';
 import RobloxFields from './RobloxFields';
 import RobloxInstructions from './RobloxInstructions';
 import { isRobloxMethod, robloxGamepassPrice, type RobloxMethodKey } from '@/lib/roblox';
 
-type Variant = { id: number; name: string; price: number; units: number; method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN' | null; gamepassPrice: number | null; requiresZone: boolean };
+type Variant = { id: number; name: string; price: number; units: number; maxUnits: number | null; unitStep: number; method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN' | null; gamepassPrice: number | null; requiresZone: boolean };
 type Product = { id: number; name: string; slug: string; variants: Variant[]; checkoutEnabled: boolean };
 export default function TopupCatalog({ type, slug, initialMethod = 'GAMEPASS' }: { type: 'GAME' | 'ROBLOX'; slug?: string; initialMethod?: RobloxMethodKey }) {
   const { t, language } = useLanguage(); const c = t.commerce; const r = t.roblox;
@@ -64,24 +66,25 @@ export default function TopupCatalog({ type, slug, initialMethod = 'GAMEPASS' }:
   const available = product?.variants.filter(v => type === 'GAME' || v.method === method) ?? [];
   function changeMethod(value: RobloxMethodKey) { setMethod(value); setVariantId(''); setError(''); key.current = { payload: '', value: '' }; }
   return <StoreShell>
-    <h1 className="text-3xl sm:text-4xl font-black text-pink-800 mb-3">{product?.name || (type === 'ROBLOX' ? r.title : c.GAME)}</h1>
-    <p className="text-neutral-600 mb-8 max-w-2xl">{type === 'GAME' ? c.gameDescription : r.subtitle}</p>
-    {type === 'ROBLOX' && <div className="mb-6 max-w-3xl"><h2 className="font-bold mb-3">{r.chooseMethod}</h2><RobloxMethodSelector id="roblox-method" value={method} onChange={changeMethod} disabled={busy} /></div>}
+    <h1 className="text-3xl sm:text-4xl font-black text-pink-800 mb-3">{product?.name || (type === 'ROBLOX' ? t.robloxFlow.choose : c.GAME)}</h1>
+    <p className="text-neutral-600 mb-8 max-w-2xl">{type === 'GAME' ? c.gameDescription : t.robloxFlow.intro}</p>
+    {type === 'ROBLOX' && slug && <div className="mb-6 max-w-3xl"><h2 className="font-bold mb-3">{r.chooseMethod}</h2><RobloxMethodSelector id="roblox-method" value={method} onChange={changeMethod} disabled={busy} /></div>}
     {error && <p role="alert" className="bg-rose-100 text-rose-800 p-4 rounded-xl mb-4">{errors[error] || t.errSystem}</p>}
-    <div {...(type === 'ROBLOX' ? { role: 'tabpanel', id: 'roblox-method-panel', 'aria-labelledby': 'roblox-method-' + method, tabIndex: 0 } : {})}>
+    <div {...(type === 'ROBLOX' && slug ? { role: 'tabpanel', id: 'roblox-method-panel', 'aria-labelledby': 'roblox-method-' + method, tabIndex: 0 } : {})}>
       {loading && <p role="status">{t.loadingCatalog}</p>}
       {!loading && products.length === 0 && <p className="p-8 bg-white rounded-2xl">{t.emptyCatalog}</p>}
-      {!slug && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">{products.map(p => {
+      {!slug && type === 'ROBLOX' && !loading && <RobloxServiceCards products={products} />}
+      {!slug && type === 'GAME' && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">{products.map(p => {
         const choices = p.variants.filter(v => type === 'GAME' || v.method === method);
-        return <Link key={p.id} href={path + '/' + p.slug + (type === 'ROBLOX' ? '?method=' + method : '')} className="block bg-white border border-pink-200 rounded-2xl p-6 hover:shadow-lg transition">
+        return <Link key={p.id} href={path + '/' + p.slug} className="block bg-white border border-pink-200 rounded-2xl p-6 hover:shadow-lg transition">
           <h2 className="text-xl font-bold mb-3">{p.name}</h2>
-          {type === 'ROBLOX' && <p className="text-sm mb-3">{r[method]}</p>}
           <p className="text-pink-700 font-semibold">{choices.length ? money(Math.min(...choices.map(v => v.price))) : r.noPackages}</p>
           <p className="mt-4 text-sm">{!p.checkoutEnabled ? c.unavailable : r.viewPackages} →</p>
         </Link>;
       })}</div>}
       {!slug && cursor && <button onClick={more} disabled={loading} className="my-6 p-3 rounded-xl bg-white border border-pink-200">{t.loadMore}</button>}
-      {product && <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+      {product && type === 'ROBLOX' && method === 'GAMEPASS' && <GamepassCheckout key={product.id} productId={product.id} variants={available} enabled={product.checkoutEnabled} onBusyChange={setBusy} />}
+      {product && (type !== 'ROBLOX' || method !== 'GAMEPASS') && <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
         <fieldset disabled={busy} className="min-w-0 bg-white rounded-3xl border border-pink-200 p-5 sm:p-7 space-y-6">
           <h2 className="font-bold text-lg">{type === 'ROBLOX' ? r.choosePackage : c.package}</h2>
           {available.length === 0 && <p role="status">{r.noPackages}</p>}

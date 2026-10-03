@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 
-type Variant = { id?: number; name: string; price: number; units: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean };
+type Variant = { id?: number; name: string; price: number; units: number; maxUnits?: number | null; unitStep?: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean };
 type Product = { id: number; name: string; slug: string; type: 'GAME' | 'ROBLOX'; active: boolean; variants: Variant[] };
-const empty: Variant = { name: '', price: 1000, units: 1, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
+const empty: Variant = { name: '', price: 1000, units: 50, maxUnits: 5000, unitStep: 5, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
 export default function TopupAdmin() {
   const { t } = useLanguage(); const c = t.commerce;
   const [products, setProducts] = useState<Product[]>([]); const [refresh, setRefresh] = useState(0);
@@ -38,20 +38,24 @@ export default function TopupAdmin() {
     </form>
     <div className="grid sm:grid-cols-2 gap-3">{products.map(p => <article key={p.id} className="bg-white border rounded-xl p-4 space-y-2">
       <h3 className="font-bold">{p.name}</h3><button onClick={() => setProduct(p)} className="underline text-pink-700">{c.edit}</button>
-      <button onClick={() => { setProductId(p.id); setVariant({ ...empty }); }} className="ml-4 underline text-pink-700">{c.newVariant}</button>
+      <button onClick={() => { setProductId(p.id); setVariant({ ...empty, ...(p.type === 'GAME' ? { units: 1, maxUnits: null, unitStep: 1, method: null } : {}) }); }} className="ml-4 underline text-pink-700">{c.newVariant}</button>
       {p.variants.map(v => <div key={v.id} className="flex gap-3 justify-between text-sm"><span>{v.name} · {v.price}</span><button onClick={() => { setProductId(p.id); setVariant(v); }} className="underline">{c.edit}</button></div>)}
     </article>)}</div>
     {cursor && <button disabled={busy} className="border p-2 rounded-lg" onClick={async () => { setBusy(true); try { const r = await fetch(`/api/admin/catalog?cursor=${cursor}`); if (!r.ok) throw new Error(); const j = await r.json(); setProducts(old => [...old, ...j.data]); setCursor(j.pagination.nextCursor); } catch { setError(true); } finally { setBusy(false); } }}>{t.loadMore}</button>}
     {selected && <form key={`${productId}-${variant.id || 0}`} className="bg-white border rounded-2xl p-5 grid sm:grid-cols-2 gap-4" onSubmit={e => {
-      e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
+      e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), ...(f.has('maxUnits') ? { maxUnits: f.get('maxUnits') ? Number(f.get('maxUnits')) : null, unitStep: Number(f.get('unitStep')) } : {}), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
     }}>
       <h3 className="font-bold sm:col-span-2">{selected.name} · {variant.id ? c.edit : c.newVariant}</h3>
       <label>{c.name}<input name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
       <label>{c.price}<input type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>
-      <label>{c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
+      <label>{selected.type === 'ROBLOX' && variant.method === 'GAMEPASS' ? t.robloxFlow.baseUnits : c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
       {selected.type === 'ROBLOX' ? <>
-        <label>{c.method}<select name="method" defaultValue={variant.method || 'GAMEPASS'} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
-        <p className="text-sm text-neutral-600 self-center">{t.roblox.autoPrice}</p>
+        <label>{c.method}<select name="method" value={variant.method || 'GAMEPASS'} onChange={e => setVariant(v => ({ ...v, method: e.target.value }))} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
+        {variant.method === 'GAMEPASS' && <>
+          <label>{t.robloxFlow.maximum}<input type="number" name="maxUnits" min={5} max={1000000} step={5} defaultValue={variant.maxUnits ?? ''} className={field} /></label>
+          <label>{t.robloxFlow.increment}<input type="number" name="unitStep" min={5} max={1000000} step={5} defaultValue={variant.unitStep && variant.unitStep >= 5 ? variant.unitStep : 5} className={field} /></label>
+          <p className="sm:col-span-2 text-sm text-neutral-600">{t.robloxFlow.adminHint} {t.roblox.autoPrice}</p>
+        </>}
         <label className="flex gap-2 items-center"><input name="capacity" type="checkbox" />{c.capacity}</label>
       </> : <>
         <label>{c.sku}<input name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>

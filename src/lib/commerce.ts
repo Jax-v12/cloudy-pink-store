@@ -22,10 +22,11 @@ export function checkoutInput(body: Record<string, unknown>) {
   const email = textField(body.customerEmail, 150)!.toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InputError();
   if (body.variantId !== undefined && !positiveInt(body.variantId)) throw new InputError();
+  if (body.quantity !== undefined && !positiveInt(body.quantity)) throw new InputError();
   const details = body.details ?? {};
   if (!details || typeof details !== 'object' || Array.isArray(details)) throw new InputError();
-  if (Object.keys(body).some(k => !['productId', 'customerEmail', 'variantId', 'details'].includes(k))) throw new InputError();
-  return { productId: body.productId, customerEmail: email, variantId: body.variantId as number | undefined,
+  if (Object.keys(body).some(k => !['productId', 'customerEmail', 'variantId', 'details', 'quantity'].includes(k))) throw new InputError();
+  return { productId: body.productId, customerEmail: email, variantId: body.variantId as number | undefined, quantity: body.quantity as number | undefined,
     details: details as Record<string, unknown> };
 }
 

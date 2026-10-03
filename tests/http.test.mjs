@@ -30,7 +30,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     assert.equal(passLookup.status, 200); assert.ok(passLookup.headers.get('cache-control').includes('no-store'));
     assert.equal((await passLookup.json()).data.price, 143);
     const catalogPage = await request('/roblox');
-    assert.equal(catalogPage.status, 200); assert.ok((await catalogPage.text()).includes('role="tablist"'));
+    assert.equal(catalogPage.status, 200); assert.ok((await catalogPage.text()).includes('Pilih cara kamu mendapatkan Robux'));
     const methodPage = await request(`/roblox/${p.slug}?method=LOGIN`);
     assert.equal(methodPage.status, 200); assert.ok((await methodPage.text()).includes('id="roblox-method-LOGIN"'));
     assert.equal((await request('/api/admin/fulfillment')).status, 401);
@@ -42,6 +42,15 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     assert.equal(login.status, 200);
     const cookie = login.headers.getSetCookie().find(c => c.startsWith('admin_session_token=')).split(';')[0];
     const headers = { Cookie: cookie, Origin: endpoint.origin, 'Content-Type': 'application/json' };
+    const createRate = body => request('/api/admin/catalog', { method: 'POST', headers, body: JSON.stringify({ kind: 'variant', productId: p.id, name: 'Slider rate', price: 7000, units: 50, maxUnits: 5000, unitStep: 5, method: 'GAMEPASS', active: true, ...body }) });
+    assert.equal((await createRate({ unitStep: 3 })).status, 400);
+    assert.equal((await createRate({ maxUnits: 49 })).status, 400);
+    const rateResponse = await createRate({}); assert.equal(rateResponse.status, 200);
+    const rate = (await rateResponse.json()).data;
+    assert.equal(rate.maxUnits, 5000); assert.equal(rate.unitStep, 5); assert.equal(rate.gamepassPrice, 72);
+    const catalog = await request(`/api/products?type=ROBLOX&slug=${p.slug}`);
+    const publicRate = (await catalog.json()).data[0].variants.find(v => v.id === rate.id);
+    assert.equal(publicRate.maxUnits, 5000); assert.equal(publicRate.unitStep, 5);
     const action = body => request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers, body: JSON.stringify(body) });
     const csrf = await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: { ...headers, Origin: 'https://evil.example' }, body: JSON.stringify({ action: 'claim' }) });
     assert.equal(csrf.status, 403);

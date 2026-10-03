@@ -139,6 +139,9 @@ model ProductVariant {
   name String
   price Int
   units Int
+  // Gamepass: units/price are the base rate, maxUnits and unitStep control the slider.
+  maxUnits Int?
+  unitStep Int @default(1)
   active Boolean @default(false)
   method RobloxMethod?
   // Derived on save via robloxGamepassPrice(units); never entered manually.

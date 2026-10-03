@@ -27,6 +27,21 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
     const roblox = await prisma.product.create({ data: { name: 'Roblox', slug: `roblox-${suffix}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const game = await prisma.product.create({ data: { name: 'Game', slug: `game-${suffix}`, price: 0, type: 'GAME', variants: { create: { name: 'Game 100', price: 3000, units: 100, providerSku: 'game-100', active: true } } }, include: { variants: true } });
     const rb = () => ({ productId: roblox.id, variantId: roblox.variants[0].id, customerEmail: 'buyer@example.test', details: loginDetails });
+    await t.test('custom Gamepass quantity is priced on the server and snapshotted for retries', async () => {
+      const rate = await prisma.productVariant.create({ data: { productId: roblox.id, name: 'Gamepass rate', method: 'GAMEPASS', units: 50, price: 7000, maxUnits: 5000, unitStep: 5, active: true } });
+      const body = { productId: roblox.id, variantId: rate.id, quantity: 100, customerEmail: 'slider@example.test', details: { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' } };
+      for (const quantity of [49, 51, 5005]) await assert.rejects(createCheckout({ ...body, quantity }, key()), /INVALID_INPUT/);
+      await assert.rejects(createCheckout({ ...body, totalAmount: 1 }, key()), /INVALID_INPUT/);
+      await assert.rejects(createCheckout({ ...rb(), quantity: 100 }, key()), /INVALID_INPUT/);
+      const replayKey = key(); const { order } = await createCheckout(body, replayKey);
+      assert.equal(order.units, 100); assert.equal(order.totalAmount, 14000);
+      assert.equal((await prisma.robloxOrderDetail.findUnique({ where: { orderId: order.id } })).gamepassPrice, 143);
+      await prisma.productVariant.update({ where: { id: rate.id }, data: { price: 9000, maxUnits: 50 } });
+      const replay = await createCheckout(body, replayKey);
+      assert.equal(replay.order.id, order.id); assert.equal(replay.order.totalAmount, 14000); assert.equal(replay.order.units, 100);
+      await assert.rejects(createCheckout({ ...body, quantity: 105 }, replayKey), /IDEMPOTENCY_CONFLICT/);
+      await assert.rejects(createCheckout(body, key()), /INVALID_INPUT/);
+    });
     await t.test('last stock can be reserved by only one checkout', async () => {
       const results = await Promise.allSettled([1,2].map(() => createCheckout({ productId: apps.id, customerEmail: 'buyer@example.test' }, key())));
       assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);

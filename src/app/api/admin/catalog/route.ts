@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { quoteGamepass } from '@/lib/gamepassPricing';
 import { RobloxMethod } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { adminAccess } from '@/lib/adminAccess';
@@ -44,7 +45,13 @@ export async function POST(req: Request) {
     if (method === 'GAMEPASS' && (body.units as number) > ROBLOX_MAX_GAMEPASS_UNITS) throw new InputError();
     if (method === 'GIFT_USERNAME' && body.active && body.capacityConfirmed !== true) throw new InputError();
     const providerSku = product.type === 'GAME' ? textField(body.providerSku, 100)! : null;
-    const data = { productId: product.id, name: textField(body.name, 100)!, price: body.price, units: body.units,
+    const maxUnits = method === 'GAMEPASS' && body.maxUnits != null ? body.maxUnits : null;
+    const unitStep = method === 'GAMEPASS' && maxUnits !== null ? body.unitStep : 1;
+    if (maxUnits !== null && (!positiveInt(maxUnits) || !positiveInt(unitStep) || maxUnits < body.units || maxUnits > ROBLOX_MAX_GAMEPASS_UNITS || body.units % 5 !== 0 || unitStep % 5 !== 0 || (maxUnits - body.units) % unitStep !== 0)) throw new InputError();
+    if (method === 'GAMEPASS') {
+      try { quoteGamepass({ units: body.units, price: body.price, maxUnits: maxUnits as number | null, unitStep: unitStep as number }, (maxUnits as number | null) ?? body.units); } catch { throw new InputError(); }
+    }
+    const data = { maxUnits: maxUnits as number | null, unitStep: unitStep as number, productId: product.id, name: textField(body.name, 100)!, price: body.price, units: body.units,
       active: body.active, method, gamepassPrice: method === 'GAMEPASS' ? robloxGamepassPrice(body.units as number) : null,
       providerSku, requiresZone: body.requiresZone === true,
       capacityCheckedAt: method === 'GIFT_USERNAME' && body.capacityConfirmed === true ? new Date() : null };

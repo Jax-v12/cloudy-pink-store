@@ -1,8 +1,19 @@
 import crypto from 'node:crypto';
+import { quoteGamepass } from './gamepassPricing';
+import { InputError } from './http';
+
 import { prisma } from './prisma';
 import { encryptData } from './crypto';
 import { CommerceError, checkoutEnabled, checkoutInput, parseDetails, requestDigest } from './commerce';
 import { verifyRobloxDetails, type RobloxVerification } from './robloxVerification';
+
+function quoteVariant(type: string, variant: { method: string | null; units: number; price: number; maxUnits: number | null; unitStep: number } | null, quantity?: number) {
+  if (type === 'ROBLOX' && variant?.method === 'GAMEPASS') {
+    try { return quoteGamepass(variant, quantity); } catch { throw new InputError(); }
+  }
+  if (quantity !== undefined) throw new InputError();
+  return { units: variant?.units ?? 1, totalAmount: variant?.price };
+}
 
 export async function createCheckout(body: Record<string, unknown>, key: string) {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(key)) throw new CommerceError('INVALID_INPUT', 400);
@@ -21,7 +32,10 @@ export async function createCheckout(body: Record<string, unknown>, key: string)
     const preview = await prisma.productVariant.findFirst({
       where: { id: input.variantId, productId: input.productId, active: true, product: { type: 'ROBLOX', active: true } },
     });
-    if (preview) verified = await verifyRobloxDetails(parseDetails('ROBLOX', preview, input.details).roblox!);
+    if (preview) {
+      const quote = quoteVariant('ROBLOX', preview, input.quantity);
+      verified = await verifyRobloxDetails(parseDetails('ROBLOX', { ...preview, units: quote.units }, input.details).roblox!);
+    }
   }
   try {
     return await prisma.$transaction(async tx => {
@@ -37,7 +51,8 @@ export async function createCheckout(body: Record<string, unknown>, key: string)
       const variant = product.variants.find(v => v.id === input.variantId && v.active) ?? null;
       if ((product.type !== 'APPS' && !variant) || (product.type === 'APPS' && input.variantId !== undefined)) throw new CommerceError('INVALID_INPUT', 400);
       if (variant?.method === 'GIFT_USERNAME' && (!variant.capacityCheckedAt || Date.now() - variant.capacityCheckedAt.getTime() > 86_400_000)) throw new CommerceError('CAPACITY_REVIEW_REQUIRED');
-      const details = parseDetails(product.type, variant, input.details);
+      const quote = quoteVariant(product.type, variant, input.quantity);
+      const details = parseDetails(product.type, variant ? { ...variant, units: quote.units } : null, input.details);
       // The package may have changed between verification and locking; never persist stale checks.
       if (details.roblox && (!verified || verified.method !== details.roblox.method || verified.gamepassPrice !== details.roblox.gamepassPrice)) {
         throw new CommerceError('PRODUCT_UNAVAILABLE');
@@ -52,8 +67,8 @@ export async function createCheckout(body: Record<string, unknown>, key: string)
       }
       const order = await tx.order.create({ data: {
         invoice: `INV-${crypto.randomUUID()}`, productId: product.id, type: product.type,
-        productName: product.name, variantName: variant?.name, units: variant?.units ?? 1,
-        totalAmount: variant?.price ?? product.price, currency: 'IDR', customerEmail: input.customerEmail,
+        productName: product.name, variantName: variant?.name, units: quote.units,
+        totalAmount: quote.totalAmount ?? product.price, currency: 'IDR', customerEmail: input.customerEmail,
         accountStockId: stockId, checkoutKey: key, requestHash: hash,
         expiresAt: new Date(Date.now() + 86_400_000),
         ...(details.game ? { gameDetail: { create: details.game } } : {}),

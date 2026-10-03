@@ -16,7 +16,7 @@ export async function GET(req: Request) {
       ...(q.get('slug') ? { slug: q.get('slug')! } : {}), ...(cursor ? { id: { lt: cursor } } : {}) },
       take: limit + 1, orderBy: { id: 'desc' }, select: {
         id: true, name: true, slug: true, price: true, type: true, category: true, coverImage: true,
-        variants: { where: { active: true }, orderBy: { price: 'asc' }, select: { id: true, name: true, price: true, units: true, method: true, gamepassPrice: true, requiresZone: true } },
+        variants: { where: { active: true }, orderBy: { price: 'asc' }, select: { id: true, name: true, price: true, units: true, maxUnits: true, unitStep: true, method: true, gamepassPrice: true, requiresZone: true } },
         _count: { select: { stocks: { where: { status: 'READY', order: null } } } },
       },
     });
