@@ -6,11 +6,11 @@
 2. Restart aplikasi atau redeploy agar environment baru terbaca.
 3. Masuk ke `/admin`, lalu buka **Ruang pengiriman · Katalog top-up**. Pada tab **Katalog top-up**, buat produk dengan jenis Roblox, nama, dan slug; centang **Aktif**.
 4. Klik **Paket baru** pada produk. Isi nama paket, harga dalam rupiah, jumlah Robux yang diterima pelanggan, dan metode. Centang **Aktif**, lalu simpan.
-5. Untuk Gamepass, isi juga harga Gamepass yang akan dibeli. Nilai ini berbeda dari harga rupiah dan target Robux bersih pelanggan.
+5. Untuk Gamepass, harga Gamepass dihitung otomatis: `ceil(Robux bersih × 100 / 70)`. Contoh: 100 Robux bersih membutuhkan harga Gamepass 143 Robux. Admin hanya mengisi harga rupiah dan Robux bersih.
 6. Untuk Username, cek langganan Roblox Plus, saldo, batas transfer, dan antrean pesanan. Centang konfirmasi kapasitas ketika mengaktifkan paket. Konfirmasi perlu diperbarui maksimal setiap 24 jam. Nonaktifkan paket jika kapasitas habis.
 7. Pelanggan dapat memesan di `/roblox`. Setelah pembayaran, buka tab **Ruang pengiriman**, klik **Ambil pesanan**, lakukan pengiriman, isi referensi, lalu **Konfirmasi pengiriman** setelah berhasil.
 
-Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan memasukkan username, password, dan lima kode backup. Admin harus mengambil pesanan dan memverifikasi ulang password admin sebelum membuka kredensial. Password/kode dihapus setelah selesai atau maksimal tujuh hari.
+Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan memasukkan username dan password, dengan kode backup opsional jika perlu untuk 2FA (maksimal 10 kode berbeda, satu per baris) serta catatan opsional. Admin harus mengambil pesanan dan memverifikasi ulang password admin sebelum membuka kredensial. Password, kode, dan catatan disimpan dalam satu rahasia terenkripsi serta dihapus setelah selesai atau maksimal tujuh hari.
 
 ## Games
 

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { adminAccess } from '@/lib/adminAccess';
 import { apiError } from '@/lib/apiError';
 import { InputError, readJson, textField, positiveInt, pagination, pageResult, privateHeaders } from '@/lib/http';
+import { ROBLOX_MAX_GAMEPASS_UNITS, robloxGamepassPrice } from '@/lib/roblox';
 
 export async function GET(req: Request) {
   try {
@@ -40,11 +41,11 @@ export async function POST(req: Request) {
     if (!product || product.type === 'APPS') throw new InputError();
     const method = product.type === 'ROBLOX' ? body.method as RobloxMethod : null;
     if (product.type === 'ROBLOX' && !Object.values(RobloxMethod).includes(method!)) throw new InputError();
-    if (method === 'GAMEPASS' && !positiveInt(body.gamepassPrice)) throw new InputError();
+    if (method === 'GAMEPASS' && (body.units as number) > ROBLOX_MAX_GAMEPASS_UNITS) throw new InputError();
     if (method === 'GIFT_USERNAME' && body.active && body.capacityConfirmed !== true) throw new InputError();
     const providerSku = product.type === 'GAME' ? textField(body.providerSku, 100)! : null;
     const data = { productId: product.id, name: textField(body.name, 100)!, price: body.price, units: body.units,
-      active: body.active, method, gamepassPrice: method === 'GAMEPASS' ? body.gamepassPrice as number : null,
+      active: body.active, method, gamepassPrice: method === 'GAMEPASS' ? robloxGamepassPrice(body.units as number) : null,
       providerSku, requiresZone: body.requiresZone === true,
       capacityCheckedAt: method === 'GIFT_USERNAME' && body.capacityConfirmed === true ? new Date() : null };
     if (body.id !== undefined && !positiveInt(body.id)) throw new InputError();

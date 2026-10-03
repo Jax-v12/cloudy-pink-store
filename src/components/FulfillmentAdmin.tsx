@@ -5,7 +5,7 @@ import { useLanguage } from '@/context/LanguageContext';
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
   totalAmount: number; productName: string; variantName: string; units: number; owned: boolean;
-  robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null } | null;
+  robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
   audits: { id: number; action: string; createdAt: string }[];
@@ -17,7 +17,7 @@ export default function FulfillmentAdmin() {
   const [cursor, setCursor] = useState<number | null>(null); const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [evidence, setEvidence] = useState<Record<number, string>>({});
-  const [secret, setSecret] = useState<{ orderId: number; password: string; backupCodes: string[] } | null>(null);
+  const [secret, setSecret] = useState<{ orderId: number; password: string; backupCodes: string[]; note?: string | null } | null>(null);
   const [monitor, setMonitor] = useState<{ overdue: boolean; lastRun: string | null; pendingCount: number; reviewCount: number } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -79,6 +79,8 @@ export default function FulfillmentAdmin() {
       {row.robloxDetail && <div className="space-y-1">
         <p>{c.method}: {label(row.robloxDetail.method)} · {c.username}: {row.robloxDetail.username}</p>
         {row.robloxDetail.gamepassUrl && <a className="text-pink-700 underline break-all" href={row.robloxDetail.gamepassUrl} target="_blank" rel="noopener noreferrer">{c.gamepassUrl}</a>}
+        {(!row.robloxDetail.robloxUserId || (row.robloxDetail.method === 'GAMEPASS' && !row.robloxDetail.gamepassVerifiedAt)) && <p className="text-amber-900 font-medium">{t.roblox.manualCheck}</p>}
+        {row.robloxDetail.gamepassVerifiedAt && <p className="text-emerald-800">{t.roblox.checkedAtCheckout}</p>}
         {row.robloxDetail.gamepassPrice && <p>{c.gamepassPrice}: {row.robloxDetail.gamepassPrice}</p>}
       </div>}
       {row.gameDetail && <p>{c.userId}: {row.gameDetail.userId} · {c.zoneId}: {row.gameDetail.zoneId}</p>}
@@ -96,7 +98,8 @@ export default function FulfillmentAdmin() {
         </div>
       </>}
       {secret?.orderId === row.id && <div role="region" aria-label={c.reveal} className="bg-amber-50 border border-amber-300 rounded-xl p-4">
-        <p className="break-all">{c.password}: {secret.password}</p><p>{c.backupCodes}</p><ul>{secret.backupCodes.map((code, i) => <li key={i} className="font-mono">{code}</li>)}</ul>
+        <p className="break-all">{c.password}: {secret.password}</p><p>{t.roblox.backupCodes}</p><ul>{secret.backupCodes.map((code, i) => <li key={i} className="font-mono">{code}</li>)}</ul>
+        {secret.note && <p className="whitespace-pre-wrap break-words">{t.roblox.note}: {secret.note}</p>}
         <button onClick={() => setSecret(null)} className="mt-3 underline">{c.close}</button>
       </div>}
       {row.job?.evidence && <p className="break-all">{c.evidence}: {row.job.evidence}</p>}

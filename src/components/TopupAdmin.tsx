@@ -43,7 +43,7 @@ export default function TopupAdmin() {
     </article>)}</div>
     {cursor && <button disabled={busy} className="border p-2 rounded-lg" onClick={async () => { setBusy(true); try { const r = await fetch(`/api/admin/catalog?cursor=${cursor}`); if (!r.ok) throw new Error(); const j = await r.json(); setProducts(old => [...old, ...j.data]); setCursor(j.pagination.nextCursor); } catch { setError(true); } finally { setBusy(false); } }}>{t.loadMore}</button>}
     {selected && <form key={`${productId}-${variant.id || 0}`} className="bg-white border rounded-2xl p-5 grid sm:grid-cols-2 gap-4" onSubmit={e => {
-      e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), method: f.get('method'), gamepassPrice: Number(f.get('gamepassPrice')) || null, providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
+      e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
     }}>
       <h3 className="font-bold sm:col-span-2">{selected.name} · {variant.id ? c.edit : c.newVariant}</h3>
       <label>{c.name}<input name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
@@ -51,7 +51,7 @@ export default function TopupAdmin() {
       <label>{c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
       {selected.type === 'ROBLOX' ? <>
         <label>{c.method}<select name="method" defaultValue={variant.method || 'GAMEPASS'} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
-        <label>{c.gamepassPrice}<input type="number" name="gamepassPrice" min={1} max={2147483647} defaultValue={variant.gamepassPrice || ''} className={field} /></label>
+        <p className="text-sm text-neutral-600 self-center">{t.roblox.autoPrice}</p>
         <label className="flex gap-2 items-center"><input name="capacity" type="checkbox" />{c.capacity}</label>
       </> : <>
         <label>{c.sku}<input name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>

@@ -1,3 +1,4 @@
+import { mockRoblox } from './roblox-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -9,6 +10,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
   process.env.DATABASE_URL = url;
   process.env.ENCRYPTION_KEY = 'test-key'; process.env.ROBLOX_CHECKOUT_ENABLED = 'true'; process.env.GAME_PROVIDER = 'simulator';
   delete process.env.TELEGRAM_BOT_TOKEN; delete process.env.TELEGRAM_CHAT_ID;
+  const restoreRoblox = mockRoblox();
   const { prisma } = await import('../src/lib/prisma.ts');
   const { createCheckout } = await import('../src/lib/checkout.ts');
   const { applyPaymentStatus } = await import('../src/lib/payments.ts');
@@ -18,7 +20,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
   const suffix = crypto.randomUUID();
   const paid = order => ({ order_id: order.invoice, status_code: '200', transaction_status: 'settlement', gross_amount: String(order.totalAmount), currency: 'IDR' });
   const key = () => crypto.randomUUID();
-  const loginDetails = { username: 'customer', password: 'private-password', backupCodes: ['1111','2222','3333','4444','5555'] };
+  const loginDetails = { username: 'customer', password: 'private-password', backupCodes: ['1111','2222','3333','4444','5555'], note: 'Private account note' };
   try {
     const apps = await prisma.product.create({ data: { name: 'Apps', slug: `apps-${suffix}`, price: 1000 } });
     await prisma.accountStock.create({ data: { productId: apps.id, emailAccount: encryptData('account@example.test'), passwordAccount: encryptData('stock-password') } });
@@ -55,6 +57,9 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       await prisma.productVariant.update({ where: { id: gift.id }, data: { capacityCheckedAt: new Date() } });
       const { order } = await createCheckout(body, key());
       const result = await createCheckout({ ...body, variantId: pass.id, details: { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' } }, key());
+      const passDetail = await prisma.robloxOrderDetail.findUnique({ where: { orderId: result.order.id } });
+      assert.equal(passDetail.gamepassPrice, 143); assert.equal(passDetail.robloxUserId, '42');
+      assert.equal(passDetail.gamepassId, '123'); assert.ok(passDetail.gamepassVerifiedAt);
       await prisma.productVariant.update({ where: { id: pass.id }, data: { price: 4000, units: 200 } });
       assert.equal(result.order.totalAmount, 2000); assert.equal(result.order.units, 100);
       assert.equal(await prisma.orderSecret.count({ where: { orderId: { in: [order.id, result.order.id] } } }), 0);
@@ -70,7 +75,11 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       assert.equal(results[0].order.id, results[1].order.id);
       await assert.rejects(createCheckout({ ...rb(), customerEmail: 'other@example.test' }, idempotencyKey), /IDEMPOTENCY_CONFLICT/);
       const secret = await prisma.orderSecret.findUnique({ where: { orderId: results[0].order.id } });
-      assert.ok(secret.ciphertext && !secret.ciphertext.includes(loginDetails.password));
+      assert.ok(secret.ciphertext && !secret.ciphertext.includes(loginDetails.password) && !secret.ciphertext.includes(loginDetails.note));
+      // Existing orders must remain accessible when new sales or upstream lookups are unavailable.
+      process.env.ROBLOX_CHECKOUT_ENABLED = 'false';
+      try { assert.equal((await createCheckout(rb(), idempotencyKey)).order.id, results[0].order.id); }
+      finally { process.env.ROBLOX_CHECKOUT_ENABLED = 'true'; }
     });
     await t.test('repeated payment creates one job, competing admins have one winner', async () => {
       const { order } = await createCheckout(rb(), key());
@@ -81,7 +90,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       const claims = await Promise.allSettled(sessions.map(s => manualAction(order.id, s.id, 'claim')));
       assert.equal(claims.filter(r => r.status === 'fulfilled').length, 1);
       const owner = sessions[claims.findIndex(r => r.status === 'fulfilled')];
-      assert.deepEqual(await revealSecret(order.id, owner.id), { password: loginDetails.password, backupCodes: loginDetails.backupCodes });
+      assert.deepEqual(await revealSecret(order.id, owner.id), { password: loginDetails.password, backupCodes: loginDetails.backupCodes, note: loginDetails.note });
       await assert.rejects(manualAction(order.id, owner.id, 'complete'), /INVALID_TRANSITION/);
       await manualAction(order.id, owner.id, 'waiting');
       await assert.rejects(revealSecret(order.id, owner.id), /SECRET_UNAVAILABLE/);
@@ -135,5 +144,5 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       assert.equal(job.attempts.length, 1);
       await runFulfillment(); assert.equal(await prisma.providerAttempt.count({ where: { jobId: job.id } }), 1);
     });
-  } finally { await prisma.$disconnect(); }
+  } finally { restoreRoblox(); await prisma.$disconnect(); }
 });

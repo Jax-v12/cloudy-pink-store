@@ -3,6 +3,7 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import RobloxInstructions from '@/components/RobloxInstructions';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
@@ -161,6 +162,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
           {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
           {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
+          {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
           {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
           {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
           {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}

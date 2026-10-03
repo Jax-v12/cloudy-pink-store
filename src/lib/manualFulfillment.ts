@@ -62,7 +62,7 @@ export async function revealSecret(orderId: number, sessionId: string) {
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { job: true, secret: true } });
     if (!order || order.status !== 'PAID' || order.refundStatus !== 'NONE' || order.fulfillmentStatus !== 'PROCESSING' ||
         order.job?.ownerSessionId !== sessionId || !order.secret || order.secret.expiresAt <= new Date()) throw new CommerceError('SECRET_UNAVAILABLE', 403);
-    const value = JSON.parse(decryptData(order.secret.ciphertext)) as { password: string; backupCodes: string[] };
+    const value = JSON.parse(decryptData(order.secret.ciphertext)) as { password: string; backupCodes: string[]; note?: string | null };
     await tx.adminAudit.create({ data: { orderId, sessionId, action: 'reveal-secret' } });
     return value;
   });

@@ -141,6 +141,7 @@ model ProductVariant {
   units Int
   active Boolean @default(false)
   method RobloxMethod?
+  // Derived on save via robloxGamepassPrice(units); never entered manually.
   gamepassPrice Int?
   providerSku String?
   requiresZone Boolean @default(false)
@@ -160,8 +161,15 @@ model RobloxOrderDetail {
   order Order @relation(fields: [orderId], references: [id])
   method RobloxMethod
   username String
+  // Public identity resolved from users.roblox.com at checkout (null if the lookup was unavailable).
+  robloxUserId String? @db.VarChar(32)
+  displayName String? @db.VarChar(64)
   gamepassUrl String? @db.Text
+  gamepassId String? @db.VarChar(32)
+  // New checkout snapshot: ceil(units / 0.7). Legacy order prices remain unchanged.
   gamepassPrice Int?
+  // Set when owner, Item for Sale and price were confirmed against Roblox at checkout.
+  gamepassVerifiedAt DateTime?
 }
 model OrderSecret {
   orderId Int @id

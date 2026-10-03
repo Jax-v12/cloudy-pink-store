@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
+import {
+  ROBLOX_BACKUP_CODE_PATTERN, ROBLOX_MAX_BACKUP_CODES, ROBLOX_MAX_GAMEPASS_UNITS, ROBLOX_MAX_LOGIN_NOTE,
+  ROBLOX_USERNAME_PATTERN, robloxGamepassPrice,
+} from './roblox';
 
 export class CommerceError extends Error {
   constructor(public code: string, public status = 409) { super(code); }
@@ -41,7 +45,7 @@ export function requestDigest(value: unknown) {
 
 export function parseDetails(type: ProductType, variant: ProductVariant | null, details: Record<string, unknown>) {
   const allowed = type === 'GAME' ? ['userId', 'zoneId'] : type === 'ROBLOX'
-    ? variant?.method === 'LOGIN' ? ['username', 'password', 'backupCodes']
+    ? variant?.method === 'LOGIN' ? ['username', 'password', 'backupCodes', 'note']
       : variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : ['username'] : [];
   if (Object.keys(details).some(k => !allowed.includes(k))) throw new InputError();
   if (type === 'APPS') return {};
@@ -55,8 +59,9 @@ export function parseDetails(type: ProductType, variant: ProductVariant | null, 
   }
   if (!variant.method) throw new InputError();
   const username = textField(details.username, 20)!;
-  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) throw new InputError();
+  if (!ROBLOX_USERNAME_PATTERN.test(username)) throw new InputError();
   let gamepassUrl: string | null = null;
+  let gamepassPrice: number | null = null;
   if (variant.method === 'GAMEPASS') {
     const raw = textField(details.gamepassUrl, 500)!;
     let url: URL;
@@ -64,14 +69,20 @@ export function parseDetails(type: ProductType, variant: ProductVariant | null, 
     if (url.protocol !== 'https:' || !['www.roblox.com', 'roblox.com'].includes(url.hostname) || url.port ||
         url.username || url.password || !/^\/game-pass\/\d+(?:\/[^/?#]*)?\/?$/.test(url.pathname) || url.search || url.hash) throw new InputError();
     gamepassUrl = url.toString();
-    if (!variant.gamepassPrice) throw new CommerceError('PRODUCT_UNAVAILABLE');
+    // The price is never trusted from the client or typed by admins: Roblox keeps 30%,
+    // so the buyer must list the pass at ceil(units / 0.7) to net exactly `units`.
+    if (!Number.isInteger(variant.units) || variant.units < 1 || variant.units > ROBLOX_MAX_GAMEPASS_UNITS) throw new CommerceError('PRODUCT_UNAVAILABLE');
+    gamepassPrice = robloxGamepassPrice(variant.units);
   }
-  let secret: { password: string; backupCodes: string[] } | undefined;
+  let secret: { password: string; backupCodes: string[]; note: string | null } | undefined;
   if (variant.method === 'LOGIN') {
-    const { password, backupCodes } = details;
-    if (typeof password !== 'string' || !password || password.length > 1024 || !Array.isArray(backupCodes) || backupCodes.length !== 5 ||
-        backupCodes.some(c => typeof c !== 'string' || !/^[A-Za-z0-9-]{4,64}$/.test(c)) || new Set(backupCodes).size !== 5) throw new InputError();
-    secret = { password, backupCodes: backupCodes as string[] };
+    const { password } = details;
+    const backupCodes = details.backupCodes ?? [];
+    if (typeof password !== 'string' || !password || password.length > 1024 || !Array.isArray(backupCodes) ||
+        backupCodes.length > ROBLOX_MAX_BACKUP_CODES || backupCodes.some(c => typeof c !== 'string' || !ROBLOX_BACKUP_CODE_PATTERN.test(c)) ||
+        new Set(backupCodes).size !== backupCodes.length) throw new InputError();
+    const note = textField(details.note, ROBLOX_MAX_LOGIN_NOTE, true);
+    secret = { password, backupCodes: backupCodes as string[], note };
   }
-  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice: variant.gamepassPrice }, secret };
+  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice }, secret };
 }

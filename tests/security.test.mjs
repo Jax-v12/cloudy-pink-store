@@ -21,10 +21,10 @@ test('strict category fields and Gamepass URL validation', () => {
   assert.throws(() => checkoutInput({ productId: 1, customerEmail: 'a@b.c', totalAmount: 1 }));
   assert.throws(() => parseDetails('APPS', null, { password: 'secret' }));
   for (const gamepassUrl of ['https://roblox.com.evil.test/game-pass/1','http://roblox.com/game-pass/1','https://roblox.com@evil.test/game-pass/1','https://roblox.com/game-pass/1?redirect=evil','https://127.0.0.1/game-pass/1']) {
-    assert.throws(() => parseDetails('ROBLOX', { method: 'GAMEPASS', gamepassPrice: 150 }, { username: 'customer', gamepassUrl }));
+    assert.throws(() => parseDetails('ROBLOX', { method: 'GAMEPASS', units: 100, gamepassPrice: 150 }, { username: 'customer', gamepassUrl }));
   }
-  const details = parseDetails('ROBLOX', { method: 'GAMEPASS', gamepassPrice: 150 }, { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' });
-  assert.equal(details.roblox.gamepassPrice, 150);
+  const details = parseDetails('ROBLOX', { method: 'GAMEPASS', units: 100, gamepassPrice: 150 }, { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' });
+  assert.equal(details.roblox.gamepassPrice, 143);
   assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { username: 'customer', password: 'x', backupCodes: ['1111','1111','1111','1111','1111'] }));
   assert.throws(() => parseDetails('GAME', { requiresZone: true, providerSku: 'x' }, { userId: '123' }));
 });

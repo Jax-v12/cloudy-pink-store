@@ -1,2 +1,6 @@
 import TopupCatalog from '@/components/TopupCatalog';
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) { const { slug } = await params; return <TopupCatalog key={slug} type="ROBLOX" slug={slug} />; }
+import { isRobloxMethod } from '@/lib/roblox';
+export default async function Page({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ method?: string | string[] }> }) {
+  const [{ slug }, { method }] = await Promise.all([params, searchParams]);
+  return <TopupCatalog key={slug} type="ROBLOX" slug={slug} initialMethod={isRobloxMethod(method) ? method : 'GAMEPASS'} />;
+}
