@@ -17,7 +17,7 @@ function ServiceArt({ method }: { method: RobloxMethodKey }) {
 export default function RobloxServiceCards({ products }: { products: Product[] }) {
   const { t, language } = useLanguage(); const f = t.robloxFlow;
   const [selection, setSelection] = useState<Partial<Record<RobloxMethodKey, number>>>({});
-  const features = { GAMEPASS: [f.noPassword, f.taxIncluded, f.pending], LOGIN: [f.encrypted, f.restricted, f.verification], GIFT_USERNAME: [f.gift, f.eligibility, f.accepted] };
+  const features = { GAMEPASS: [f.noPassword, f.taxIncluded, f.pending], LOGIN: [t.robloxOps.noCredentials, f.verification, f.manual], GIFT_USERNAME: [f.gift, f.eligibility, f.accepted] };
   const tag = { GAMEPASS: f.passTag, LOGIN: f.loginTag, GIFT_USERNAME: f.giftTag };
   return <div className="grid gap-5 md:grid-cols-3">{(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
     const eligible = products.filter(p => p.variants.some(v => v.method === method));

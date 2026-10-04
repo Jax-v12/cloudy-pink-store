@@ -42,12 +42,8 @@ export default function RobloxFields({ method, units, identityOnly = false, init
     </>}
     {!identityOnly && method === 'GIFT_USERNAME' && <p className="rounded-xl bg-sky-50 border border-sky-100 p-4 text-sm text-sky-950">{r.giftNotice}</p>}
     {!identityOnly && method === 'LOGIN' && <>
-      <p className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-950">{r.loginNotice}</p>
-      <label className="block font-medium">{c.password}<input className={field} name="password" type="password" autoComplete="off" maxLength={1024} required /></label>
-      <label className="block font-medium">{r.backupCodes}<textarea className={field} name="backupCodes" autoComplete="off" autoCapitalize="none" spellCheck={false} rows={3} maxLength={650} /></label>
-      <p className="text-sm text-neutral-600">{r.backupHint}</p>
-      <label className="block font-medium">{r.note}<textarea className={field} name="note" autoComplete="off" spellCheck={false} rows={2} maxLength={300} /></label>
-      <p className="text-sm text-neutral-600">{r.loginTiming}</p>
+      <p className="rounded-xl bg-sky-50 border border-sky-200 p-4 text-sm text-sky-950">{t.robloxOps.loginNotice}</p>
+      <p className="text-sm text-neutral-600">{t.robloxOps.loginNext}</p>
     </>}
   </div>;
 }

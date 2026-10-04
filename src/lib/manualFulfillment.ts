@@ -1,10 +1,9 @@
 import { prisma } from './prisma';
 import { CommerceError } from './commerce';
-import { decryptData } from './crypto';
 
 export async function manualAction(orderId: number, sessionId: string, action: string, evidence?: string) {
   return prisma.$transaction(async tx => {
-    // Serialize admin actions, secret access and retention cleanup on the same order row.
+    // Serialize admin actions and legacy retention cleanup on the same order row.
     await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${orderId} FOR UPDATE`;
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { job: true, robloxDetail: true } });
     if (!order) throw new CommerceError('ORDER_NOT_FOUND', 404);
@@ -43,9 +42,9 @@ export async function manualAction(orderId: number, sessionId: string, action: s
     } else {
       if (order.job.ownerSessionId !== sessionId) throw new CommerceError('JOB_NOT_OWNED', 403);
       const target = { waiting: 'WAITING_CUSTOMER', resume: 'PROCESSING', review: 'REQUIRES_REVIEW', complete: 'COMPLETED' }[action] as 'WAITING_CUSTOMER' | 'PROCESSING' | 'REQUIRES_REVIEW' | 'COMPLETED' | undefined;
-      if (!target || (action === 'complete' && !evidence)) throw new CommerceError('INVALID_TRANSITION');
+      const from: Record<string, string[]> = { waiting: ['PROCESSING'], resume: ['WAITING_CUSTOMER', 'REQUIRES_REVIEW'], review: ['PROCESSING', 'WAITING_CUSTOMER'], complete: ['PROCESSING', 'WAITING_CUSTOMER'] };
+      if (!target || !from[action]?.includes(order.fulfillmentStatus) || (action === 'complete' && !evidence?.trim())) throw new CommerceError('INVALID_TRANSITION');
       if (action === 'complete' && order.fulfillmentStatus !== 'PROCESSING' && order.fulfillmentStatus !== 'WAITING_CUSTOMER') throw new CommerceError('INVALID_TRANSITION');
-      if (action === 'resume' && order.robloxDetail?.method === 'LOGIN' && !await tx.orderSecret.findUnique({ where: { orderId } })) throw new CommerceError('SECRET_UNAVAILABLE');
       await tx.order.update({ where: { id: orderId }, data: { fulfillmentStatus: target } });
       if (action === 'complete') {
         await tx.fulfillmentJob.update({ where: { orderId }, data: { completedAt: new Date(), evidence } });
@@ -53,17 +52,5 @@ export async function manualAction(orderId: number, sessionId: string, action: s
       }
     }
     await audit();
-  });
-}
-
-export async function revealSecret(orderId: number, sessionId: string) {
-  return prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${orderId} FOR UPDATE`;
-    const order = await tx.order.findUnique({ where: { id: orderId }, include: { job: true, secret: true } });
-    if (!order || order.status !== 'PAID' || order.refundStatus !== 'NONE' || order.fulfillmentStatus !== 'PROCESSING' ||
-        order.job?.ownerSessionId !== sessionId || !order.secret || order.secret.expiresAt <= new Date()) throw new CommerceError('SECRET_UNAVAILABLE', 403);
-    const value = JSON.parse(decryptData(order.secret.ciphertext)) as { password: string; backupCodes: string[]; note?: string | null };
-    await tx.adminAudit.create({ data: { orderId, sessionId, action: 'reveal-secret' } });
-    return value;
   });
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ProductType, FulfillmentStatus } from '@prisma/client';
+import { ProductType, FulfillmentStatus, OrderStatus, RobloxMethod, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { adminAccess } from '@/lib/adminAccess';
 import { apiError } from '@/lib/apiError';
@@ -11,13 +11,20 @@ export async function GET(req: Request) {
     const { limit, cursor } = pagination(req);
     const query = new URL(req.url).searchParams;
     const type = query.get('type'); const status = query.get('status');
+    const method = query.get('method'); const payment = query.get('payment'); const search = (query.get('q') || '').trim();
+    if (search.length > 120) throw new InputError();
+    if (method && (!Object.values(RobloxMethod).includes(method as RobloxMethod) || (type && type !== 'ROBLOX'))) throw new InputError();
+    if (payment && !Object.values(OrderStatus).includes(payment as OrderStatus)) throw new InputError();
     if (type && !Object.values(ProductType).includes(type as ProductType)) throw new InputError();
     if (status && !Object.values(FulfillmentStatus).includes(status as FulfillmentStatus)) throw new InputError();
-    const rows = await prisma.order.findMany({ where: {
+    const filters: Prisma.OrderWhereInput = {
       ...(type ? { type: type as ProductType } : {}),
       ...(status ? { fulfillmentStatus: status as FulfillmentStatus } : {}),
-      ...(cursor ? { id: { lt: cursor } } : {}),
-    }, take: limit + 1, orderBy: { id: 'desc' }, select: {
+      ...(method ? { robloxDetail: { is: { method: method as RobloxMethod } } } : {}),
+      ...(payment ? { status: payment as OrderStatus } : {}),
+      ...(search ? { OR: [{ invoice: { contains: search } }, { customerEmail: { contains: search } }, { robloxDetail: { is: { username: { contains: search } } } }] } : {}),
+    };
+    const rows = await prisma.order.findMany({ where: { ...filters, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, select: {
       id: true, invoice: true, type: true, status: true, fulfillmentStatus: true, refundStatus: true,
       totalAmount: true, productName: true, variantName: true, units: true, createdAt: true,
       robloxDetail: true, gameDetail: true,
@@ -27,8 +34,8 @@ export async function GET(req: Request) {
     const page = pageResult(rows, limit);
     const [heartbeat, reviewCount, pendingCount] = await Promise.all([
       prisma.workerHeartbeat.findUnique({ where: { name: 'fulfillment' } }),
-      prisma.order.count({ where: { fulfillmentStatus: 'REQUIRES_REVIEW' } }),
-      prisma.order.count({ where: { fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } } }),
+      prisma.order.count({ where: { AND: [filters, { fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
+      prisma.order.count({ where: { AND: [filters, { fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }] } }),
     ]);
     return NextResponse.json({ success: true, ...page, data: page.data.map(row => ({ ...row, owned: row.job?.ownerSessionId === session.id,
       job: row.job ? { evidence: row.job.evidence, attempts: row.job.attempts } : null })),

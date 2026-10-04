@@ -12,9 +12,6 @@ export const ROBLOX_PENDING_DAYS = 5;
 export const ROBLOX_MAX_GAMEPASS_UNITS = 1_000_000;
 
 export const ROBLOX_USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
-export const ROBLOX_BACKUP_CODE_PATTERN = /^[A-Za-z0-9-]{4,64}$/;
-export const ROBLOX_MAX_BACKUP_CODES = 10;
-export const ROBLOX_MAX_LOGIN_NOTE = 300;
 
 /**
  * Gamepass price the buyer must set so they net `robux` after Roblox's 30% fee:

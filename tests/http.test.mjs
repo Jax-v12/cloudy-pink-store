@@ -17,7 +17,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
   try {
     const p = await prisma.product.create({ data: { name: 'HTTP Roblox', slug: `http-${crypto.randomUUID()}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const secret = { password: 'HTTP-private-password', backupCodes: ['code111','code222','code333','code444','code555'], note: 'HTTP confidential note' };
-    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest', ...secret } }, crypto.randomUUID());
+    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest' } }, crypto.randomUUID());
     await applyPaymentStatus(order.id, { order_id: order.invoice, status_code: '200', transaction_status: 'settlement', gross_amount: String(order.totalAmount), currency: 'IDR' });
     const request = (path, init = {}) => fetch(new URL(path, base), init);
     // The HTTP harness mocks Roblox and blocks external providers.
@@ -55,12 +55,23 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const csrf = await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: { ...headers, Origin: 'https://evil.example' }, body: JSON.stringify({ action: 'claim' }) });
     assert.equal(csrf.status, 403);
     assert.equal((await action({ action: 'claim' })).status, 200);
-    const beforeReauth = await action({ action: 'reveal' }); assert.equal(beforeReauth.status, 403); assert.equal((await beforeReauth.json()).errorCode, 'REAUTH_REQUIRED');
+    const beforeReauth = await action({ action: 'reveal' }); assert.equal(beforeReauth.status, 410); assert.equal((await beforeReauth.json()).errorCode, 'CREDENTIAL_ACCESS_REMOVED');
     const reauth = await request('/api/admin/reauth', { method: 'POST', headers, body: JSON.stringify({ password: 'isolated-http-test-password' }) }); assert.equal(reauth.status, 200);
-    const reveal = await action({ action: 'reveal' }); assert.equal(reveal.status, 200); assert.ok(reveal.headers.get('cache-control').includes('no-store')); assert.deepEqual((await reveal.json()).data, secret);
+    const reveal = await action({ action: 'reveal' }); assert.equal(reveal.status, 410); assert.ok(reveal.headers.get('cache-control').includes('no-store')); assert.equal((await reveal.json()).errorCode, 'CREDENTIAL_ACCESS_REMOVED');
     const list = await request('/api/admin/fulfillment', { headers }); const listed = await list.text(); assert.ok(!listed.includes(secret.password)); assert.ok(!listed.includes('ciphertext')); assert.ok(!listed.includes(secret.note)); assert.ok(!listed.includes(secret.backupCodes[0]));
+    for (const q of [order.invoice, 'httptest', 'http@example.test']) {
+      const response = await request('/api/admin/fulfillment?' + new URLSearchParams({ type: 'ROBLOX', method: 'LOGIN', payment: 'PAID', status: 'PROCESSING', q, limit: '1' }), { headers });
+      assert.equal(response.status, 200); const body = await response.json();
+      assert.equal(body.data[0].id, order.id); assert.equal(body.data[0].robloxDetail.method, 'LOGIN');
+      assert.equal(body.monitoring.pendingCount, 1);
+    }
+    for (const query of ['method=INVALID', 'type=APPS&method=LOGIN', 'payment=INVALID', 'q=' + 'x'.repeat(121)]) assert.equal((await request('/api/admin/fulfillment?' + query, { headers })).status, 400);
+    const mismatch = await request('/api/admin/fulfillment?method=GAMEPASS&q=' + order.invoice, { headers });
+    assert.equal((await mismatch.json()).data.length, 0);
+    const unsafeCheckout = await request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest', ...secret } }) });
+    assert.equal(unsafeCheckout.status, 400);
     assert.equal((await action({ action: 'complete', evidence: 'http-delivery-reference' })).status, 200);
-    assert.equal((await action({ action: 'reveal' })).status, 403);
+    assert.equal((await action({ action: 'reveal' })).status, 410);
     assert.equal(await prisma.orderSecret.count({ where: { orderId: order.id } }), 0);
     await request('/api/admin/auth', { method: 'DELETE', headers });
   } finally { restoreRoblox(); await prisma.$disconnect(); }

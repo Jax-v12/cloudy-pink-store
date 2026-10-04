@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { robloxGamepassPrice } from '../src/lib/roblox.ts';
-import { parseDetails } from '../src/lib/commerce.ts';
+import { parseDetails, checkoutInput } from '../src/lib/commerce.ts';
 import { verifyRobloxDetails } from '../src/lib/robloxVerification.ts';
 import { robloxAvatarUrl } from '../src/lib/robloxApi.ts';
 import { quoteGamepass } from '../src/lib/gamepassPricing.ts';
@@ -36,16 +36,15 @@ test('Gamepass calculator rounds up without floating-point overcharging', () => 
   for (const value of [0, -1, 1.5, Infinity, NaN]) assert.throws(() => robloxGamepassPrice(value));
 });
 
-test('Login accepts optional 2FA codes and keeps notes inside the secret', () => {
-  const base = { username: 'customer', password: 'secret' };
-  const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, { ...base, note: 'Private verification instructions' });
-  assert.deepEqual(parsed.secret, { password: 'secret', backupCodes: [], note: 'Private verification instructions' });
-  assert.equal('note' in parsed.roblox, false);
-  assert.equal(parseDetails('ROBLOX', { method: 'LOGIN' }, { ...base, backupCodes: ['code1','code2','code3','code4','code5'] }).secret.backupCodes.length, 5);
-  assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { ...base, backupCodes: ['same', 'same'] }));
-  assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { ...base, backupCodes: Array.from({ length: 11 }, (_, i) => `code${i}`) }));
-  assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { ...base, note: 'x'.repeat(301) }));
-  assert.throws(() => parseDetails('ROBLOX', { method: 'GIFT_USERNAME' }, base));
+test('assisted Login accepts only non-secret account information', () => {
+  const details = { username: 'customer' };
+  const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, details);
+  assert.equal(parsed.roblox.username, 'customer'); assert.equal('secret' in parsed, false);
+  for (const field of ['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie']) {
+    const unsafe = { ...details, [field]: 'not-accepted' };
+    assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, unsafe));
+    assert.throws(() => checkoutInput({ productId: 1, customerEmail: 'buyer@example.test', details: unsafe }));
+  }
 });
 
 test('checkout verification rejects wrong recipients, owner, sale status and price', async () => {

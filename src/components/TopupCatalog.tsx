@@ -42,8 +42,7 @@ export default function TopupCatalog({ type, slug, initialMethod = 'GAMEPASS' }:
     event.preventDefault(); if (!product || !variant || busy) return;
     const form = event.currentTarget; const fd = new FormData(form);
     const details: Record<string, unknown> = type === 'GAME' ? { userId: fd.get('userId'), ...(variant.requiresZone ? { zoneId: fd.get('zoneId') } : {}) }
-      : { username: fd.get('username'), ...(variant.method === 'GAMEPASS' ? { gamepassUrl: fd.get('gamepassUrl') } : {}),
-        ...(variant.method === 'LOGIN' ? { password: fd.get('password'), backupCodes: String(fd.get('backupCodes') || '').split(/\r?\n/).map(v => v.trim()).filter(Boolean), note: fd.get('note') || undefined } : {}) };
+      : { username: fd.get('username'), ...(variant.method === 'GAMEPASS' ? { gamepassUrl: fd.get('gamepassUrl') } : {}) };
     const payload = JSON.stringify({ productId: product.id, variantId: variant.id, customerEmail: fd.get('email'), details });
     if (key.current.payload !== payload) key.current = { payload, value: crypto.randomUUID() };
     setBusy(true); setError('');

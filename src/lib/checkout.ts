@@ -3,7 +3,6 @@ import { quoteGamepass } from './gamepassPricing';
 import { InputError } from './http';
 
 import { prisma } from './prisma';
-import { encryptData } from './crypto';
 import { CommerceError, checkoutEnabled, checkoutInput, parseDetails, requestDigest } from './commerce';
 import { verifyRobloxDetails, type RobloxVerification } from './robloxVerification';
 
@@ -76,8 +75,6 @@ export async function createCheckout(body: Record<string, unknown>, key: string)
           ...details.roblox, username: verified.username, robloxUserId: verified.robloxUserId, displayName: verified.displayName,
           gamepassId: verified.gamepassId, gamepassVerifiedAt: verified.gamepassVerifiedAt,
         } } } : {}),
-        // AES-256-GCM before insertion; only the assigned admin can decrypt after re-authentication.
-        ...(details.secret ? { secret: { create: { ciphertext: encryptData(JSON.stringify(details.secret)), expiresAt: new Date(Date.now() + 7 * 86_400_000) } } } : {}),
       } });
       return { order, created: true };
     });

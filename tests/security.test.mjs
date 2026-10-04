@@ -9,8 +9,8 @@ import { getGameProvider } from '../src/lib/gameProvider.ts';
 
 process.env.ENCRYPTION_KEY = 'isolated-test-encryption-key';
 process.env.MIDTRANS_SERVER_KEY = 'isolated-test-midtrans-key';
-test('authenticated encryption protects password and all five backup codes', () => {
-  const value = JSON.stringify({ password: 'secret', backupCodes: ['1111','2222','3333','4444','5555'] });
+test('authenticated encryption protects Apps credentials and rejects tampering', () => {
+  const value = JSON.stringify({ emailAccount: 'apps@example.test', passwordAccount: 'secret' });
   const encrypted = encryptData(value);
   assert.equal(decryptData(encrypted), value);
   assert.notEqual(encryptData(value), encrypted);
@@ -28,9 +28,9 @@ test('strict category fields and Gamepass URL validation', () => {
   assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { username: 'customer', password: 'x', backupCodes: ['1111','1111','1111','1111','1111'] }));
   assert.throws(() => parseDetails('GAME', { requiresZone: true, providerSku: 'x' }, { userId: '123' }));
 });
-test('canonical request digest is stable and binds credentials', () => {
+test('canonical request digest is stable and binds checkout details', () => {
   assert.equal(requestDigest({ a: 1, b: 2 }), requestDigest({ b: 2, a: 1 }));
-  assert.notEqual(requestDigest({ password: 'a' }), requestDigest({ password: 'b' }));
+  assert.notEqual(requestDigest({ username: 'customer1' }), requestDigest({ username: 'customer2' }));
 });
 test('SHA-512 signature and database amount validation are maintained', async () => {
   const body = { order_id: 'INV-test', status_code: '200', gross_amount: '1000.00' };

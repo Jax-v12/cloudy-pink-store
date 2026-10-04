@@ -10,7 +10,7 @@
 6. Untuk Username, cek langganan Roblox Plus, saldo, batas transfer, dan antrean pesanan. Centang konfirmasi kapasitas ketika mengaktifkan paket. Konfirmasi perlu diperbarui maksimal setiap 24 jam. Nonaktifkan paket jika kapasitas habis.
 7. Pelanggan dapat memesan di `/roblox`. Setelah pembayaran, buka tab **Ruang pengiriman**, klik **Ambil pesanan**, lakukan pengiriman, isi referensi, lalu **Konfirmasi pengiriman** setelah berhasil.
 
-Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan memasukkan username dan password, dengan kode backup opsional jika perlu untuk 2FA (maksimal 10 kode berbeda, satu per baris) serta catatan opsional. Admin harus mengambil pesanan dan memverifikasi ulang password admin sebelum membuka kredensial. Password, kode, dan catatan disimpan dalam satu rahasia terenkripsi serta dihapus setelah selesai atau maksimal tujuh hari.
+Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan cukup memasukkan username dan email kontak. Admin mengambil pesanan berbayar dan mengoordinasikan pemenuhan berbantu; aplikasi tidak meminta, menyimpan, atau membuka password Roblox maupun kode backup. Filter metode/status dan pencarian invoice/username/email tersedia di Ruang pengiriman. Ikuti urutan migrasi versi baru di [roblox-methods.md](roblox-methods.md).
 
 ## Games
 

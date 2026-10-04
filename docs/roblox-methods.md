@@ -8,9 +8,9 @@ Halaman `/roblox` menampilkan tiga kartu layanan. Alur Gamepass pada `/roblox/[s
 - Admin mengisi tarif dasar rupiah/Robux, batas maksimum, dan kelipatan slider. Total rupiah = ceil(harga dasar × nominal pilihan / Robux dasar), dihitung ulang server. Contoh tarif ilustrasi Rp7.000/50 Robux: pilihan 100 Robux menjadi Rp14.000. Tarif toko tetap berasal dari konfigurasi admin. Harga Gamepass dihitung oleh server dengan `ceil(units × 100 / 70)`; 100 Robux menghasilkan 143 Robux. Harga lama pada snapshot pesanan tidak diubah.
 - Gamepass meminta username dan tautan Roblox. Panduan ilustrasi menjelaskan Creator Hub, pembuatan pass, Item for Sale, harga, dan tautan publik. Estimasi pending sekitar lima hari dimulai setelah pembelian pass, bukan sejak pembayaran QRIS.
 - Username meminta username tanpa password. Pengiriman tetap manual melalui mekanisme gift/transfer yang dioperasikan admin; tidak ada bot atau Group Payout otomatis baru. Pemeriksaan kapasitas Roblox Plus tetap berlaku. Jangan menjanjikan pengiriman instan sebelum kelayakan penerima dipastikan.
-- Login meminta password; kode backup opsional untuk 2FA (maksimal 10 kode unik) dan catatan opsional (300 karakter). Ketiganya hanya masuk ciphertext `OrderSecret`. Ini menggantikan persyaratan lima kode wajib pada rencana sebelumnya.
+- Login hanya meminta username dan email kontak. Admin mengoordinasikan pemenuhan berbantu setelah pembayaran. Aplikasi tidak meminta atau menyimpan password Roblox, kode backup, OTP, maupun cookie sesi; tidak ada tombol buka kredensial.
 - Tombol cek username menampilkan identitas publik dan avatar jika tersedia. Checkout memeriksa ulang username serta pemilik/harga/status penjualan Gamepass. Hasil negatif menolak checkout. Gangguan Roblox menghasilkan metadata belum terverifikasi untuk pemeriksaan manual admin; bukan bukti akun valid.
-- Admin tetap mengambil pesanan berbayar sebelum memproses, memverifikasi ulang password sebelum membuka rahasia, dan menyertakan bukti sebelum penyelesaian. Catatan rahasia tidak dikirim dalam daftar pesanan atau invoice. Retensi maksimum tujuh hari tetap berlaku.
+- Admin mengambil pesanan berbayar secara atomik sebelum memproses dan menyertakan referensi sebelum penyelesaian. Gunakan Menunggu data pelanggan jika pelanggan perlu berpartisipasi, lalu Lanjutkan setelah siap.
 
 ## Migrasi dan aktivasi
 
@@ -26,7 +26,7 @@ Migrasi slider menambah `maxUnits` dan `unitStep`. Tarif Gamepass lama dengan no
 
 Untuk pengujian HTTP sesudah build, jalankan `node tests/start-http-server.mjs`, lalu jalankan tes dengan `TEST_BASE_URL=http://127.0.0.1:3112` dan `TEST_DATABASE_URL` yang sama. Harness mengikat localhost, menggunakan kredensial dummy, menyimulasikan API Roblox dan memblokir permintaan ke provider eksternal. Tidak melakukan transaksi pembayaran nyata.
 
-Cakupan: pembulatan pajak, pemilik Gamepass, Item for Sale, harga, username tidak ditemukan, gangguan API, pilihan kode backup, enkripsi dan penghapusan catatan, token invoice, CSRF, serta checkout/pengiriman Apps yang sudah berjalan.
+Cakupan: pembulatan pajak, pemilik Gamepass, Item for Sale, harga, username tidak ditemukan, gangguan API, penolakan input rahasia Roblox, penghapusan rahasia lama, filter antrean, transisi admin, token invoice, CSRF, serta checkout/pengiriman Apps yang sudah berjalan.
 
 ## Referensi alur
 
@@ -43,3 +43,13 @@ Migrasi berhasil diterapkan ke database aplikasi setelah backup privat di luar r
 Halaman awal kini memakai tiga kartu metode. Gamepass memakai wizard lima langkah; nominal dipilih dengan slider/input angka sebelum pelanggan membuat Gamepass dan memasukkan link. Draft tetap di memori halaman dan belum membuat order sebelum konfirmasi. Admin mengatur tarif dasar, maksimum, dan kelipatan.
 
 Migrasi slider diterapkan ke database aplikasi setelah backup privat berhasil dipulihkan dan diuji pada MySQL terisolasi. Typecheck, lint, validasi Prisma, build Next.js, dan seluruh 24 tes lulus. Tes meliputi tarif proporsional, pembulatan IDR, penolakan nominal di luar batas, snapshot pesanan dan idempotensi. Pengujian visual browser masih belum tersedia karena alat browser gagal memulai.
+
+## Pemenuhan berbantu — 4 Oktober 2026
+
+Ruang pengiriman kini menyediakan filter metode Roblox, pembayaran, dan status pemenuhan; pencarian invoice, username, atau email; pagination; serta ringkasan sesuai filter. Diagnostik worker berada di bagian sekunder. Semua teks baru tersedia dalam ID/EN/MY.
+
+Migrasi `202610040001_assisted_login` menghapus ciphertext Roblox lama dan mencatat audit. Pesanan berbayar yang memiliki rahasia lama dan masih QUEUED/PROCESSING beralih ke WAITING_CUSTOMER; status pembayaran, invoice, stok Apps, dan pekerjaan pengiriman tetap dipertahankan. Tabel lama dipertahankan untuk kompatibilitas cleanup, tetapi checkout baru tidak menulis rahasia.
+
+Saat deploy: hentikan versi aplikasi lama agar tidak menulis kredensial lagi, backup privat dan uji restore, jalankan `npx prisma migrate deploy`, kemudian jalankan versi baru. Jangan membuka kembali versi lama yang masih menerima password. Migrasi sudah diuji pada MySQL terisolasi; penerapan ke database hosting dilakukan bersamaan dengan deploy versi baru.
+
+Validasi perubahan ini: seluruh 25 tes unit/integrasi MySQL/HTTP lulus, Prisma validate, lint, typecheck, serta build produksi lulus. Migrasi baru diterapkan dan diuji pada database localhost terisolasi; belum diterapkan ke database hosting. Pengujian visual browser belum dijalankan.

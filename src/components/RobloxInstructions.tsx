@@ -6,7 +6,7 @@ export default function RobloxInstructions({ method, gamepassPrice }: { method: 
   const { t } = useLanguage(); const r = t.roblox;
   return <div className="rounded-xl bg-pink-50 p-4 text-sm space-y-2">
     <h3 className="font-bold text-pink-900">{r.nextSteps}</h3>
-    <p>{method === 'GAMEPASS' ? r.invoicePass : method === 'GIFT_USERNAME' ? r.invoiceGift : r.invoiceLogin}</p>
+    <p>{method === 'GAMEPASS' ? r.invoicePass : method === 'GIFT_USERNAME' ? r.invoiceGift : t.robloxOps.loginNext}</p>
     {method === 'GAMEPASS' && <>{gamepassPrice !== null && <p>{r.priceToSet}: <strong>{gamepassPrice} Robux</strong></p>}<p>{r.pendingNotice}</p></>}
   </div>;
 }

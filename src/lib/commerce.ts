@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
 import {
-  ROBLOX_BACKUP_CODE_PATTERN, ROBLOX_MAX_BACKUP_CODES, ROBLOX_MAX_GAMEPASS_UNITS, ROBLOX_MAX_LOGIN_NOTE,
+  ROBLOX_MAX_GAMEPASS_UNITS,
   ROBLOX_USERNAME_PATTERN, robloxGamepassPrice,
 } from './roblox';
 
@@ -25,6 +25,7 @@ export function checkoutInput(body: Record<string, unknown>) {
   if (body.quantity !== undefined && !positiveInt(body.quantity)) throw new InputError();
   const details = body.details ?? {};
   if (!details || typeof details !== 'object' || Array.isArray(details)) throw new InputError();
+  if (['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie'].some(key => key in details)) throw new InputError();
   if (Object.keys(body).some(k => !['productId', 'customerEmail', 'variantId', 'details', 'quantity'].includes(k))) throw new InputError();
   return { productId: body.productId, customerEmail: email, variantId: body.variantId as number | undefined, quantity: body.quantity as number | undefined,
     details: details as Record<string, unknown> };
@@ -40,14 +41,13 @@ function canonical(value: unknown): string {
 export function requestDigest(value: unknown) {
   const key = process.env.CHECKOUT_HASH_KEY || process.env.ENCRYPTION_KEY;
   if (!key) throw new Error('CHECKOUT_HASH_KEY_REQUIRED');
-  // Keyed hash prevents offline guessing of low-entropy credentials in request snapshots.
+  // Keyed hash prevents offline guessing of private request details in checkout snapshots.
   return crypto.createHmac('sha256', key).update(canonical(value)).digest('hex');
 }
 
 export function parseDetails(type: ProductType, variant: ProductVariant | null, details: Record<string, unknown>) {
   const allowed = type === 'GAME' ? ['userId', 'zoneId'] : type === 'ROBLOX'
-    ? variant?.method === 'LOGIN' ? ['username', 'password', 'backupCodes', 'note']
-      : variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : ['username'] : [];
+    ? variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : ['username'] : [];
   if (Object.keys(details).some(k => !allowed.includes(k))) throw new InputError();
   if (type === 'APPS') return {};
   if (!variant) throw new InputError();
@@ -75,15 +75,5 @@ export function parseDetails(type: ProductType, variant: ProductVariant | null, 
     if (!Number.isInteger(variant.units) || variant.units < 1 || variant.units > ROBLOX_MAX_GAMEPASS_UNITS) throw new CommerceError('PRODUCT_UNAVAILABLE');
     gamepassPrice = robloxGamepassPrice(variant.units);
   }
-  let secret: { password: string; backupCodes: string[]; note: string | null } | undefined;
-  if (variant.method === 'LOGIN') {
-    const { password } = details;
-    const backupCodes = details.backupCodes ?? [];
-    if (typeof password !== 'string' || !password || password.length > 1024 || !Array.isArray(backupCodes) ||
-        backupCodes.length > ROBLOX_MAX_BACKUP_CODES || backupCodes.some(c => typeof c !== 'string' || !ROBLOX_BACKUP_CODE_PATTERN.test(c)) ||
-        new Set(backupCodes).size !== backupCodes.length) throw new InputError();
-    const note = textField(details.note, ROBLOX_MAX_LOGIN_NOTE, true);
-    secret = { password, backupCodes: backupCodes as string[], note };
-  }
-  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice }, secret };
+  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice } };
 }
