@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from './StoreShell';
 import GamepassCheckout from './GamepassCheckout';
+import RobloxCheckoutWizard from './RobloxCheckoutWizard';
 import RobloxServiceCards from './RobloxServiceCards';
 import RobloxMethodSelector from './RobloxMethodSelector';
 import RobloxFields from './RobloxFields';
@@ -83,7 +84,8 @@ export default function TopupCatalog({ type, slug, initialMethod = 'GAMEPASS' }:
       })}</div>}
       {!slug && cursor && <button onClick={more} disabled={loading} className="my-6 p-3 rounded-xl bg-white border border-pink-200">{t.loadMore}</button>}
       {product && type === 'ROBLOX' && method === 'GAMEPASS' && <GamepassCheckout key={product.id} productId={product.id} variants={available} enabled={product.checkoutEnabled} onBusyChange={setBusy} />}
-      {product && (type !== 'ROBLOX' || method !== 'GAMEPASS') && <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+      {product && type === 'ROBLOX' && method === 'GIFT_USERNAME' && <RobloxCheckoutWizard key={product.id + '-username'} method="GIFT_USERNAME" productId={product.id} variants={available} enabled={product.checkoutEnabled} onBusyChange={setBusy} />}
+      {product && (type !== 'ROBLOX' || method === 'LOGIN') && <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
         <fieldset disabled={busy} className="min-w-0 bg-white rounded-3xl border border-pink-200 p-5 sm:p-7 space-y-6">
           <h2 className="font-bold text-lg">{type === 'ROBLOX' ? r.choosePackage : c.package}</h2>
           {available.length === 0 && <p role="status">{r.noPackages}</p>}

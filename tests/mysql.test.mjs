@@ -43,6 +43,34 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       await assert.rejects(createCheckout({ ...body, quantity: 105 }, replayKey), /IDEMPOTENCY_CONFLICT/);
       await assert.rejects(createCheckout(body, key()), /INVALID_INPUT/);
     });
+    await t.test('Username dynamic pricing, recipient validation and manual fulfillment remain distinct', async () => {
+      const rate = await prisma.productVariant.create({ data: { productId: roblox.id, name: 'Username rate', method: 'GIFT_USERNAME', units: 20, price: 3501, maxUnits: 200, unitStep: 2, active: true, capacityCheckedAt: new Date() } });
+      const body = { productId: roblox.id, variantId: rate.id, quantity: 22, customerEmail: 'username@example.test', details: { username: 'customer' } };
+      for (const quantity of [19, 21, 202, 22.5]) await assert.rejects(createCheckout({ ...body, quantity }, key()), /INVALID_INPUT/);
+      for (const field of ['password', 'otp', 'backupCodes', 'sessionCookie', 'gamepassUrl']) await assert.rejects(createCheckout({ ...body, details: { ...body.details, [field]: 'forbidden' } }, key()), /INVALID_INPUT/);
+      await assert.rejects(createCheckout({ ...body, totalAmount: 1 }, key()), /INVALID_INPUT/);
+      const count = await prisma.order.count({ where: { variantName: rate.name } });
+      await assert.rejects(createCheckout({ ...body, details: { username: 'unknown_user' } }, key()), /ROBLOX_USER_NOT_FOUND/);
+      assert.equal(await prisma.order.count({ where: { variantName: rate.name } }), count);
+      const unavailable = (await createCheckout({ ...body, details: { username: 'unavailable_user' } }, key())).order;
+      assert.equal((await prisma.robloxOrderDetail.findUnique({ where: { orderId: unavailable.id } })).robloxUserId, null);
+      const replayKey = key(); const results = await Promise.all([createCheckout(body, replayKey), createCheckout(body, replayKey)]);
+      const order = results[0].order; assert.equal(results[1].order.id, order.id);
+      assert.equal(order.units, 22); assert.equal(order.totalAmount, 3852); assert.equal(order.fulfillmentStatus, 'NOT_READY');
+      const detail = await prisma.robloxOrderDetail.findUnique({ where: { orderId: order.id } });
+      assert.equal(detail.method, 'GIFT_USERNAME'); assert.equal(detail.gamepassUrl, null); assert.equal(detail.gamepassPrice, null);
+      assert.equal(await prisma.orderSecret.count({ where: { orderId: order.id } }), 0);
+      await applyPaymentStatus(order.id, paid(order)); await applyPaymentStatus(order.id, paid(order));
+      assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).fulfillmentStatus, 'QUEUED');
+      assert.equal(await prisma.fulfillmentJob.count({ where: { orderId: order.id } }), 1);
+      await manualAction(order.id, 'username-admin', 'claim'); await manualAction(order.id, 'username-admin', 'waiting');
+      await assert.rejects(manualAction(order.id, 'username-admin', 'complete'), /INVALID_TRANSITION/);
+      await manualAction(order.id, 'username-admin', 'complete', 'accepted-transfer-reference');
+      await prisma.productVariant.update({ where: { id: rate.id }, data: { price: 9000, maxUnits: 20, capacityCheckedAt: new Date(0) } });
+      assert.equal((await createCheckout(body, replayKey)).order.totalAmount, 3852);
+      await assert.rejects(createCheckout({ ...body, quantity: 24 }, replayKey), /IDEMPOTENCY_CONFLICT/);
+      await assert.rejects(createCheckout({ ...body, quantity: 20 }, key()), /CAPACITY_REVIEW_REQUIRED/);
+    });
     await t.test('last stock can be reserved by only one checkout', async () => {
       const results = await Promise.allSettled([1,2].map(() => createCheckout({ productId: apps.id, customerEmail: 'buyer@example.test' }, key())));
       assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);

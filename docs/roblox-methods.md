@@ -53,3 +53,13 @@ Migrasi `202610040001_assisted_login` menghapus ciphertext Roblox lama dan menca
 Saat deploy: hentikan versi aplikasi lama agar tidak menulis kredensial lagi, backup privat dan uji restore, jalankan `npx prisma migrate deploy`, kemudian jalankan versi baru. Jangan membuka kembali versi lama yang masih menerima password. Migrasi sudah diuji pada MySQL terisolasi; penerapan ke database hosting dilakukan bersamaan dengan deploy versi baru.
 
 Validasi perubahan ini: seluruh 25 tes unit/integrasi MySQL/HTTP lulus, Prisma validate, lint, typecheck, serta build produksi lulus. Migrasi baru diterapkan dan diuji pada database localhost terisolasi; belum diterapkan ke database hosting. Pengujian visual browser belum dijalankan.
+
+## Via Username — 4 Oktober 2026
+
+Via Username memakai empat langkah: informasi → detail akun → metode pembayaran → konfirmasi akhir. Cek Username menampilkan identitas publik/avatar jika tersedia; akun tidak ditemukan memblokir kelanjutan, sementara gangguan Roblox ditampilkan sebagai masalah verifikasi. Username, email, dan nominal tetap tersimpan selama maju/mundur pada halaman. Tidak ada order sebelum tombol konfirmasi akhir.
+
+Admin dapat memakai paket tetap atau slider Username lewat kolom yang sudah ada: units adalah nominal dasar sekaligus minimum, price adalah harga IDR untuk nominal dasar, maxUnits adalah maksimum opsional, dan unitStep adalah kelipatan. Tidak membutuhkan migrasi baru. Harga proporsional dibulatkan ke atas dan diverifikasi ulang server; tidak ada biaya gateway atau diskon baru. Username tidak memakai pajak maupun tautan Gamepass. Pemeriksaan kapasitas transfer tetap wajib sebelum aktivasi.
+
+Pesanan dibayar masuk QUEUED sebagai GIFT_USERNAME, lalu admin mengambil dan memprosesnya. Email kontak hanya muncul di Ruang pengiriman untuk admin pemilik pekerjaan berbayar. Jika penerima belum menyetujui, gunakan WAITING_CUSTOMER; COMPLETED tetap memerlukan bukti pengiriman. Tidak ada password, OTP, backup code, atau cookie yang dikumpulkan.
+
+Validasi: 26 tes unit/MySQL/HTTP lulus pada database localhost baru; lint dan build produksi lulus. Browser diuji untuk empat langkah, akun tidak ditemukan, gangguan API, slider keyboard, draft saat kembali, bahasa ID/EN/MY, dan konfirmasi ke invoice. Ukuran viewport 390 px tidak mengalami overflow horizontal. Database membuktikan nol order sebelum konfirmasi dan satu order sesudahnya. API Roblox dan gateway pada harness menggunakan simulasi/blokir koneksi eksternal, tanpa pembayaran nyata.

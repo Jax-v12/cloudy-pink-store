@@ -4,7 +4,7 @@ import { useLanguage } from '@/context/LanguageContext';
 
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
-  totalAmount: number; productName: string; variantName: string; units: number; owned: boolean;
+  totalAmount: number; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
@@ -77,6 +77,7 @@ export default function FulfillmentAdmin() {
       <h3 className="font-bold break-all">{row.invoice}</h3>
       <p>{row.productName} · {row.variantName} · {row.units}</p>
       <p>{c.payment}: {label(row.status)} · {c.fulfillment}: {label(row.fulfillmentStatus)} · {c.refund}: {label(row.refundStatus)}</p>
+      {row.contactEmail && <p className="break-all">{c.email}: {row.contactEmail}</p>}
       {row.robloxDetail && <div className="space-y-1">
         <p>{c.method}: {label(row.robloxDetail.method)} · {c.username}: {row.robloxDetail.username}</p>
         {row.robloxDetail.method === 'LOGIN' && <p className="rounded-xl bg-pink-50 p-3">{ops.loginNext}</p>}

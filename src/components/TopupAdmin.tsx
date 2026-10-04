@@ -48,13 +48,13 @@ export default function TopupAdmin() {
       <h3 className="font-bold sm:col-span-2">{selected.name} · {variant.id ? c.edit : c.newVariant}</h3>
       <label>{c.name}<input name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
       <label>{c.price}<input type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>
-      <label>{selected.type === 'ROBLOX' && variant.method === 'GAMEPASS' ? t.robloxFlow.baseUnits : c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
+      <label>{selected.type === 'ROBLOX' && ['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') ? t.robloxFlow.baseUnits : c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
       {selected.type === 'ROBLOX' ? <>
         <label>{c.method}<select name="method" value={variant.method || 'GAMEPASS'} onChange={e => setVariant(v => ({ ...v, method: e.target.value }))} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
-        {variant.method === 'GAMEPASS' && <>
-          <label>{t.robloxFlow.maximum}<input type="number" name="maxUnits" min={5} max={1000000} step={5} defaultValue={variant.maxUnits ?? ''} className={field} /></label>
-          <label>{t.robloxFlow.increment}<input type="number" name="unitStep" min={5} max={1000000} step={5} defaultValue={variant.unitStep && variant.unitStep >= 5 ? variant.unitStep : 5} className={field} /></label>
-          <p className="sm:col-span-2 text-sm text-neutral-600">{t.robloxFlow.adminHint} {t.roblox.autoPrice}</p>
+        {['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') && <>
+          <label>{t.robloxFlow.maximum}<input type="number" name="maxUnits" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.maxUnits ?? ''} className={field} /></label>
+          <label>{t.robloxFlow.increment}<input type="number" name="unitStep" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.method === 'GAMEPASS' ? Math.max(5, variant.unitStep || 5) : variant.unitStep || 1} className={field} /></label>
+          <p className="sm:col-span-2 text-sm text-neutral-600">{variant.method === 'GAMEPASS' ? <>{t.robloxFlow.adminHint} {t.roblox.autoPrice}</> : t.usernameFlow.adminHint}</p>
         </>}
         <label className="flex gap-2 items-center"><input name="capacity" type="checkbox" />{c.capacity}</label>
       </> : <>

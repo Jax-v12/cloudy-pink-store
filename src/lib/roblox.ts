@@ -9,7 +9,8 @@ export const ROBLOX_CREATOR_SHARE_PERCENT = 70;
 /** Approximate Roblox hold period; actual release is controlled by Roblox. */
 export const ROBLOX_PENDING_DAYS = 5;
 /** Highest package size accepted for Gamepass so the computed price fits an INT column. */
-export const ROBLOX_MAX_GAMEPASS_UNITS = 1_000_000;
+export const ROBLOX_MAX_QUANTITY = 1_000_000;
+export const ROBLOX_MAX_GAMEPASS_UNITS = ROBLOX_MAX_QUANTITY;
 
 export const ROBLOX_USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
 

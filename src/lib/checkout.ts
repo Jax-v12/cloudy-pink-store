@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { quoteGamepass } from './gamepassPricing';
+import { quoteRobloxQuantity } from './robloxPricing';
 import { InputError } from './http';
 
 import { prisma } from './prisma';
@@ -7,8 +7,8 @@ import { CommerceError, checkoutEnabled, checkoutInput, parseDetails, requestDig
 import { verifyRobloxDetails, type RobloxVerification } from './robloxVerification';
 
 function quoteVariant(type: string, variant: { method: string | null; units: number; price: number; maxUnits: number | null; unitStep: number } | null, quantity?: number) {
-  if (type === 'ROBLOX' && variant?.method === 'GAMEPASS') {
-    try { return quoteGamepass(variant, quantity); } catch { throw new InputError(); }
+  if (type === 'ROBLOX' && (variant?.method === 'GAMEPASS' || variant?.method === 'GIFT_USERNAME')) {
+    try { return quoteRobloxQuantity(variant, quantity); } catch { throw new InputError(); }
   }
   if (quantity !== undefined) throw new InputError();
   return { units: variant?.units ?? 1, totalAmount: variant?.price };

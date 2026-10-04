@@ -13,7 +13,7 @@ export default function RobloxFields({ method, units, identityOnly = false, init
   useEffect(() => () => controller.current?.abort(), []);
   const field = 'block w-full mt-1 border border-pink-200 rounded-xl p-3 bg-white focus:outline-pink-500';
   async function check() {
-    controller.current?.abort(); setProfile(null);
+    controller.current?.abort(); setProfile(null); input.current?.setCustomValidity('');
     if (!ROBLOX_USERNAME_PATTERN.test(username.trim())) { setState('invalid'); return; }
     const active = new AbortController(); controller.current = active; setState('busy');
     try {

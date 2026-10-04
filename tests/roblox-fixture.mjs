@@ -5,6 +5,7 @@ export function mockRoblox(blockExternal = false) {
     const url = String(input);
     if (url === 'https://users.roblox.com/v1/usernames/users') {
       const name = JSON.parse(init.body).usernames[0];
+      if (name === 'unavailable_user') throw new Error('ROBLOX_TEMPORARILY_UNAVAILABLE');
       return Response.json({ data: name === 'unknown_user' ? [] : [{ id: 42, name, displayName: 'Test recipient' }] });
     }
     if (url.startsWith('https://apis.roblox.com/game-passes/')) {

@@ -51,6 +51,25 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const catalog = await request(`/api/products?type=ROBLOX&slug=${p.slug}`);
     const publicRate = (await catalog.json()).data[0].variants.find(v => v.id === rate.id);
     assert.equal(publicRate.maxUnits, 5000); assert.equal(publicRate.unitStep, 5);
+    const giftResponse = await createRate({ name: 'Username dynamic', method: 'GIFT_USERNAME', units: 20, price: 3501, maxUnits: 200, unitStep: 2, capacityConfirmed: true });
+    assert.equal(giftResponse.status, 200); const gift = (await giftResponse.json()).data;
+    assert.equal(gift.maxUnits, 200); assert.equal(gift.unitStep, 2); assert.equal(gift.gamepassPrice, null);
+    assert.equal((await createRate({ method: 'GIFT_USERNAME', capacityConfirmed: true, unitStep: 0 })).status, 400);
+    assert.equal((await createRate({ method: 'GIFT_USERNAME', capacityConfirmed: false })).status, 400);
+    const usernamePayload = { productId: p.id, variantId: gift.id, quantity: 22, customerEmail: 'username-http@example.test', details: { username: 'customer' } };
+    const usernameKey = crypto.randomUUID();
+    const postUsername = () => request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': usernameKey }, body: JSON.stringify(usernamePayload) });
+    const createdUsername = await postUsername(); assert.equal(createdUsername.status, 202);
+    const usernameInvoice = (await createdUsername.json()).data;
+    const retriedUsername = await postUsername(); assert.equal((await retriedUsername.json()).data.invoice, usernameInvoice.invoice);
+    const usernameOrder = await prisma.order.findUnique({ where: { invoice: usernameInvoice.invoice } });
+    assert.equal(usernameOrder.totalAmount, 3852); assert.equal(usernameOrder.units, 22);
+    const usernameCustomer = await request('/api/orders/' + usernameInvoice.invoice, { headers: { 'x-order-token': usernameInvoice.accessToken } });
+    const usernameCustomerBody = await usernameCustomer.json();
+    assert.equal(usernameCustomerBody.data.robloxDetail.method, 'GIFT_USERNAME');
+    assert.equal(usernameCustomerBody.data.fulfillmentStatus, 'NOT_READY');
+    const contactBefore = await request('/api/admin/fulfillment?q=' + order.invoice, { headers });
+    assert.equal((await contactBefore.json()).data[0].contactEmail, null);
     const action = body => request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers, body: JSON.stringify(body) });
     const csrf = await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: { ...headers, Origin: 'https://evil.example' }, body: JSON.stringify({ action: 'claim' }) });
     assert.equal(csrf.status, 403);
@@ -62,7 +81,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     for (const q of [order.invoice, 'httptest', 'http@example.test']) {
       const response = await request('/api/admin/fulfillment?' + new URLSearchParams({ type: 'ROBLOX', method: 'LOGIN', payment: 'PAID', status: 'PROCESSING', q, limit: '1' }), { headers });
       assert.equal(response.status, 200); const body = await response.json();
-      assert.equal(body.data[0].id, order.id); assert.equal(body.data[0].robloxDetail.method, 'LOGIN');
+      assert.equal(body.data[0].contactEmail, 'http@example.test'); assert.equal(body.data[0].id, order.id); assert.equal(body.data[0].robloxDetail.method, 'LOGIN');
       assert.equal(body.monitoring.pendingCount, 1);
     }
     for (const query of ['method=INVALID', 'type=APPS&method=LOGIN', 'payment=INVALID', 'q=' + 'x'.repeat(121)]) assert.equal((await request('/api/admin/fulfillment?' + query, { headers })).status, 400);
