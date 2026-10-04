@@ -75,6 +75,16 @@ test('checkout verification rejects wrong recipients, owner, sale status and pri
     const unverified = await verifyRobloxDetails(details);
     assert.equal(unverified.robloxUserId, null); assert.equal(unverified.gamepassVerifiedAt, null);
     await assert.rejects(verifyRobloxDetails({ ...details, gamepassUrl: 'https://www.roblox.com/game-pass/9999999999999999999/x' }), /GAMEPASS_NOT_FOUND/);
+
+    // Test GIFT_USERNAME
+    outage = false;
+    user = { data: [{ id: 45, name: 'GiftReceiver', displayName: 'GiftReceiver' }] };
+    const giftDetails = { method: 'GIFT_USERNAME', username: 'GiftReceiver', gamepassPrice: null, gamepassUrl: null };
+    const giftResult = await verifyRobloxDetails(giftDetails);
+    assert.equal(giftResult.robloxUserId, '45');
+    assert.equal(giftResult.username, 'GiftReceiver');
+    assert.equal(giftResult.gamepassId, null);
+    assert.equal(giftResult.gamepassVerifiedAt, null); // GIFT_USERNAME does not verify a gamepass
   } finally { globalThis.fetch = original; }
 });
 
