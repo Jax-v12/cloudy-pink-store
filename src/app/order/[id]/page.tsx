@@ -4,6 +4,7 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
+import { orderNotice } from '@/lib/orderNotice';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
@@ -150,6 +151,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
+  const notice = orderNotice(order);
+
   return (
     <main
       className="min-h-screen p-4 md:p-10 font-sans relative bg-fixed bg-cover bg-center"
@@ -158,15 +161,6 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       <div className="fixed inset-0 bg-pink-950/40 backdrop-blur-[2px] pointer-events-none"></div>
 
       <div className="relative z-10 max-w-2xl mx-auto">
-        <section className="bg-white rounded-2xl p-5 mb-4 space-y-2" aria-live="polite">
-          <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
-          {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
-          {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
-          {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
-          {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
-          {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
-          {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
-        </section>
         <div className="flex justify-between items-center mb-4">
           <Link
             href="/"
@@ -210,7 +204,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-2xl border-4 border-pink-300">
+        <div className="bg-white/95 text-slate-700 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-2xl border-4 border-pink-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b-2 border-pink-100 gap-2 mb-6">
             <div>
               <h1 className="text-xl font-black text-pink-700">{t.orderTitle}</h1>
@@ -238,9 +232,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           <div className="bg-pink-50/70 p-4 rounded-2xl border border-pink-100 space-y-2 mb-6 text-xs">
-            <div className="flex justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
               <span className="text-neutral-500">{t.invoiceLabel}</span>
-              <span className="font-mono font-bold text-neutral-800">{order.invoice}</span>
+              <span className="min-w-0 break-all sm:text-right font-mono font-bold text-neutral-800">{order.invoice}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500">{t.productLabel}</span>
@@ -255,6 +249,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <span className="font-black text-pink-600">{formatRupiah(order.totalAmount)}</span>
             </div>
           </div>
+
+        <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">
+          <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
+          {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
+          {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
+          {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && order.fulfillmentStatus !== 'COMPLETED' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
+          {order.robloxDetail?.method === 'GAMEPASS' && order.status === 'PAID' && order.fulfillmentStatus === 'COMPLETED' && order.refundStatus === 'NONE' && <p className="text-sm text-slate-600">{t.roblox.pendingNotice}</p>}
+          {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
+          {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
+          {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
+        </section>
 
           {/* PENDING QRIS */}
           {order.status === 'PENDING' && order.qrisUrl && (
@@ -295,7 +300,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           )}
 
           {/* PAID: Akun Diserahkan */}
-          {order.status === 'PAID' && order.account && (
+          {order.type === 'APPS' && order.status === 'PAID' && order.account && (
             <div className="space-y-4">
               <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4">
                 <h3 className="text-sm font-bold text-emerald-800 mb-1">{t.accountReadyTitle}</h3>
@@ -340,9 +345,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </div>
           )}
 
-          {((order.status === 'PENDING' && !order.qrisUrl) || (order.status === 'PAID' && !order.account)) && (
-            <p className="text-sm text-blue-800 text-center">{t.paymentNeedsHelp}</p>
-          )}
+          {notice && <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">{notice === 'paymentPending' ? t.paymentNeedsHelp : t.invoiceStatus[notice]}</p>}
 
           {/* EXPIRED atau CANCELLED */}
           {(order.status === 'EXPIRED' || order.status === 'CANCELLED') && (

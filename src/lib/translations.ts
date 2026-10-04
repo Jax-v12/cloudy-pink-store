@@ -1,3 +1,4 @@
+import { invoiceStatusTranslations } from './invoiceStatusTranslations';
 import { usernameFlowTranslations } from './usernameFlowTranslations';
 import { robloxOpsTranslations } from './robloxOpsTranslations';
 import { robloxFlowTranslations } from './robloxFlowTranslations';
@@ -16,6 +17,7 @@ export const translations = {
     roblox: robloxTranslations.ID,
     robloxFlow: robloxFlowTranslations.ID,
     usernameFlow: usernameFlowTranslations.ID,
+    invoiceStatus: invoiceStatusTranslations.ID,
     robloxOps: robloxOpsTranslations.ID,
     loadingOrder: "Memuat detail pesanan...",
     orderAccessUnavailable: "Pesanan tidak ditemukan atau akses tidak tersedia. Buka melalui browser saat checkout. Jika akses hilang, hubungi admin untuk bantuan.",
@@ -164,6 +166,7 @@ export const translations = {
     roblox: robloxTranslations.MY,
     robloxFlow: robloxFlowTranslations.MY,
     usernameFlow: usernameFlowTranslations.MY,
+    invoiceStatus: invoiceStatusTranslations.MY,
     robloxOps: robloxOpsTranslations.MY,
     loadingOrder: "Memuatkan butiran pesanan...",
     orderAccessUnavailable: "Pesanan tidak ditemui atau akses tidak tersedia. Buka melalui pelayar semasa pembayaran. Hubungi pentadbir jika akses hilang.",
@@ -312,6 +315,7 @@ export const translations = {
     roblox: robloxTranslations.EN,
     robloxFlow: robloxFlowTranslations.EN,
     usernameFlow: usernameFlowTranslations.EN,
+    invoiceStatus: invoiceStatusTranslations.EN,
     robloxOps: robloxOpsTranslations.EN,
     loadingOrder: "Loading order details...",
     orderAccessUnavailable: "Order not found or access unavailable. Open it in the browser used at checkout. Contact support if you lost access.",
