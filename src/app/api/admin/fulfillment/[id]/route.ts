@@ -15,5 +15,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (action === 'reveal') throw new CommerceError('CREDENTIAL_ACCESS_REMOVED', 410);
     await manualAction(id, session.id, action, textField(body.evidence, 1000, true) || undefined);
     return NextResponse.json({ success: true }, { headers: privateHeaders });
-  } catch (e) { return apiError(e); }
+  } catch (e) {
+    const err = e as { code?: string };
+    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+      console.error(`[Fulfillment] Prisma Database Error: ${err.code}`);
+      return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
+    }
+    return apiError(e);
+  }
 }

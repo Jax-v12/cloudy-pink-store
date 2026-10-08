@@ -52,5 +52,5 @@ export async function manualAction(orderId: number, sessionId: string, action: s
       }
     }
     await audit();
-  });
+  }, { maxWait: 10000, timeout: 20000 });
 }
