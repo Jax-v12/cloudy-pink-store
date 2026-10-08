@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const { limit, cursor } = pagination(req);
     const rows = await prisma.order.findMany({
       take: limit + 1, ...(cursor ? { where: { id: { lt: cursor } } } : {}), orderBy: { id: 'desc' },
-      select: { id: true, invoice: true, customerEmail: true, totalAmount: true,
+      select: { id: true, invoice: true, customerEmail: true, totalAmount: true, currency: true, pricingRegion: true,
         status: true, createdAt: true, product: { select: { name: true } } },
     });
     return NextResponse.json({ success: true, ...pageResult(rows, limit) }, { headers: privateHeaders });

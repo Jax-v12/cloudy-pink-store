@@ -13,7 +13,7 @@ export default function StoreShell({ children }: { children: React.ReactNode }) 
           <Link href="/apps">{c.APPS}</Link><Link href="/games">{c.GAME}</Link><Link href="/roblox">{c.ROBLOX}</Link>
         </nav>
         <select aria-label={c.language} value={language} onChange={e => setLanguage(e.target.value as typeof language)} className="rounded-lg bg-white p-2 border border-pink-200">
-          {(['ID', 'EN', 'MY'] as const).map(l => <option key={l} value={l}>{l}</option>)}
+          {(['ID', 'EN', 'MY'] as const).map(l => <option key={l} value={l}>{c.language}: {l}</option>)}
         </select>
       </header>
       {children}

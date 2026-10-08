@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { isRegion } from './regionalPricing';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
 import {
@@ -26,8 +27,15 @@ export function checkoutInput(body: Record<string, unknown>) {
   const details = body.details ?? {};
   if (!details || typeof details !== 'object' || Array.isArray(details)) throw new InputError();
   if (['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie'].some(key => key in details)) throw new InputError();
-  if (Object.keys(body).some(k => !['productId', 'customerEmail', 'variantId', 'details', 'quantity'].includes(k))) throw new InputError();
+  if (body.pricingRegion !== undefined && !isRegion(body.pricingRegion)) throw new InputError();
+  if (body.paymentMethod !== undefined && (typeof body.paymentMethod !== 'string' || !/^[A-Z0-9_]{1,40}$/.test(body.paymentMethod))) throw new InputError();
+  if (body.quoteToken !== undefined && (typeof body.quoteToken !== 'string' || !/^[a-f0-9]{64}$/.test(body.quoteToken))) throw new InputError();
+  if (Object.keys(body).some(k => !['productId', 'customerEmail', 'variantId', 'details', 'quantity', 'pricingRegion', 'paymentMethod', 'quoteToken'].includes(k))) throw new InputError();
   return { productId: body.productId, customerEmail: email, variantId: body.variantId as number | undefined, quantity: body.quantity as number | undefined,
+    // Preserve the digest of legacy requests which omitted these fields.
+    ...(body.pricingRegion !== undefined ? { pricingRegion: body.pricingRegion as 'ID' | 'MY' | 'PH' } : {}),
+    ...(body.paymentMethod !== undefined ? { paymentMethod: body.paymentMethod as string } : {}),
+    ...(body.quoteToken !== undefined ? { quoteToken: body.quoteToken as string } : {}),
     details: details as Record<string, unknown> };
 }
 

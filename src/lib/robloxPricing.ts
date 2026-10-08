@@ -11,7 +11,7 @@ export function quoteRobloxQuantity(rate: RobloxRate, quantity = rate.units) {
       quantity < rate.units || quantity > maximum || (quantity - rate.units) % step !== 0) {
     throw new RangeError('INVALID_ROBLOX_QUANTITY');
   }
-  // Integer division rounded up, so the browser and checkout use precisely the same IDR price.
+  // Round up in the selected currency's integer settlement unit (rupiah/sen/centavo).
   const amount = (BigInt(rate.price) * BigInt(quantity) + BigInt(rate.units) - BigInt(1)) / BigInt(rate.units);
   if (amount > BigInt(2_147_483_647)) throw new RangeError('INVALID_ROBLOX_PRICE');
   return { units: quantity, totalAmount: Number(amount) };

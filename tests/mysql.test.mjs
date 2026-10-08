@@ -1,3 +1,4 @@
+import { quotedCheckout } from './checkout-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { mockRoblox } from './roblox-fixture.mjs';
 import test from 'node:test';
@@ -9,17 +10,19 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
   const parsed = new URL(url);
   assert.ok(['127.0.0.1', 'localhost'].includes(parsed.hostname) && /^\/cloudy_test_[a-z0-9_]+$/.test(parsed.pathname), 'Only an explicitly named isolated localhost test database is allowed');
   process.env.DATABASE_URL = url;
-  process.env.ENCRYPTION_KEY = 'test-key'; process.env.ROBLOX_CHECKOUT_ENABLED = 'true'; process.env.GAME_PROVIDER = 'simulator';
+  process.env.ENCRYPTION_KEY = 'test-key'; process.env.ROBLOX_CHECKOUT_ENABLED = 'true'; process.env.MIDTRANS_SERVER_KEY = 'isolated-test-midtrans-key'; process.env.GAME_PROVIDER = 'simulator';
   delete process.env.TELEGRAM_BOT_TOKEN; delete process.env.TELEGRAM_CHAT_ID;
   const restoreRoblox = mockRoblox();
   const { prisma } = await import('../src/lib/prisma.ts');
-  const { createCheckout } = await import('../src/lib/checkout.ts');
+  const { createCheckout: rawCheckout } = await import('../src/lib/checkout.ts');
+  const { checkoutPricing, checkoutQuoteToken } = await import('../src/lib/checkoutPricing.ts');
+  const createCheckout = quotedCheckout(prisma, rawCheckout, checkoutPricing, checkoutQuoteToken);
   const { applyPaymentStatus } = await import('../src/lib/payments.ts');
   const { manualAction } = await import('../src/lib/manualFulfillment.ts');
   const { runFulfillment, purgeExpiredSecrets } = await import('../src/lib/fulfillmentWorker.ts');
   const { encryptData } = await import('../src/lib/crypto.ts');
   const suffix = crypto.randomUUID();
-  const paid = order => ({ order_id: order.invoice, status_code: '200', transaction_status: 'settlement', gross_amount: String(order.totalAmount), currency: 'IDR' });
+  const paid = order => ({ provider: 'MIDTRANS', invoice: order.invoice, amount: order.totalAmount, currency: 'IDR', region: 'ID', reference: 'tx-' + order.invoice, state: 'paid', cancelled: false, qr: null });
   const key = () => crypto.randomUUID();
   const loginDetails = { username: 'customer' };
   try {
@@ -28,6 +31,84 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
     const roblox = await prisma.product.create({ data: { name: 'Roblox', slug: `roblox-${suffix}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const game = await prisma.product.create({ data: { name: 'Game', slug: `game-${suffix}`, price: 0, type: 'GAME', variants: { create: { name: 'Game 100', price: 3000, units: 100, providerSku: 'game-100', active: true } } }, include: { variants: true } });
     const rb = () => ({ productId: roblox.id, variantId: roblox.variants[0].id, customerEmail: 'buyer@example.test', details: loginDetails });
+    await t.test('new Roblox orders cannot use browser region or omit trusted location/quote', async () => {
+      const before = await prisma.order.count();
+      await assert.rejects(rawCheckout(rb(), key()), /REGION_UNVERIFIED/);
+      await assert.rejects(rawCheckout({ ...rb(), pricingRegion: 'ID' }, key(), 'MY'), /INVALID_INPUT/);
+      await assert.rejects(rawCheckout(rb(), key(), 'ID'), /PRICE_CHANGED/);
+      assert.equal(await prisma.order.count(), before);
+    });
+    await t.test('regional availability, authoritative snapshots and payment identity are enforced atomically', async () => {
+      const variantId = roblox.variants[0].id;
+      await prisma.regionalPrice.createMany({ data: [
+        { variantId, region: 'MY', amount: 1050, active: true }, { variantId, region: 'PH', amount: 3000, active: true },
+      ] });
+      const before = await prisma.order.count();
+      for (const pricingRegion of ['MY', 'PH']) await assert.rejects(createCheckout({ ...rb(), paymentMethod: 'QRIS' }, key(), pricingRegion), /PAYMENT_REGION_UNAVAILABLE/);
+      await assert.rejects(createCheckout({ ...rb(), pricingRegion: 'US' }, key()), /INVALID_INPUT/);
+      await assert.rejects(createCheckout({ ...rb(), paymentMethod: 'FAKE' }, key()), /PAYMENT_METHOD_UNAVAILABLE/);
+      assert.equal(await prisma.order.count(), before);
+      const replayKey = key(); const quote = checkoutPricing('ROBLOX', 0, roblox.variants[0], 'ID', 'QRIS');
+      const body = { ...rb(), paymentMethod: 'QRIS', quoteToken: checkoutQuoteToken(roblox.id, variantId, quote) };
+      const [first, second] = await Promise.all([createCheckout(body, replayKey), createCheckout(body, replayKey)]);
+      const order = first.order; assert.equal(order.id, second.order.id);
+      assert.equal(order.pricingRegion, 'ID'); assert.equal(order.currency, 'IDR');
+      assert.equal(order.productSubtotal, 2000); assert.equal(order.paymentFee, 0); assert.equal(order.discount, 0); assert.equal(order.totalAmount, 2000);
+      await assert.rejects(createCheckout({ ...body, pricingRegion: 'MY' }, replayKey), /IDEMPOTENCY_CONFLICT/);
+      await prisma.productVariant.update({ where: { id: variantId }, data: { price: 2500 } });
+      assert.equal((await createCheckout(body, replayKey, 'MY')).order.totalAmount, 2000);
+      assert.equal((await prisma.regionalPrice.findUnique({ where: { variantId_region: { variantId, region: 'MY' } } })).amount, 1050);
+      for (const patch of [{ currency: 'MYR' }, { amount: 1 }, { invoice: 'wrong' }, { reference: '' }, { provider: 'OTHER' }, { region: 'PH' }]) await assert.rejects(applyPaymentStatus(order.id, { ...paid(order), ...patch }), /PAYMENT_MISMATCH/);
+      await applyPaymentStatus(order.id, { ...paid(order), state: 'pending' });
+      await assert.rejects(applyPaymentStatus(order.id, { ...paid(order), reference: 'different-transaction' }), /PAYMENT_MISMATCH/);
+      await applyPaymentStatus(order.id, paid(order)); await applyPaymentStatus(order.id, paid(order));
+      assert.equal(await prisma.fulfillmentJob.count({ where: { orderId: order.id } }), 1);
+      assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).fulfillmentStatus, 'QUEUED');
+      await prisma.productVariant.update({ where: { id: variantId }, data: { price: 2000 } });
+    });
+    await t.test('stale or missing regional quote cannot create an order at a changed price', async () => {
+      const variant = roblox.variants[0];
+      const quote = checkoutPricing('ROBLOX', 0, variant, 'ID', 'QRIS');
+      const body = { ...rb(), paymentMethod: 'QRIS' };
+      const before = await prisma.order.count();
+      await assert.rejects(rawCheckout(body, key(), 'ID'), /PRICE_CHANGED/);
+      await assert.rejects(rawCheckout({ ...body, quoteToken: '0'.repeat(64) }, key(), 'ID'), /PRICE_CHANGED/);
+      const stale = checkoutQuoteToken(roblox.id, variant.id, quote);
+      await prisma.productVariant.update({ where: { id: variant.id }, data: { price: 2750 } });
+      await assert.rejects(rawCheckout({ ...body, quoteToken: stale }, key(), 'ID'), /PRICE_CHANGED/);
+      assert.equal(await prisma.order.count(), before);
+      const updatedQuote = checkoutPricing('ROBLOX', 0, { ...variant, price: 2750 }, 'ID', 'QRIS');
+      const accepted = { ...body, quoteToken: checkoutQuoteToken(roblox.id, variant.id, updatedQuote) };
+      const replayKey = key(); const result = await rawCheckout(accepted, replayKey, 'ID');
+      assert.equal(result.order.totalAmount, 2750);
+      await prisma.productVariant.update({ where: { id: variant.id }, data: { price: 2000 } });
+      const replay = await rawCheckout(accepted, replayKey, 'ID');
+      assert.equal(replay.created, false); assert.equal(replay.order.id, result.order.id); assert.equal(replay.order.totalAmount, 2750);
+    });
+    await t.test('webhook verifies SHA-512, amount, currency and reference before one fulfillment job', async () => {
+      const { POST } = await import('../src/app/api/webhook/payment/route.ts');
+      const { order } = await createCheckout(rb(), key());
+      const originalFetch = globalThis.fetch;
+      const notification = { order_id: order.invoice, status_code: '200', transaction_status: 'settlement', gross_amount: String(order.totalAmount), currency: 'IDR', transaction_id: 'tx-' + order.invoice };
+      const signed = patch => {
+        const body = { ...notification, ...patch };
+        body.signature_key = crypto.createHash('sha512').update(body.order_id + body.status_code + body.gross_amount + process.env.MIDTRANS_SERVER_KEY).digest('hex');
+        return body;
+      };
+      const send = body => POST(new Request('http://localhost/api/webhook/payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      globalThis.fetch = async () => Response.json(notification);
+      try {
+        assert.equal((await send({ ...signed({}), signature_key: '0'.repeat(128) })).status, 403);
+        assert.equal((await send(signed({ gross_amount: '1.00' }))).status, 400);
+        assert.equal((await send(signed({ currency: 'MYR' }))).status, 400);
+        assert.equal((await send(signed({ transaction_id: 'wrong-reference' }))).status, 503);
+        assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).status, 'PENDING');
+        assert.equal((await send(signed({}))).status, 200);
+        assert.equal((await send(signed({}))).status, 200);
+        assert.equal(await prisma.fulfillmentJob.count({ where: { orderId: order.id } }), 1);
+        assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).fulfillmentStatus, 'QUEUED');
+      } finally { globalThis.fetch = originalFetch; }
+    });
     await t.test('custom Gamepass quantity is priced on the server and snapshotted for retries', async () => {
       const rate = await prisma.productVariant.create({ data: { productId: roblox.id, name: 'Gamepass rate', method: 'GAMEPASS', units: 50, price: 7000, maxUnits: 5000, unitStep: 5, active: true } });
       const body = { productId: roblox.id, variantId: rate.id, quantity: 100, customerEmail: 'slider@example.test', details: { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' } };

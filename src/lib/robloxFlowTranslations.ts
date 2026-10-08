@@ -14,12 +14,12 @@ const en = {
   noteTitle: 'Before continuing', timing: 'Our team buys your Gamepass after payment and verification. Roblox then holds the Robux for around 5 days. This estimate starts from the purchase, not the payment.',
   passTitle: 'Create your Gamepass', passIntro: 'Your details are ready. Create a pass owned by this account, enable Item for Sale, set the price below, then paste the public link.',
   create: 'Open Creator Hub', price: 'Set this Gamepass price', linkHelp: 'Already have a Gamepass? Adjust its price and paste the link here.',
-  paymentTitle: 'Payment method', paymentIntro: 'Pay in Indonesian rupiah using QRIS. Your QR code appears on the invoice after you confirm the order.',
+  paymentTitle: 'Payment method', paymentIntro: 'Choose a payment method available for your selected region. Payment instructions appear on the invoice after final confirmation.',
   qris: 'QRIS', qrisDescription: 'Scan with a supported banking or e-wallet app',
   confirmTitle: 'Check your order', confirmIntro: 'Make sure the username, amount, and Gamepass link are correct before creating your invoice.',
-  confirm: 'Confirm & create QRIS', recipient: 'Recipient', feeNotice: 'Robux received and Gamepass price are different because of Roblox’s 30% fee.',
+  confirm: 'Confirm & create order', recipient: 'Recipient', feeNotice: 'Robux received and Gamepass price are different because of Roblox’s 30% fee.',
   baseUnits: 'Base / minimum Robux', maximum: 'Maximum Robux (slider)', increment: 'Slider increment',
-  adminHint: 'For Gamepass, price is the IDR rate for the base amount. Other amounts are priced proportionally and rounded up to whole rupiah. Minimum, maximum and increment must align with multiples of 5.',
+  adminHint: 'For Gamepass, each regional price is the rate for the base amount. Other amounts are priced proportionally and rounded up to the currency settlement unit. Minimum, maximum and increment must align with multiples of 5.',
   safeDraft: 'No order or payment is created until you confirm the final step.',
 };
 type Copy = typeof en;
@@ -39,12 +39,12 @@ const id: Copy = {
   noteTitle: 'Sebelum melanjutkan', timing: 'Tim membeli Gamepass setelah pembayaran dan verifikasi. Setelah dibeli, Roblox menahan Robux sekitar 5 hari. Estimasi ini dihitung sejak pembelian Gamepass, bukan sejak pembayaran.',
   passTitle: 'Buat Gamepass kamu', passIntro: 'Datamu sudah diisi. Buat pass milik akun ini, aktifkan Item for Sale, atur harga di bawah, lalu tempel tautan publiknya.',
   create: 'Buka Creator Hub', price: 'Pasang harga Gamepass ini', linkHelp: 'Sudah punya Gamepass? Sesuaikan harganya, lalu tempel tautannya di sini.',
-  paymentTitle: 'Metode pembayaran', paymentIntro: 'Bayar dalam rupiah melalui QRIS. Kode QR muncul di invoice setelah kamu mengonfirmasi pesanan.',
+  paymentTitle: 'Metode pembayaran', paymentIntro: 'Pilih metode pembayaran yang tersedia untuk region kamu. Instruksi pembayaran muncul di invoice setelah konfirmasi terakhir.',
   qris: 'QRIS', qrisDescription: 'Scan menggunakan aplikasi bank atau dompet digital yang mendukung',
   confirmTitle: 'Periksa pesananmu', confirmIntro: 'Pastikan username, nominal, dan tautan Gamepass sudah benar sebelum membuat invoice.',
-  confirm: 'Konfirmasi & buat QRIS', recipient: 'Penerima', feeNotice: 'Robux yang diterima berbeda dari harga Gamepass karena potongan Roblox sebesar 30%.',
+  confirm: 'Konfirmasi & buat pesanan', recipient: 'Penerima', feeNotice: 'Robux yang diterima berbeda dari harga Gamepass karena potongan Roblox sebesar 30%.',
   baseUnits: 'Robux dasar / minimum', maximum: 'Robux maksimum (slider)', increment: 'Kelipatan slider',
-  adminHint: 'Untuk Gamepass, harga rupiah adalah tarif untuk nominal dasar. Nominal lainnya dihitung proporsional dan dibulatkan ke atas ke rupiah penuh. Minimum, maksimum, dan kelipatan harus sesuai kelipatan 5.',
+  adminHint: 'Untuk Gamepass, harga setiap region adalah tarif untuk nominal dasar. Nominal lainnya dihitung proporsional dan dibulatkan ke atas ke satuan mata uang. Minimum, maksimum, dan kelipatan harus sesuai kelipatan 5.',
   safeDraft: 'Pesanan dan pembayaran baru dibuat setelah konfirmasi di langkah terakhir.',
 };
 const my: Copy = {
@@ -63,12 +63,12 @@ const my: Copy = {
   noteTitle: 'Sebelum meneruskan', timing: 'Pasukan membeli Gamepass selepas bayaran dan pengesahan. Selepas dibeli, Roblox menahan Robux sekitar 5 hari. Anggaran ini bermula daripada pembelian Gamepass, bukan bayaran.',
   passTitle: 'Cipta Gamepass anda', passIntro: 'Butiran telah diisi. Cipta pass milik akaun ini, aktifkan Item for Sale, tetapkan harga di bawah, kemudian tampal pautan awamnya.',
   create: 'Buka Creator Hub', price: 'Tetapkan harga Gamepass ini', linkHelp: 'Sudah ada Gamepass? Laraskan harga, kemudian tampal pautannya di sini.',
-  paymentTitle: 'Kaedah bayaran', paymentIntro: 'Bayar dalam rupiah melalui QRIS. Kod QR muncul pada invois selepas anda mengesahkan pesanan.',
+  paymentTitle: 'Kaedah bayaran', paymentIntro: 'Pilih kaedah pembayaran yang tersedia untuk negara anda. Arahan pembayaran muncul pada invois selepas pengesahan akhir.',
   qris: 'QRIS', qrisDescription: 'Imbas menggunakan aplikasi bank atau dompet digital yang menyokongnya',
   confirmTitle: 'Semak pesanan anda', confirmIntro: 'Pastikan nama pengguna, jumlah dan pautan Gamepass betul sebelum mencipta invois.',
-  confirm: 'Sahkan & cipta QRIS', recipient: 'Penerima', feeNotice: 'Robux diterima berbeza daripada harga Gamepass kerana potongan Roblox sebanyak 30%.',
+  confirm: 'Sahkan & cipta pesanan', recipient: 'Penerima', feeNotice: 'Robux diterima berbeza daripada harga Gamepass kerana potongan Roblox sebanyak 30%.',
   baseUnits: 'Robux asas / minimum', maximum: 'Robux maksimum (peluncur)', increment: 'Gandaan peluncur',
-  adminHint: 'Untuk Gamepass, harga rupiah ialah kadar untuk jumlah asas. Jumlah lain dikira mengikut nisbah dan dibundarkan ke atas kepada rupiah penuh. Minimum, maksimum dan gandaan mesti sejajar dengan gandaan 5.',
+  adminHint: 'Untuk Gamepass, harga setiap negara ialah kadar untuk jumlah asas. Jumlah lain dikira mengikut nisbah dan dibundarkan ke atas kepada unit mata wang. Minimum, maksimum dan gandaan mesti sejajar dengan gandaan 5.',
   safeDraft: 'Pesanan dan bayaran hanya dicipta selepas pengesahan pada langkah terakhir.',
 };
 export const robloxFlowTranslations = { ID: id, EN: en, MY: my };

@@ -21,19 +21,20 @@ enum StockStatus {
 }
 
 model Product {
-  id             Int            @id @default(autoincrement())
-  name           String
-  slug           String         @unique
-  price          Int
-  category       String         @default("Apps Premium")
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  stocks         AccountStock[]
-  orders         Order[]
-  type ProductType @default(APPS)
-  active Boolean @default(true)
-  coverImage String? @db.Text
-  variants ProductVariant[]
+  id         Int              @id @default(autoincrement())
+  name       String
+  slug       String           @unique
+  price      Int
+  category   String           @default("Apps Premium")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  stocks     AccountStock[]
+  orders     Order[]
+  type       ProductType      @default(APPS)
+  active     Boolean          @default(true)
+  coverImage String?          @db.Text
+  variants   ProductVariant[]
+
   @@index([type, active, id])
 }
 
@@ -51,54 +52,64 @@ model AccountStock {
   order           Order?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
   @@index([productId, status])
 }
 
 model Order {
-  id             Int          @id @default(autoincrement())
-  invoice        String       @unique
-  accessToken    String       @unique @default(uuid())
-  customerEmail  String
-  totalAmount    Int
-  status         OrderStatus  @default(PENDING)
-  paymentMethod  String       @default("QRIS")
-  qrisUrl        String?      @db.Text
-  expiresAt      DateTime
+  id            Int         @id @default(autoincrement())
+  invoice       String      @unique
+  accessToken   String      @unique @default(uuid())
+  customerEmail String
+  totalAmount   Int
+  status        OrderStatus @default(PENDING)
+  paymentMethod String      @default("QRIS")
+  qrisUrl       String?     @db.Text
+  expiresAt     DateTime
 
-  productId      Int
-  product        Product      @relation(fields: [productId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
 
-  accountStockId Int?         @unique
+  accountStockId Int?          @unique
   accountStock   AccountStock? @relation(fields: [accountStockId], references: [id])
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  type ProductType @default(APPS)
-  currency String @default("IDR")
-  productName String?
-  variantName String?
-  units Int @default(1)
-  fulfillmentStatus FulfillmentStatus @default(NOT_READY)
-  refundStatus RefundStatus @default(NONE)
-  refundReference String? @db.Text
-  checkoutKey String? @unique
-  requestHash String?
-  gameDetail GameOrderDetail?
-  robloxDetail RobloxOrderDetail?
-  secret OrderSecret?
-  job FulfillmentJob?
-  audits AdminAudit[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  type              ProductType        @default(APPS)
+  currency          String             @default("IDR")
+  pricingRegion     String             @default("ID") @db.VarChar(2)
+  // Integer settlement units: IDR rupiah; MYR sen; PHP centavo.
+  productSubtotal   Int?
+  paymentFee        Int                @default(0)
+  discount          Int                @default(0)
+  paymentProvider   String             @default("MIDTRANS") @db.VarChar(32)
+  paymentReference  String?            @unique @db.VarChar(191)
+  productName       String?
+  variantName       String?
+  units             Int                @default(1)
+  fulfillmentStatus FulfillmentStatus  @default(NOT_READY)
+  refundStatus      RefundStatus       @default(NONE)
+  refundReference   String?            @db.Text
+  checkoutKey       String?            @unique
+  requestHash       String?
+  gameDetail        GameOrderDetail?
+  robloxDetail      RobloxOrderDetail?
+  secret            OrderSecret?
+  job               FulfillmentJob?
+  audits            AdminAudit[]
+
   @@index([type, fulfillmentStatus, id])
   @@index([status, expiresAt])
   @@index([status, createdAt])
 }
 
 model AdminSession {
-  id        String   @id @default(uuid())
-  tokenHash String   @unique
+  id                String    @id @default(uuid())
+  tokenHash         String    @unique
   reauthenticatedAt DateTime?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+
   @@index([expiresAt])
 }
 
@@ -106,6 +117,7 @@ model RateLimit {
   id        String   @id
   points    Int      @default(0)
   expiresAt DateTime
+
   @@index([expiresAt])
 }
 
@@ -114,11 +126,13 @@ enum ProductType {
   GAME
   ROBLOX
 }
+
 enum RobloxMethod {
   GAMEPASS
   GIFT_USERNAME
   LOGIN
 }
+
 enum FulfillmentStatus {
   NOT_READY
   QUEUED
@@ -127,94 +141,120 @@ enum FulfillmentStatus {
   COMPLETED
   REQUIRES_REVIEW
 }
+
 enum RefundStatus {
   NONE
   REQUIRED
   COMPLETED
 }
+
 model ProductVariant {
-  id Int @id @default(autoincrement())
-  productId Int
-  product Product @relation(fields: [productId], references: [id])
-  name String
-  price Int
-  units Int
+  id                Int             @id @default(autoincrement())
+  productId         Int
+  product           Product         @relation(fields: [productId], references: [id])
+  name              String
+  price             Int
+  units             Int
   // Gamepass: units/price are the base rate, maxUnits and unitStep control the slider.
-  maxUnits Int?
-  unitStep Int @default(1)
-  active Boolean @default(false)
-  method RobloxMethod?
+  maxUnits          Int?
+  unitStep          Int             @default(1)
+  active            Boolean         @default(false)
+  method            RobloxMethod?
   // Derived on save via robloxGamepassPrice(units); never entered manually.
-  gamepassPrice Int?
-  providerSku String?
-  requiresZone Boolean @default(false)
+  gamepassPrice     Int?
+  providerSku       String?
+  requiresZone      Boolean         @default(false)
   capacityCheckedAt DateTime?
+  regionalPrices    RegionalPrice[]
+
   @@index([productId, active])
 }
+
+model RegionalPrice {
+  variantId Int
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  region    String         @db.VarChar(2)
+  // Currency is derived from region. ID uses ProductVariant.price to preserve existing edits.
+  amount    Int
+  active    Boolean        @default(false)
+
+  @@id([variantId, region])
+}
+
 model GameOrderDetail {
-  orderId Int @id
-  order Order @relation(fields: [orderId], references: [id])
-  userId String
-  zoneId String?
-  provider String
+  orderId     Int     @id
+  order       Order   @relation(fields: [orderId], references: [id])
+  userId      String
+  zoneId      String?
+  provider    String
   providerSku String
 }
+
 model RobloxOrderDetail {
-  orderId Int @id
-  order Order @relation(fields: [orderId], references: [id])
-  method RobloxMethod
-  username String
+  orderId            Int          @id
+  order              Order        @relation(fields: [orderId], references: [id])
+  method             RobloxMethod
+  username           String
   // Public identity resolved from users.roblox.com at checkout (null if the lookup was unavailable).
-  robloxUserId String? @db.VarChar(32)
-  displayName String? @db.VarChar(64)
-  gamepassUrl String? @db.Text
-  gamepassId String? @db.VarChar(32)
+  robloxUserId       String?      @db.VarChar(32)
+  displayName        String?      @db.VarChar(64)
+  gamepassUrl        String?      @db.Text
+  gamepassId         String?      @db.VarChar(32)
   // New checkout snapshot: ceil(units / 0.7). Legacy order prices remain unchanged.
-  gamepassPrice Int?
+  gamepassPrice      Int?
   // Set when owner, Item for Sale and price were confirmed against Roblox at checkout.
   gamepassVerifiedAt DateTime?
 }
+
 model OrderSecret {
-  orderId Int @id
-  order Order @relation(fields: [orderId], references: [id])
-  ciphertext String @db.Text
-  expiresAt DateTime
+  orderId    Int      @id
+  order      Order    @relation(fields: [orderId], references: [id])
+  ciphertext String   @db.Text
+  expiresAt  DateTime
+
   @@index([expiresAt])
 }
+
 model FulfillmentJob {
-  id Int @id @default(autoincrement())
-  orderId Int @unique
-  order Order @relation(fields: [orderId], references: [id])
-  reference String @unique @default(uuid())
+  id             Int               @id @default(autoincrement())
+  orderId        Int               @unique
+  order          Order             @relation(fields: [orderId], references: [id])
+  reference      String            @unique @default(uuid())
   ownerSessionId String?
-  leaseToken String?
-  leaseUntil DateTime?
-  attemptedAt DateTime?
-  nextRunAt DateTime @default(now())
-  completedAt DateTime?
-  evidence String? @db.Text
-  attempts ProviderAttempt[]
+  leaseToken     String?
+  leaseUntil     DateTime?
+  attemptedAt    DateTime?
+  nextRunAt      DateTime          @default(now())
+  completedAt    DateTime?
+  evidence       String?           @db.Text
+  attempts       ProviderAttempt[]
+
   @@index([completedAt, nextRunAt])
 }
+
 model ProviderAttempt {
-  id Int @id @default(autoincrement())
-  jobId Int
-  job FulfillmentJob @relation(fields: [jobId], references: [id])
+  id        Int            @id @default(autoincrement())
+  jobId     Int
+  job       FulfillmentJob @relation(fields: [jobId], references: [id])
   operation String
-  outcome String
-  createdAt DateTime @default(now())
+  outcome   String
+  createdAt DateTime       @default(now())
+
   @@index([jobId, id])
 }
+
 model AdminAudit {
-  id Int @id @default(autoincrement())
-  orderId Int
-  order Order @relation(fields: [orderId], references: [id])
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id])
   sessionId String
-  action String
+  action    String
   createdAt DateTime @default(now())
+
   @@index([orderId, id])
 }
+
 model WorkerHeartbeat {
-  name String @id
+  name        String   @id
   succeededAt DateTime
 }

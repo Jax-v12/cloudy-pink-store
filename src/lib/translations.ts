@@ -1,3 +1,4 @@
+import { regionalTranslations } from './regionalTranslations';
 import { invoiceStatusTranslations } from './invoiceStatusTranslations';
 import { usernameFlowTranslations } from './usernameFlowTranslations';
 import { robloxOpsTranslations } from './robloxOpsTranslations';
@@ -13,6 +14,7 @@ export const translations = {
     loginConfigError: "Password admin belum diatur pada server. Periksa ADMIN_PASSWORD lalu restart aplikasi.",
     loginSystemError: "Server atau database sedang bermasalah. Coba lagi atau periksa log server.",
     loginSessionError: "Sesi login tidak tersimpan. Gunakan HTTPS dan izinkan cookie website.",
+    regional: regionalTranslations.ID,
     commerce: commerceTranslations.ID,
     roblox: robloxTranslations.ID,
     robloxFlow: robloxFlowTranslations.ID,
@@ -162,6 +164,7 @@ export const translations = {
     loginConfigError: "Kata laluan pentadbir belum ditetapkan pada pelayan. Tetapkan ADMIN_PASSWORD dan mulakan semula aplikasi.",
     loginSystemError: "Pelayan atau database bermasalah. Cuba lagi atau semak log pelayan.",
     loginSessionError: "Sesi log masuk tidak disimpan. Gunakan HTTPS dan benarkan kuki laman.",
+    regional: regionalTranslations.MY,
     commerce: commerceTranslations.MY,
     roblox: robloxTranslations.MY,
     robloxFlow: robloxFlowTranslations.MY,
@@ -311,6 +314,7 @@ export const translations = {
     loginConfigError: "The server admin password is not configured. Set ADMIN_PASSWORD and restart the app.",
     loginSystemError: "The server or database is unavailable. Try again or check the server logs.",
     loginSessionError: "The login session was not saved. Use HTTPS and allow website cookies.",
+    regional: regionalTranslations.EN,
     commerce: commerceTranslations.EN,
     roblox: robloxTranslations.EN,
     robloxFlow: robloxFlowTranslations.EN,

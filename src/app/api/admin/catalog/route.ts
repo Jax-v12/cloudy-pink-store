@@ -6,13 +6,15 @@ import { adminAccess } from '@/lib/adminAccess';
 import { apiError } from '@/lib/apiError';
 import { InputError, readJson, textField, positiveInt, pagination, pageResult, privateHeaders } from '@/lib/http';
 import { ROBLOX_MAX_GAMEPASS_UNITS, robloxGamepassPrice } from '@/lib/roblox';
+import { isRegion, type RegionalPrice } from '@/lib/regionalPricing';
+import { paymentMethods } from '@/lib/paymentProvider';
 
 export async function GET(req: Request) {
   try {
     await adminAccess(req);
     const { limit, cursor } = pagination(req);
-    const rows = await prisma.product.findMany({ where: { type: { not: 'APPS' }, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, include: { variants: { orderBy: { id: 'asc' } } } });
-    return NextResponse.json({ success: true, ...pageResult(rows, limit) }, { headers: privateHeaders });
+    const rows = await prisma.product.findMany({ where: { type: { not: 'APPS' }, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, include: { variants: { orderBy: { id: 'asc' }, include: { regionalPrices: true } } } });
+    return NextResponse.json({ success: true, ...pageResult(rows, limit), paymentMethods: { ID: paymentMethods('ID'), MY: paymentMethods('MY'), PH: paymentMethods('PH') } }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }
 }
 
@@ -52,18 +54,42 @@ export async function POST(req: Request) {
     if (dynamicQuantity) {
       try { quoteRobloxQuantity({ units: body.units, price: body.price, maxUnits: maxUnits as number | null, unitStep: unitStep as number }, (maxUnits as number | null) ?? body.units); } catch { throw new InputError(); }
     }
+    const regionalPrices: RegionalPrice[] = [];
+    if (body.regionalPrices !== undefined) {
+      if (product.type !== 'ROBLOX' || !Array.isArray(body.regionalPrices) || body.regionalPrices.length > 3) throw new InputError();
+      for (const row of body.regionalPrices) {
+        if (!row || typeof row !== 'object' || !isRegion(row.region) || typeof row.active !== 'boolean' ||
+            !Number.isSafeInteger(row.amount) || row.amount < 0 || row.amount > 2147483647 || (row.active && row.amount < 1) ||
+            regionalPrices.some(p => p.region === row.region) || Object.keys(row).some(k => !['region', 'amount', 'active'].includes(k))) throw new InputError();
+        if (row.region === 'ID' && row.amount !== body.price) throw new InputError();
+        if (row.active) {
+          try { quoteRobloxQuantity({ units: body.units, price: row.amount, maxUnits: maxUnits as number | null, unitStep: unitStep as number }, (maxUnits as number | null) ?? body.units); } catch { throw new InputError(); }
+        }
+        regionalPrices.push({ region: row.region, amount: row.amount, active: row.active });
+      }
+    }
     const data = { maxUnits: maxUnits as number | null, unitStep: unitStep as number, productId: product.id, name: textField(body.name, 100)!, price: body.price, units: body.units,
       active: body.active, method, gamepassPrice: method === 'GAMEPASS' ? robloxGamepassPrice(body.units as number) : null,
       providerSku, requiresZone: body.requiresZone === true,
       capacityCheckedAt: method === 'GIFT_USERNAME' && body.capacityConfirmed === true ? new Date() : null };
     if (body.id !== undefined && !positiveInt(body.id)) throw new InputError();
     const result = await prisma.$transaction(async tx => {
+      // Serialize configuration changes with checkout's product lock.
+      await tx.$queryRaw`SELECT id FROM \`Product\` WHERE id = ${product.id} FOR UPDATE`;
+      let saved;
       if (body.id) {
         const existing = await tx.productVariant.findUnique({ where: { id: body.id as number } });
         if (!existing || existing.productId !== product.id) throw new InputError();
-        return tx.productVariant.update({ where: { id: existing.id }, data });
+        saved = await tx.productVariant.update({ where: { id: existing.id }, data });
+      } else {
+        saved = await tx.productVariant.create({ data });
       }
-      return tx.productVariant.create({ data });
+      for (const row of regionalPrices) await tx.regionalPrice.upsert({
+        where: { variantId_region: { variantId: saved.id, region: row.region } },
+        create: { variantId: saved.id, ...row }, update: { amount: row.amount, active: row.active },
+      });
+      await tx.regionalPrice.updateMany({ where: { variantId: saved.id, region: 'ID' }, data: { amount: saved.price } });
+      return saved;
     });
     return NextResponse.json({ success: true, data: result }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }

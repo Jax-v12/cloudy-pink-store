@@ -13,11 +13,11 @@ export async function GET(req: Request) {
     const days = Array.from({ length: 7 }, (_, index) => new Date(midnight - (6 - index) * 86_400_000));
     // Database aggregates bound memory regardless of the number of paid orders.
     const [total, totalSold, chartData] = await Promise.all([
-      prisma.order.aggregate({ where: { status: 'PAID' }, _sum: { totalAmount: true } }),
+      prisma.order.aggregate({ where: { status: 'PAID', currency: 'IDR' }, _sum: { totalAmount: true } }),
       prisma.accountStock.count({ where: { status: 'SOLD' } }),
       Promise.all(days.map(async start => {
         const sum = await prisma.order.aggregate({
-          where: { status: 'PAID', createdAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } },
+          where: { status: 'PAID', currency: 'IDR', createdAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } },
           _sum: { totalAmount: true },
         });
         return { date: start.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short' }), revenue: sum._sum.totalAmount || 0 };

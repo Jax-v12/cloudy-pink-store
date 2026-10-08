@@ -3,12 +3,16 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { fillTemplate, robloxGamepassPrice } from '@/lib/roblox';
-import { quoteRobloxQuantity, type RobloxRate } from '@/lib/robloxPricing';
+import { quoteRegionalQuantity, regionalAmount, formatMoney, REGION_CURRENCY, type RegionalRate, type Region } from '@/lib/regionalPricing';
+import type { PaymentMethod } from '@/lib/paymentProvider';
+import RegionalPaymentSummary from './RegionalPaymentSummary';
+import { useRegionalQuote } from './useRegionalQuote';
 import RobloxFields from './RobloxFields';
 import RobloxGamepassGuide from './RobloxGamepassGuide';
 
-type Rate = RobloxRate & { id: number; name: string };
-export default function RobloxCheckoutWizard({ method, productId, variants, enabled, onBusyChange }: {
+type Rate = RegionalRate & { id: number; name: string };
+export default function RobloxCheckoutWizard({ method, productId, variants, enabled, onBusyChange, region, methods, onRegionRefresh }: {
+  onRegionRefresh: () => void; region: Region; methods: PaymentMethod[];
   method: 'GAMEPASS' | 'GIFT_USERNAME'; productId: number; variants: Rate[]; enabled: boolean; onBusyChange: (busy: boolean) => void;
 }) {
   const { t, language } = useLanguage(); const f = t.robloxFlow; const r = t.roblox; const c = t.commerce;
@@ -22,16 +26,21 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const retry = useRef({ payload: '', key: '' }); const submitting = useRef(false);
   useEffect(() => { if (step > 0) heading.current?.focus(); }, [step]);
-  const money = (n: number) => new Intl.NumberFormat(language === 'ID' ? 'id-ID' : language === 'MY' ? 'ms-MY' : 'en-US', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-  let quote: ReturnType<typeof quoteRobloxQuantity> | null = null;
-  try { if (rate) quote = quoteRobloxQuantity(rate, Number(quantityText)); } catch { /* Display validation next to the editable amount. */ }
+  const money = (n: number) => formatMoney(n, REGION_CURRENCY[region], language);
+  const [methodId, setMethodId] = useState('');
+  const selectedMethod = methods.find(m => m.id === methodId) ?? methods[0];
+  const methodValue = selectedMethod?.id ?? '';
+  const server = useRegionalQuote(productId, rate?.id, region, methodValue, Number(quantityText));
+  const basePrice = rate ? regionalAmount(rate, region) : null;
+  let quote: ReturnType<typeof quoteRegionalQuantity> | null = null;
+  try { if (rate) quote = quoteRegionalQuantity(rate, region, Number(quantityText)); } catch { /* Display validation next to the editable amount. */ }
   const units = quote?.units ?? rate?.units ?? 50;
   const price = robloxGamepassPrice(units);
   const steps = viaUsername ? [u.infoStep, f.detailsStep, f.paymentStep, f.confirmStep] : [f.orderStep, f.detailsStep, f.passStep, f.paymentStep, f.confirmStep];
   const titles = viaUsername ? [u.title, f.detailsTitle, f.paymentTitle, f.confirmTitle] : [f.title, f.detailsTitle, f.passTitle, f.paymentTitle, f.confirmTitle];
   const intros = viaUsername ? [u.description, u.detailsIntro, f.paymentIntro, u.confirmIntro] : [f.description, f.detailsIntro, f.passIntro, f.paymentIntro, f.confirmIntro];
   const input = 'w-full rounded-2xl border border-pink-200 bg-white px-4 py-3.5 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100';
-  const errors: Record<string, string> = { INVALID_INPUT: t.errIncompleteData, IDEMPOTENCY_CONFLICT: c.conflict,
+  const errors: Record<string, string> = { REGION_UNVERIFIED: t.regional.locationUnavailable, REGION_CHANGED: t.regional.priceChanged, PRICE_CHANGED: t.regional.priceChanged, REGIONAL_PRICE_UNAVAILABLE: t.regional.unavailable, PAYMENT_REGION_UNAVAILABLE: t.regional.paymentUnavailable, PAYMENT_METHOD_UNAVAILABLE: t.regional.paymentUnavailable, INVALID_INPUT: t.errIncompleteData, IDEMPOTENCY_CONFLICT: c.conflict,
     PRODUCT_UNAVAILABLE: c.checkoutUnavailable, CAPACITY_REVIEW_REQUIRED: c.checkoutUnavailable, ROBLOX_USER_NOT_FOUND: r.userMissing, GAMEPASS_NOT_FOUND: r.gamepassMissing,
     GAMEPASS_OWNER_MISMATCH: r.ownerMismatch, GAMEPASS_NOT_FOR_SALE: r.notForSale, GAMEPASS_PRICE_MISMATCH: r.wrongPrice,
     RATE_LIMIT_EXCEEDED: t.rateLimited };
@@ -49,8 +58,8 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
       } catch { setError(r.gamepassMissing); return; }
     }
     if (step < finalStep) { go(step + 1); return; }
-    if (!enabled) return;
-    const payload = JSON.stringify({ productId, variantId: rate.id, quantity: quote.units, customerEmail: email.trim(), details: { username: username.trim(), ...(!viaUsername ? { gamepassUrl: link.trim() } : {}) } });
+    if (!enabled || !server.quote || !selectedMethod) return;
+    const payload = JSON.stringify({ quoteToken: server.quote.quoteToken, paymentMethod: methodValue, productId, variantId: rate.id, quantity: quote.units, customerEmail: email.trim(), details: { username: username.trim(), ...(!viaUsername ? { gamepassUrl: link.trim() } : {}) } });
     if (retry.current.payload !== payload) retry.current = { payload, key: crypto.randomUUID() };
     submitting.current = true; setBusy(true); onBusyChange(true); setError('');
     try {
@@ -58,7 +67,7 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
       const json = await response.json(); if (!response.ok || !json.success) throw new Error(json.errorCode);
       localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken);
       router.push(`/order/${encodeURIComponent(json.data.invoice)}`);
-    } catch (e) { setError(errors[e instanceof Error ? e.message : ''] || t.errSystem); }
+    } catch (e) { const code = e instanceof Error ? e.message : ''; setError(errors[code] || t.errSystem); if (['PRICE_CHANGED', 'REGION_UNVERIFIED', 'PAYMENT_REGION_UNAVAILABLE'].includes(code)) { server.retry(); onRegionRefresh(); } }
     finally { submitting.current = false; setBusy(false); onBusyChange(false); }
   }
   if (!rate) return <p className="rounded-3xl bg-white p-8 text-center">{r.noPackages}</p>;
@@ -81,9 +90,9 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
         </header>
         {error && <p role="alert" className="mb-6 rounded-xl bg-rose-50 text-rose-800 p-4">{error}</p>}
         {step === 0 && <div className="mx-auto max-w-lg space-y-5">
-          {variants.length > 1 && <label className="block text-sm font-semibold text-slate-600">{f.rate}<select value={rate.id} onChange={e => { const next = variants.find(v => v.id === Number(e.target.value))!; setRateId(next.id); amount(String(next.units)); }} className={`${input} mt-2`}>{variants.map(v => <option key={v.id} value={v.id}>{v.name} · {money(v.price)} / {v.units} Robux</option>)}</select></label>}
-          <div className="flex items-center gap-5 rounded-2xl border border-pink-200 p-5"><span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-pink-100 text-4xl text-pink-400 rotate-12">◇</span><div><strong className="block text-xl text-slate-800">{money(rate.price)} / {rate.units} Robux</strong><span className="text-sm text-slate-400">{f.baseRate}</span></div></div>
-          <div className="rounded-2xl border border-pink-200 p-5"><p className="font-bold text-slate-800">{enabled ? f.available : c.unavailable}</p><p className="text-sm text-slate-500 mt-1">{f.manual}</p></div>
+          {variants.length > 1 && <label className="block text-sm font-semibold text-slate-600">{f.rate}<select value={rate.id} onChange={e => { const next = variants.find(v => v.id === Number(e.target.value))!; setRateId(next.id); amount(String(next.units)); }} className={`${input} mt-2`}>{variants.map(v => <option key={v.id} value={v.id}>{v.name} · {regionalAmount(v, region) === null ? t.regional.unavailable : money(regionalAmount(v, region)!)} / {v.units} Robux</option>)}</select></label>}
+          <div className="flex items-center gap-5 rounded-2xl border border-pink-200 p-5"><span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-pink-100 text-4xl text-pink-400 rotate-12">◇</span><div><strong className="block text-xl text-slate-800">{basePrice === null ? t.regional.unavailable : money(basePrice)} / {rate.units} Robux</strong><span className="text-sm text-slate-400">{f.baseRate}</span></div></div>
+          <div className="rounded-2xl border border-pink-200 p-5"><p className="font-bold text-slate-800">{enabled && methods.length > 0 && basePrice !== null ? f.available : c.unavailable}</p><p className="text-sm text-slate-500 mt-1">{f.manual}</p></div>
           <p className="text-sm text-center text-slate-400">{f.safeDraft}</p>{viaUsername && <p className="rounded-xl bg-sky-50 p-4 text-sm text-sky-900">{u.privacy}</p>}
         </div>}
         {step === 1 && <div className="space-y-6">
@@ -95,7 +104,7 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
           <div><label className="sr-only" htmlFor={`${id}-range`}>{f.quantity}</label><input id={`${id}-range`} type="range" min={rate.units} max={maximum} step={increment} value={units} onChange={e => amount(e.target.value)} aria-valuetext={`${units} Robux`} aria-describedby={`${id}-hint`} disabled={maximum === rate.units} className="gamepass-range w-full" style={{ background: `linear-gradient(to right, #fb718f ${progress}%, #fce7ef ${progress}%)` }} />
             <div className="mt-2 flex justify-between text-xs text-slate-400"><span>{rate.units} Robux</span><span className="rounded-full bg-pink-100 px-4 py-1 text-sm font-bold text-pink-600">{units} Robux</span><span>{maximum} Robux</span></div>
             <p id={`${id}-hint`} className="mt-3 text-center text-xs text-slate-500">{fillTemplate(f.quantityHelp, { min: rate.units, max: maximum, step: increment })}</p>
-            {!quote && <p role="alert" className="mt-2 text-sm text-rose-700">{f.quantityError}</p>}
+            {!quote && <p role="alert" className="mt-2 text-sm text-rose-700">{basePrice === null ? t.regional.unavailable : f.quantityError}</p>}
           </div>
           <label className="block text-sm font-semibold text-slate-600">{c.email}<input type="email" autoComplete="email" maxLength={150} required value={email} onChange={e => setEmail(e.target.value)} className={`${input} mt-2`} /></label>
           <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-5"><h3 className="font-bold text-slate-700">{f.noteTitle}</h3><p className="mt-2 text-sm leading-relaxed text-slate-500">{viaUsername ? u.timing : f.timing}</p></div>
@@ -106,13 +115,18 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
           <div className="flex flex-wrap items-center justify-center gap-4"><a href="https://create.roblox.com/dashboard/creations" target="_blank" rel="noopener noreferrer" className="rounded-full bg-pink-100 px-5 py-3 font-semibold text-pink-700">{f.create} ↗</a><RobloxGamepassGuide price={price} /></div>
           <label className="block text-sm font-semibold text-slate-600">{c.gamepassUrl}<input type="url" maxLength={500} required value={link} onChange={e => setLink(e.target.value)} placeholder="https://www.roblox.com/game-pass/123456789" className={`${input} mt-2`} /></label><p className="text-xs text-slate-500">{f.linkHelp}</p>
         </div>}
-        {phase === 3 && <label className="flex items-center gap-4 rounded-2xl border-2 border-pink-400 bg-pink-50 p-6"><input type="radio" name="payment" value="QRIS" checked readOnly className="accent-pink-500 h-5 w-5" /><span><strong className="text-xl text-slate-800">{f.qris}</strong><span className="block mt-1 text-sm text-slate-500">{f.qrisDescription}</span></span></label>}
+        {phase === 3 && <div className="space-y-3">{methods.map(m => <label key={m.id} className="flex items-center gap-4 rounded-2xl border border-pink-300 bg-pink-50 p-5"><input type="radio" name="payment" value={m.id} checked={methodValue === m.id} onChange={() => setMethodId(m.id)} /><strong>{m.label}</strong></label>)}</div>}
+        {phase >= 3 && <div className="my-5 space-y-3"><RegionalPaymentSummary region={region} quote={server.quote} subtotal={quote?.totalAmount} />
+          {server.loading && <p role="status">{t.regional.quoteLoading}</p>}
+          {server.error && <p role="alert">{errors[server.error] || t.regional.quoteError} <button type="button" onClick={() => { server.retry(); onRegionRefresh(); }} className="underline">{t.regional.retry}</button></p>}
+        </div>}
+        {!methods.length && <p role="status" className="my-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.regional.paymentUnavailable}</p>}
         {(phase === 4 || (viaUsername && phase === 3)) && <div className="space-y-5 mt-5"><dl className="divide-y divide-pink-100 text-sm">{[
-          [c.method, r[method]], [f.recipient, '@' + username], [c.email, email], [r.netRobux, `${units} Robux`], ...(!viaUsername ? [[f.price, `${price} Robux`], [c.gamepassUrl, link]] : [[c.price, quote ? money(quote.totalAmount) : '—']]), [c.payment, f.qris],
-        ].map(([label, value]) => <div key={label} className="grid sm:grid-cols-[1fr_2fr] gap-1 sm:gap-4 py-3"><dt className="text-slate-500">{label}</dt><dd className="font-semibold text-slate-700 break-all sm:text-right">{value}</dd></div>)}</dl><p className="text-xs text-slate-500">{viaUsername ? u.priceNotice : f.feeNotice}</p><div className="flex justify-between gap-4 border-t border-pink-100 pt-5"><span>{r.total}</span><strong className="text-2xl text-pink-500">{quote ? money(quote.totalAmount) : '—'}</strong></div></div>}
+          [c.method, r[method]], [f.recipient, '@' + username], [c.email, email], [r.netRobux, `${units} Robux`], ...(!viaUsername ? [[f.price, `${price} Robux`], [c.gamepassUrl, link]] : []), [c.payment, selectedMethod?.label ?? '—'],
+        ].map(([label, value]) => <div key={label} className="grid sm:grid-cols-[1fr_2fr] gap-1 sm:gap-4 py-3"><dt className="text-slate-500">{label}</dt><dd className="font-semibold text-slate-700 break-all sm:text-right">{value}</dd></div>)}</dl><p className="text-xs text-slate-500">{viaUsername ? u.priceNotice : f.feeNotice}</p></div>}
         {!enabled && <p role="status" className="mt-6 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{c.unavailable}</p>}
         <div className="mt-9 flex flex-wrap justify-center gap-3">{step > 0 && <button type="button" onClick={() => go(step - 1)} className="rounded-full border border-pink-200 px-6 py-3 font-semibold text-pink-700">{f.previous}</button>}
-          <button type="submit" disabled={busy || (step > 0 && !quote) || (phase === 4 && !enabled)} className="min-w-40 rounded-full bg-gradient-to-r from-rose-400 to-pink-300 px-6 py-3 font-bold text-white shadow-sm transition hover:brightness-95 disabled:opacity-40">{busy ? t.btnProcessing : phase === 4 ? f.confirm : f.next}</button>
+          <button type="submit" disabled={busy || (step > 0 && !quote) || (phase >= 3 && (!enabled || !server.quote || !selectedMethod))} className="min-w-40 rounded-full bg-gradient-to-r from-rose-400 to-pink-300 px-6 py-3 font-bold text-white shadow-sm transition hover:brightness-95 disabled:opacity-40">{busy ? t.btnProcessing : phase === 4 ? f.confirm : f.next}</button>
         </div>
       </fieldset>
     </form>

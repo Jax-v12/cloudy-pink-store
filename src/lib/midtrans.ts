@@ -6,6 +6,7 @@ export interface GatewayStatus {
   transaction_status: string;
   gross_amount: string;
   currency: string;
+  transaction_id?: string;
   fraud_status?: string;
 }
 
@@ -41,7 +42,7 @@ export async function getGatewayStatus(invoice: string, total: number): Promise<
   if ((response.ok || response.status === 404) && data?.status_code === '404' && (!data.order_id || data.order_id === invoice)) return null;
   if (!response.ok || !data || data.order_id !== invoice || data.currency !== 'IDR' ||
       typeof data.gross_amount !== 'string' || !/^\d{1,10}(?:\.\d{1,2})?$/.test(data.gross_amount) ||
-      Number(data.gross_amount) !== total || !['200', '201', '202'].includes(data.status_code) ||
+      Number(data.gross_amount) !== total || typeof data.transaction_id !== 'string' || !data.transaction_id || data.transaction_id.length > 191 || !['200', '201', '202'].includes(data.status_code) ||
       !['pending', 'capture', 'settlement', 'deny', 'expire', 'cancel', 'refund', 'partial_refund', 'authorize'].includes(data.transaction_status)) {
     throw new Error('GATEWAY_STATUS_UNVERIFIED');
   }

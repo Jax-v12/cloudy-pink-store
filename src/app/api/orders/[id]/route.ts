@@ -32,7 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       : order.qrisUrl && isGatewayQrUrl(order.qrisUrl) ? order.qrisUrl : null;
     return NextResponse.json({ success: true, data: {
       invoice: order.invoice, totalAmount: order.totalAmount, status: order.status,
-      type: order.type, currency: order.currency, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
+      type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
       variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
       expiresAt: order.expiresAt, product: { name: order.productName || order.product.name }, account, isAuthorized: true,

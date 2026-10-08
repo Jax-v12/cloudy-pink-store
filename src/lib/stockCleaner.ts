@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getGatewayStatus } from '@/lib/midtrans';
+import { paymentAdapter } from '@/lib/paymentProvider';
 import { applyPaymentStatus } from '@/lib/payments';
 import { logFailure } from '@/lib/http';
 
@@ -7,7 +7,7 @@ export async function releaseExpiredOrders(): Promise<number> {
   const now = new Date();
   const orders = await prisma.order.findMany({
     where: { status: 'PENDING', expiresAt: { lt: now } },
-    select: { id: true, invoice: true, totalAmount: true },
+    select: { id: true, invoice: true, totalAmount: true, currency: true, pricingRegion: true, paymentProvider: true, paymentMethod: true },
     orderBy: { expiresAt: 'asc' }, take: 20,
   });
   let released = 0;
@@ -15,7 +15,7 @@ export async function releaseExpiredOrders(): Promise<number> {
   // Bounded concurrency keeps the cron request bounded without flooding the gateway.
   for (let offset = 0; offset < orders.length; offset += 5) {
     const results = await Promise.allSettled(orders.slice(offset, offset + 5).map(async order => {
-      const status = await getGatewayStatus(order.invoice, order.totalAmount);
+      const status = await paymentAdapter(order).status(order);
       return applyPaymentStatus(order.id, status, now);
     }));
     for (const result of results) {

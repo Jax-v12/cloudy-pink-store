@@ -4,6 +4,8 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
+import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
+import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice } from '@/lib/orderNotice';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -17,6 +19,7 @@ interface OrderDetail {
   robloxDetail: { method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN'; username: string; gamepassPrice: number | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   totalAmount: number;
+  currency: Currency; pricingRegion: Region; productSubtotal: number; paymentFee: number; discount: number;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   paymentMethod: string;
   qrisUrl: string | null;
@@ -81,13 +84,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
   }, [id]);
 
-  const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatRupiah = (amount: number) => formatMoney(amount, order?.currency ?? 'IDR', language);
 
   const handleCopyAccount = () => {
     if (!order?.account) return;
@@ -248,6 +245,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <span className="font-bold text-neutral-700">{t.totalPayLabel}</span>
               <span className="font-black text-pink-600">{formatRupiah(order.totalAmount)}</span>
             </div>
+            {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
 
         <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">

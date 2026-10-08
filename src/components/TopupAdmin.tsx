@@ -1,12 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
+import { REGIONS, REGION_CURRENCY, currencyScale, parseMoney, type RegionalPrice, type Region } from '@/lib/regionalPricing';
+import type { PaymentMethod } from '@/lib/paymentProvider';
 
-type Variant = { id?: number; name: string; price: number; units: number; maxUnits?: number | null; unitStep?: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean };
+type Variant = { regionalPrices?: RegionalPrice[]; id?: number; name: string; price: number; units: number; maxUnits?: number | null; unitStep?: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean };
 type Product = { id: number; name: string; slug: string; type: 'GAME' | 'ROBLOX'; active: boolean; variants: Variant[] };
-const empty: Variant = { name: '', price: 1000, units: 50, maxUnits: 5000, unitStep: 5, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
+const empty: Variant = { name: '', price: 0, units: 50, maxUnits: 5000, unitStep: 5, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
 export default function TopupAdmin() {
   const { t } = useLanguage(); const c = t.commerce;
+  const [methods, setMethods] = useState<Record<Region, PaymentMethod[]>>({ ID: [], MY: [], PH: [] });
   const [products, setProducts] = useState<Product[]>([]); const [refresh, setRefresh] = useState(0);
   const [cursor, setCursor] = useState<number | null>(null);
   const [product, setProduct] = useState<Partial<Product>>({ type: 'ROBLOX', active: false });
@@ -15,7 +18,7 @@ export default function TopupAdmin() {
   const selected = products.find(p => p.id === productId);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/admin/catalog', { signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(j => { setProducts(j.data); setCursor(j.pagination.nextCursor); })
+    fetch('/api/admin/catalog', { signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(j => { setProducts(j.data); setMethods(j.paymentMethods); setCursor(j.pagination.nextCursor); })
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [refresh]);
@@ -43,11 +46,16 @@ export default function TopupAdmin() {
     </article>)}</div>
     {cursor && <button disabled={busy} className="border p-2 rounded-lg" onClick={async () => { setBusy(true); try { const r = await fetch(`/api/admin/catalog?cursor=${cursor}`); if (!r.ok) throw new Error(); const j = await r.json(); setProducts(old => [...old, ...j.data]); setCursor(j.pagination.nextCursor); } catch { setError(true); } finally { setBusy(false); } }}>{t.loadMore}</button>}
     {selected && <form key={`${productId}-${variant.id || 0}`} className="bg-white border rounded-2xl p-5 grid sm:grid-cols-2 gap-4" onSubmit={e => {
-      e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), ...(f.has('maxUnits') ? { maxUnits: f.get('maxUnits') ? Number(f.get('maxUnits')) : null, unitStep: Number(f.get('unitStep')) } : {}), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
+      e.preventDefault(); const f = new FormData(e.currentTarget);
+      let regionalPrices: RegionalPrice[] | undefined;
+      try {
+        if (selected.type === 'ROBLOX') regionalPrices = REGIONS.map(region => ({ region, active: f.has('active-' + region), amount: parseMoney(String(f.get(region === 'ID' ? 'price' : 'price-' + region) || '0'), REGION_CURRENCY[region]) }));
+      } catch { setError(true); return; }
+      void save({ ...(regionalPrices ? { regionalPrices } : {}), kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), ...(f.has('maxUnits') ? { maxUnits: f.get('maxUnits') ? Number(f.get('maxUnits')) : null, unitStep: Number(f.get('unitStep')) } : {}), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
     }}>
       <h3 className="font-bold sm:col-span-2">{selected.name} · {variant.id ? c.edit : c.newVariant}</h3>
       <label>{c.name}<input name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
-      <label>{c.price}<input type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>
+      {selected.type !== 'ROBLOX' && <label>{c.price}<input type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>}
       <label>{selected.type === 'ROBLOX' && ['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') ? t.robloxFlow.baseUnits : c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
       {selected.type === 'ROBLOX' ? <>
         <label>{c.method}<select name="method" value={variant.method || 'GAMEPASS'} onChange={e => setVariant(v => ({ ...v, method: e.target.value }))} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
@@ -61,6 +69,18 @@ export default function TopupAdmin() {
         <label>{c.sku}<input name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>
         <label className="flex gap-2 items-center"><input name="requiresZone" type="checkbox" defaultChecked={variant.requiresZone} />{c.requiresZone}</label>
       </>}
+      {selected.type === 'ROBLOX' && <section className="sm:col-span-2 space-y-4 rounded-xl border border-pink-100 p-4">
+        <h4 className="font-bold">{t.regional.pricing}</h4><p className="text-sm text-slate-500">{t.regional.independent}</p>
+        <div className="grid gap-4 md:grid-cols-3">{REGIONS.map(region => {
+          const row = variant.regionalPrices?.find(p => p.region === region);
+          return <div key={region} className="space-y-3 rounded-xl bg-pink-50 p-3">
+            <h5 className="font-semibold">{t.regional[region]} · {REGION_CURRENCY[region]}</h5>
+            <label className="block text-sm">{t.regional.price}<input name={region === 'ID' ? 'price' : 'price-' + region} type="number" min={region === 'ID' ? 1 : 0} step={region === 'ID' ? 1 : '0.01'} max={region === 'ID' ? 2147483647 : 21474836.47} required={region === 'ID'} defaultValue={region === 'ID' ? variant.price : row ? (row.amount / currencyScale(REGION_CURRENCY[region])).toFixed(2) : ''} className={field} /></label>
+            <label className="flex items-center gap-2 text-sm"><input name={'active-' + region} type="checkbox" defaultChecked={row?.active ?? region === 'ID'} />{t.regional.enabled}</label>
+            <p className="text-xs text-slate-600">{methods[region].length ? t.regional.providerReady + ': ' + methods[region].map(m => m.label).join(', ') : t.regional.providerMissing}</p>
+          </div>;
+        })}</div>
+      </section>}
       <label className="flex gap-2 items-center"><input name="active" type="checkbox" defaultChecked={variant.active} />{c.active}</label>
       <button disabled={busy} className="bg-pink-600 text-white rounded-lg p-2">{c.save}</button>
     </form>}

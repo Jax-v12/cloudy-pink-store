@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getGatewayStatus, extractQr } from '@/lib/midtrans';
+import { paymentAdapter } from '@/lib/paymentProvider';
 import { applyPaymentStatus } from '@/lib/payments';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import { CommerceError } from '@/lib/commerce';
@@ -16,11 +16,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!order) throw new CommerceError('ORDER_NOT_FOUND', 404);
     if (order.status !== 'PENDING') return NextResponse.json({ success: true }, { headers: privateHeaders });
     if (!await consumeRateLimit('payment-refresh', order.invoice, 1, 60_000)) return NextResponse.json({ success: true }, { headers: privateHeaders });
-    const status = await getGatewayStatus(order.invoice, order.totalAmount);
+    const status = await paymentAdapter(order).status(order);
     if (status) {
-      const qr = extractQr(status as unknown as Record<string, unknown>);
-      if (qr) await prisma.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { qrisUrl: qr } });
       await applyPaymentStatus(order.id, status);
+      const qr = status.qr;
+      if (qr) await prisma.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { qrisUrl: qr } });
     }
     return NextResponse.json({ success: true }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }

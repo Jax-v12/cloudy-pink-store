@@ -1,17 +1,18 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
+import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
-  totalAmount: number; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
+  totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
   audits: { id: number; action: string; createdAt: string }[];
 };
 export default function FulfillmentAdmin() {
-  const { t } = useLanguage(); const c = t.commerce; const ops = t.robloxOps;
+  const { t, language } = useLanguage(); const c = t.commerce; const ops = t.robloxOps;
   const label = (value: string) => value === 'QUEUED' ? ops.ready : value === 'WAITING_CUSTOMER' ? ops.waiting : value === 'assisted-login-required' ? ops.assistedAudit : c[value as keyof typeof c] || value;
   const [rows, setRows] = useState<Row[]>([]); const [type, setType] = useState('ROBLOX'); const [status, setStatus] = useState('');
   const [method, setMethod] = useState(''); const [payment, setPayment] = useState('');
@@ -25,9 +26,9 @@ export default function FulfillmentAdmin() {
   useEffect(() => {
     const controller = new AbortController(); activeRequest.current = controller;
     setLoading(true); setError(''); setCursor(null); setRows([]); setMonitor(null);
-    fetch('/api/admin/fulfillment?' + filters, { signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    fetch('/api/admin/fulfillment?' + filters, { signal: controller.signal }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(r.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED'); return j; })
       .then(j => { if (!controller.signal.aborted) { setRows(j.data); setCursor(j.pagination.nextCursor); setMonitor(j.monitoring); } })
-      .catch(() => { if (!controller.signal.aborted) setError('SYSTEM_ERROR'); })
+      .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'LOAD_FAILED'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [filters, refresh]);
@@ -45,9 +46,9 @@ export default function FulfillmentAdmin() {
     setBusy(true); const current = activeRequest.current;
     try {
       const r = await fetch('/api/admin/fulfillment?' + filters + '&cursor=' + cursor);
-      if (!r.ok) throw new Error(); const j = await r.json();
+      if (!r.ok) throw new Error(r.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED'); const j = await r.json();
       if (current && !current.signal.aborted) { setRows(old => [...old, ...j.data]); setCursor(j.pagination.nextCursor); }
-    } catch { if (current && !current.signal.aborted) setError('SYSTEM_ERROR'); }
+    } catch (e) { if (current && !current.signal.aborted) setError(e instanceof Error ? e.message : 'LOAD_FAILED'); }
     finally { setBusy(false); }
   }
   return <section className="space-y-5">
@@ -70,12 +71,13 @@ export default function FulfillmentAdmin() {
       <button className="bg-pink-600 text-white p-2 rounded-lg">{ops.searchButton}</button>
       {query && <button type="button" onClick={() => { setSearch(''); setQuery(''); }} className="p-2 border rounded-lg">{ops.clear}</button>}
     </form>
-    {error && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{c.actionError}</p>}
+    {error && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{error === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : error === 'LOAD_FAILED' ? t.regional.adminLoadError : c.actionError}</p>}
     {loading && <p role="status">{ops.loading}</p>}
     {!loading && !error && rows.length === 0 && <p>{ops.empty}</p>}
     {rows.map(row => <article key={row.id} className="border border-pink-200 rounded-2xl p-5 space-y-3 bg-white">
       <h3 className="font-bold break-all">{row.invoice}</h3>
       <p>{row.productName} · {row.variantName} · {row.units}</p>
+      <p>{t.regional.region}: {t.regional[row.pricingRegion]} · {formatMoney(row.totalAmount, row.currency, language)}</p>
       <p>{c.payment}: {label(row.status)} · {c.fulfillment}: {label(row.fulfillmentStatus)} · {c.refund}: {label(row.refundStatus)}</p>
       {row.contactEmail && <p className="break-all">{c.email}: {row.contactEmail}</p>}
       {row.robloxDetail && <div className="space-y-1">

@@ -1,4 +1,5 @@
 'use client';
+import { formatMoney, type Currency } from '@/lib/regionalPricing';
 
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback } from 'react';
@@ -40,6 +41,7 @@ interface OrderItem {
   invoice: string;
   customerEmail: string;
   totalAmount: number;
+  currency: Currency;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   createdAt: string;
   product: {
@@ -101,6 +103,7 @@ export default function AdminPage() {
   // Orders state
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
 
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [stockCursor, setStockCursor] = useState<number | null>(null);
@@ -146,15 +149,14 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/admin/orders' + (cursor ? '?cursor=' + cursor : ''));
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
+      if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
       if (Array.isArray(json.data)) {
         setOrders(previous => cursor ? [...previous, ...json.data] : json.data);
         setOrderCursor(json.pagination.nextCursor);
-        setPageError(false);
+        setOrdersError('');
       }
     } catch (err: unknown) {
-      console.error('Gagal memuat data order:', err);
-      setPageError(true);
+      setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
     } finally {
       setOrdersLoading(false);
     }
@@ -1114,7 +1116,7 @@ export default function AdminPage() {
                             {order.product?.name || '-'}
                           </td>
                           <td className="py-3 px-3 font-black text-pink-600">
-                            {formatRupiah(order.totalAmount)}
+                            {formatMoney(order.totalAmount, order.currency, language)}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span
@@ -1139,6 +1141,7 @@ export default function AdminPage() {
           )}
         </div>
 
+        {ordersError && <p role="alert" className="text-rose-700 bg-white p-3">{ordersError === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : t.regional.adminLoadError}</p>}
         {pageError && <p role="alert" className="text-rose-700 bg-white p-3">{t.errSystem}</p>}
         {/* Card Tabel Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">

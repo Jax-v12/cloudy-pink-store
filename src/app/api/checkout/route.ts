@@ -5,7 +5,8 @@ import { CommerceError } from '@/lib/commerce';
 import { prisma } from '@/lib/prisma';
 import { InputError, readJson, positiveInt, privateHeaders, logFailure } from '@/lib/http';
 import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
-import { gatewayBase, gatewayHeaders, extractQr } from '@/lib/midtrans';
+import { paymentAdapter } from '@/lib/paymentProvider';
+import { resolveRequestRegion } from '@/lib/requestRegion';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,30 +17,24 @@ export async function POST(req: Request) {
     if (!positiveInt(productId) || typeof customerEmail !== 'string' || customerEmail.length > 150 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) throw new InputError();
     const email = customerEmail.trim().toLowerCase();
-    const headers = gatewayHeaders();
     if (!(await consumeRateLimit('checkout-source', clientKey(req), 10, 15 * 60_000)) ||
         !(await consumeRateLimit('checkout-email', email, 5, 60 * 60_000))) {
       return NextResponse.json({ errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
     }
-    const { order, created } = await createCheckout(body, req.headers.get('idempotency-key') || crypto.randomUUID());
+    const { order, created } = await createCheckout(body, req.headers.get('idempotency-key') || crypto.randomUUID(), resolveRequestRegion(req).region);
     if (!created) return NextResponse.json({ success: true, data: {
       invoice: order.invoice, accessToken: order.accessToken, qrisUrl: order.qrisUrl,
     } }, { status: order.qrisUrl ? 200 : 202, headers: privateHeaders });
     let qr: string | null = null;
     try {
-      const response = await fetch(`${gatewayBase()}/v2/charge`, {
-        method: 'POST', headers, signal: AbortSignal.timeout(15_000), redirect: 'error',
-        body: JSON.stringify({
-          transaction_details: { order_id: order.invoice, gross_amount: order.totalAmount },
-          payment_type: 'qris', qris: { acquirer: 'gopay' }, customer_details: { email },
-        }),
+      const payment = await paymentAdapter(order).create(order, email);
+      await prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${order.id} FOR UPDATE`;
+        const current = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
+        if (current.paymentReference && current.paymentReference !== payment.reference) throw new Error('PAYMENT_REFERENCE_MISMATCH');
+        await tx.order.update({ where: { id: order.id }, data: { paymentReference: payment.reference, ...(current.status === 'PENDING' ? { qrisUrl: payment.qr } : {}) } });
       });
-      const data = await response.json();
-      if (!response.ok || data?.status_code !== '201' || data.order_id !== order.invoice ||
-          Number(data.gross_amount) !== order.totalAmount || data.currency !== 'IDR') throw new Error('CHARGE_UNCONFIRMED');
-      qr = extractQr(data);
-      if (!qr) throw new Error('QR_UNAVAILABLE');
-      await prisma.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { qrisUrl: qr } });
+      qr = payment.qr;
     } catch (error) {
       logFailure('Charge requires reconciliation', error);
       // Keep the reservation and return its access token, so a timeout never
