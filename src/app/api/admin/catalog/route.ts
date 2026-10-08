@@ -15,9 +15,10 @@ export async function GET(req: Request) {
     const { limit, cursor } = pagination(req);
     const rows = await prisma.product.findMany({ where: { type: { not: 'APPS' }, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, include: { variants: { orderBy: { id: 'asc' }, include: { regionalPrices: true } } } });
     return NextResponse.json({ success: true, ...pageResult(rows, limit), paymentMethods: { ID: paymentMethods('ID'), MY: paymentMethods('MY'), PH: paymentMethods('PH') } }, { headers: privateHeaders });
-  } catch (e: any) {
-    if (e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' && e.code.startsWith('P')) {
-      console.error(`[Admin Catalog] Prisma Database Error: ${e.code}`);
+  } catch (e) {
+    const err = e as { code?: string };
+    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+      console.error(`[Admin Catalog] Prisma Database Error: ${err.code}`);
       return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
     }
     return apiError(e);
@@ -98,9 +99,10 @@ export async function POST(req: Request) {
       return saved;
     }, { maxWait: 10000, timeout: 20000 });
     return NextResponse.json({ success: true, data: result }, { headers: privateHeaders });
-  } catch (e: any) {
-    if (e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' && e.code.startsWith('P')) {
-      console.error(`[Admin Catalog] Prisma Database Error: ${e.code}`);
+  } catch (e) {
+    const err = e as { code?: string };
+    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+      console.error(`[Admin Catalog] Prisma Database Error: ${err.code}`);
       return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
     }
     return apiError(e);
