@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     const rows = await prisma.order.findMany({ where: { ...filters, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, select: {
       id: true, invoice: true, type: true, status: true, fulfillmentStatus: true, refundStatus: true,
       customerEmail: true, totalAmount: true, currency: true, pricingRegion: true, productName: true, variantName: true, units: true, createdAt: true,
+      paymentMethod: true,
       robloxDetail: true, gameDetail: true,
       job: { select: { ownerSessionId: true, evidence: true, attempts: { take: 10, orderBy: { id: 'desc' }, select: { id: true, operation: true, outcome: true, createdAt: true } } } },
       audits: { take: 10, orderBy: { id: 'desc' }, select: { id: true, action: true, createdAt: true } },

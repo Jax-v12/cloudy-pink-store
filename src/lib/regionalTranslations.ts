@@ -9,6 +9,10 @@ export const regionalTranslations = {
     providerReady: 'Metode pembayaran tersedia', providerMissing: 'Provider pembayaran belum tersedia',
     subtotal: 'Harga produk', fee: 'Biaya pembayaran', discount: 'Diskon', quoteLoading: 'Memeriksa total pembayaran…',
     quoteError: 'Total pembayaran belum dapat diverifikasi. Coba lagi.', retry: 'Periksa ulang total',
+    payerCountry: 'Negara pembayar', payerCountryUnavailable: 'Tidak tersedia',
+    vpnCheck: 'Pemeriksaan VPN', vpnUnassessed: 'Belum dievaluasi',
+    paymentMethod: 'Metode pembayaran', regionalMonitoring: 'Monitoring regional',
+    notAvailable: 'Tidak tersedia',
   },
   EN: {
     detecting: 'Checking location…', detected: 'Detected location', locationUnavailable: 'Your location could not be verified or is unsupported. Checkout is unavailable. Contact support for a location review.', locationHelp: 'Incorrect location? Contact support', adminLoadError: 'Orders could not be loaded. Retry loading. If it persists, ask the operator to check the database and migrations.', adminSessionExpired: 'Your admin session expired. Please sign in again.',
@@ -20,6 +24,10 @@ export const regionalTranslations = {
     providerReady: 'Available payment methods', providerMissing: 'Payment provider is not available yet',
     subtotal: 'Product price', fee: 'Payment fee', discount: 'Discount', quoteLoading: 'Checking payment total…',
     quoteError: 'The payment total could not be verified. Please try again.', retry: 'Check total again',
+    payerCountry: 'Payer country', payerCountryUnavailable: 'Unavailable',
+    vpnCheck: 'VPN check', vpnUnassessed: 'Not evaluated',
+    paymentMethod: 'Payment method', regionalMonitoring: 'Regional monitoring',
+    notAvailable: 'Unavailable',
   },
   MY: {
     detecting: 'Menyemak lokasi…', detected: 'Lokasi dikesan', locationUnavailable: 'Lokasi belum dapat disahkan atau belum disokong. Daftar keluar belum tersedia. Hubungi bantuan untuk semakan lokasi.', locationHelp: 'Lokasi dikesan salah? Hubungi bantuan', adminLoadError: 'Pesanan gagal dimuatkan. Cuba muat semula. Jika masih gagal, minta pengendali menyemak pangkalan data dan migrasi.', adminSessionExpired: 'Sesi pentadbir tamat. Sila log masuk semula.',
@@ -31,5 +39,9 @@ export const regionalTranslations = {
     providerReady: 'Kaedah pembayaran tersedia', providerMissing: 'Penyedia pembayaran belum tersedia',
     subtotal: 'Harga produk', fee: 'Fi pembayaran', discount: 'Diskaun', quoteLoading: 'Menyemak jumlah pembayaran…',
     quoteError: 'Jumlah pembayaran belum dapat disahkan. Sila cuba lagi.', retry: 'Semak jumlah semula',
+    payerCountry: 'Negara pembayar', payerCountryUnavailable: 'Tidak tersedia',
+    vpnCheck: 'Pemeriksaan VPN', vpnUnassessed: 'Belum dinilai',
+    paymentMethod: 'Kaedah pembayaran', regionalMonitoring: 'Pemantauan serantau',
+    notAvailable: 'Tidak tersedia',
   },
 };

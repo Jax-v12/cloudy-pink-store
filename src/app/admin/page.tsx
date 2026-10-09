@@ -1,5 +1,5 @@
 'use client';
-import { formatMoney, type Currency } from '@/lib/regionalPricing';
+import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback } from 'react';
@@ -42,6 +42,8 @@ interface OrderItem {
   customerEmail: string;
   totalAmount: number;
   currency: Currency;
+  pricingRegion?: Region;
+  paymentMethod?: string;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   createdAt: string;
   product: {
@@ -1098,7 +1100,13 @@ export default function AdminPage() {
                       orders.map((order) => (
                         <tr key={order.id} className="hover:bg-pink-50/30 transition">
                           <td className="py-3 px-3 font-mono font-bold text-neutral-800">
-                            {order.invoice}
+                            <div>{order.invoice}</div>
+                            <div className="text-[11px] font-normal text-neutral-500 mt-0.5">
+                              {t.regional.region}: {order.pricingRegion ? (t.regional[order.pricingRegion as Region] || order.pricingRegion) : t.regional.notAvailable} · {order.paymentMethod || t.regional.notAvailable}
+                            </div>
+                            <div className="text-[11px] font-normal text-neutral-400">
+                              {t.regional.payerCountry}: {t.regional.payerCountryUnavailable} · {t.regional.vpnCheck}: {t.regional.vpnUnassessed}
+                            </div>
                           </td>
                           <td className="py-3 px-3 text-neutral-500 whitespace-nowrap">
                             {new Date(order.createdAt).toLocaleDateString('id-ID', {

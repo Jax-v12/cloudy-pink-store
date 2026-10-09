@@ -6,6 +6,7 @@ import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
   totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
+  paymentMethod?: string;
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
@@ -78,6 +79,15 @@ export default function FulfillmentAdmin() {
       <h3 className="font-bold break-all">{row.invoice}</h3>
       <p>{row.productName} · {row.variantName} · {row.units}</p>
       <p>{t.regional.region}: {t.regional[row.pricingRegion]} · {formatMoney(row.totalAmount, row.currency, language)}</p>
+      <div className="bg-pink-50/50 border border-pink-100 rounded-xl p-3 text-xs text-neutral-600 space-y-1">
+        <div className="font-semibold text-neutral-700">{t.regional.regionalMonitoring}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+          <div><span className="text-neutral-500">{t.regional.region}:</span> {row.pricingRegion ? (t.regional[row.pricingRegion] || row.pricingRegion) : t.regional.notAvailable} ({row.currency})</div>
+          <div><span className="text-neutral-500">{t.regional.paymentMethod}:</span> {row.paymentMethod || t.regional.notAvailable}</div>
+          <div><span className="text-neutral-500">{t.regional.payerCountry}:</span> <span className="text-neutral-700">{t.regional.payerCountryUnavailable}</span></div>
+          <div><span className="text-neutral-500">{t.regional.vpnCheck}:</span> <span className="text-neutral-700">{t.regional.vpnUnassessed}</span></div>
+        </div>
+      </div>
       <p>{c.payment}: {label(row.status)} · {c.fulfillment}: {label(row.fulfillmentStatus)} · {c.refund}: {label(row.refundStatus)}</p>
       {row.contactEmail && <p className="break-all">{c.email}: {row.contactEmail}</p>}
       {row.robloxDetail && <div className="space-y-1">
