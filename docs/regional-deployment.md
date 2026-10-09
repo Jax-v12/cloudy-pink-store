@@ -1,80 +1,80 @@
-# Automatic regional pricing
+# Automatic regional pricing & GeoIP security architecture
 
-The current environment is local/ngrok. It has no authenticated country metadata.
-Roblox checkout therefore stays unavailable until location can be verified. There
-is no default ID region and no buyer-controlled region override. Apps Premium
-retains its existing IDR flow; historical invoices always use their stored snapshot.
+The storefront automatically determines regional pricing using server-side GeoIP.
+Customers cannot choose or override their country or product prices through browser controls,
+cookies, URL parameters, request bodies, or client-crafted headers.
 
-## Trusted ingress contract (disabled until deployed and verified)
+Apps Premium retains its existing IDR flow; historical invoices always preserve their stored snapshot.
+Roblox top-up prices are calculated independently for supported regions (ID: IDR, MY: MYR, PH: PHP).
 
-`src/lib/requestRegion.ts` accepts only an HMAC-authenticated attestation from an
-operator-controlled ingress that performs reliable GeoIP. It does not treat raw
-`CF-IPCountry`, `X-Vercel-IP-Country`, `X-Forwarded-For`, cookies, language, URL or
-request-body country values as trusted evidence. ngrok alone does not provide
-this contract. No live ingress/GeoIP provider has been configured or verified.
+## GeoIP Detection Architecture & Modes
 
-Before enabling, the operator must protect the origin with a private connection,
-firewall or mTLS, ensure the ingress removes all incoming `x-store-geo-*` headers,
-and derive country from the actual connection IP using its trusted GeoIP service.
-Forwarded IPs may only be used along a separately authenticated proxy chain.
-Never sign a country selected by the browser. Do not expose signatures or the
-signing key in responses, logs, client bundles, analytics or public endpoints.
+`src/lib/requestRegion.ts` determines customer location based on the configured `GEOIP_SOURCE`:
 
-Set these server-only variables only after that deployment is in place:
+### 1. Vercel Edge Boundary Mode (`GEOIP_SOURCE=vercel` or default when `VERCEL=1`)
 
-- `GEOIP_SOURCE=signed-ingress`
-- `GEOIP_INGRESS_SECRET`: independent random secret of at least 32 characters
-- `GEOIP_INGRESS_AUDIENCE`: unique identifier for this store/environment
+When deployed on Vercel (such as `cloudy-pink-store.vercel.app`):
 
-For each request, the ingress overwrites:
+- **Architectural Boundary Trust (Bukan Autentikasi Kriptografis atau Jaminan Runtime Resmi)**:
+  - `VERCEL=1` maupun keberadaan header `x-vercel-id` **bukanlah bukti autentikasi kriptografis dan bukan jaminan runtime resmi**. Vercel tidak menandatangani request HTTP biasa ke functions dengan HMAC atau signature digital.
+  - Perlindungan mode ini bergantung pada **trusted Vercel Edge boundary**, **konfigurasi deployment**, dan **penanganan header oleh proxy** (di mana edge proxy publik Vercel menyaring dan menimpa header tersebut sebelum diteruskan ke fungsi aplikasi).
+- **Perilaku Teruji pada Deployment Staging Saat Ini**:
+  - Pengujian langsung pada deployment staging (`cloudy-pink-store.vercel.app`) menunjukkan bahwa Vercel Edge bertindak sebagai reverse proxy yang menimpa (*overwrite*) header `x-vercel-ip-country` dan `x-vercel-id` buatan klien dengan data koneksi IP klien sebenarnya.
+- **Jaminan Resmi & Batasan Vercel**:
+  - Berdasarkan dokumentasi resmi Vercel, `x-vercel-ip-country` disediakan berdasarkan alamat IP soket publik klien, dan `x-vercel-id` disediakan sebagai identifier pelacakan rute (trace ID).
+  - Vercel tidak menjamin keaslian lokasi fisik pengguna jika pengguna menggunakan VPN, proxy komersial, atau rute jaringan khusus ISP.
+- **Pengecekan Server-Side di `src/lib/requestRegion.ts`**:
+  - Memeriksa `process.env.VERCEL === '1'` sebagai penjaga konfigurasi deployment agar mode Vercel tidak aktif di lingkungan non-Vercel.
+  - Memeriksa keberadaan `x-vercel-id` sebagai header pelacakan yang disisipkan oleh Edge. Format string tidak dijadikan tumpuan keamanan karena Vercel tidak menjamin format tersebut sebagai kontrak permanen.
+  - Memvalidasi bahwa `x-vercel-ip-country` adalah format ISO 2-huruf kapital (`^[A-Z]{2}$`).
+  - Tanpa konfigurasi deployment Vercel yang sesuai atau jika header Edge tidak ada (misalnya direct origin access atau container mandiri tanpa reverse proxy Vercel), mode ini langsung *fail-closed* ke `{ region: null, reason: 'unverified' }`.
 
-- `x-store-geo-country`: uppercase two-letter country code
-- `x-store-geo-timestamp`: current Unix milliseconds, 13 digits
-- `x-store-geo-signature`: lowercase hex HMAC-SHA256 of UTF-8
-  `JSON.stringify(['store-geo-v1', audience, method, pathname + search, country, timestamp])`
+### 2. Trusted Signed Ingress Contract (`GEOIP_SOURCE=signed-ingress`)
 
-The exact path/query received by Next.js must match the signed value. Attestations
-expire after 60 seconds; clocks must be synchronized. Origin bypass, absent or
-invalid signatures, unsupported countries, missing configuration and unavailable
-GeoIP all fail closed. An attestation authenticates the ingress's estimate, not
-the customer's residence or billing country. Provider billing-country checks
-must be added by any future gateway that exposes an authoritative check.
+Digunakan ketika traffic dilewatkan melalui reverse proxy eksternal yang dikontrol operator (misalnya Cloudflare Worker, NGINX, Envoy) atau pada test harness terisolasi (`tests/start-http-server.mjs`, `tests/http.test.mjs`):
 
-Catalog responses are private/no-store and contain only the detected region's
-price and capabilities. Static page shells contain no personal regional price.
-Quotes resolve location again, and every new Roblox checkout requires the signed
-quote. Region/price changes cannot silently create a differently priced order.
-An existing idempotent retry can recover its original invoice even after travel.
+- **Autentikasi Kriptografis Sejati**:
+  - Menggunakan HMAC-SHA256 yang ditandatangani oleh ingress proxy dengan kunci rahasia bersama `GEOIP_INGRESS_SECRET` (minimal 32 karakter) dan `GEOIP_INGRESS_AUDIENCE`.
+  - Ingress proxy menghitung HMAC dari pesan canonical:
+    `JSON.stringify(['store-geo-v1', audience, method, pathname + search, country, timestamp])`.
+  - Signature dikirim via `x-store-geo-signature`, timestamp 13-digit via `x-store-geo-timestamp`, dan kode negara 2-huruf via `x-store-geo-country`.
+- **Fail-Closed Total**:
+  - Konfigurasi kurang, secret pendek, audience salah, selisih waktu > 60 detik (membatasi masa berlaku signature hingga jendela waktu 60 detik, tetapi tidak mencegah penggunaan ulang dalam jendela tersebut), atau ketidaksesuaian signature selalu menghasilkan `{ region: null, reason: 'unverified' }`.
 
-## Incorrect detection and support
+### 3. Penanganan `GEOIP_SOURCE` Tidak Dikenal
 
-The storefront links to the same WhatsApp support contact already used by Apps
-Premium. Support should investigate VPN/travel and GeoIP errors without requesting
-account credentials. There is deliberately no self-service override, admin price
-override endpoint, or correction cookie. Until verification is possible checkout
-remains blocked. A future correction facility must scope authorization to one
-customer/session and a short lifetime, require recent admin authentication and
-record the evidence reference, approver, reason, expiry and revocation in an audit.
-Do not send buyers a URL or header that selects a cheaper country.
+Jika `GEOIP_SOURCE` disetel ke nilai yang tidak dikenal (misalnya `unknown`, `cloudflare`, dsb.) atau environment tidak memiliki konfigurasi yang valid, sistem **selalu gagal secara fail-closed** (`reason: 'unverified'`), tanpa ada fallback diam-diam ke mode lain atau ke region Indonesia (`ID`).
 
-## Payments and database
+## Client Spoof Resistance & Server-Side Enforcement
 
-MYR/PHP payment creation remains disabled: no international merchant account,
-adapter or verified webhook is available. GeoIP alone cannot activate payments.
-IDR uses the existing Midtrans adapter; tests use mocks, not real settlement.
-The three Roblox delivery methods and Apps Premium fulfillment remain separate.
+1. **No Client Country Switcher**: The storefront UI contains no dropdowns or selectors for pricing regions. Language selection is strictly linguistic and never alters prices.
+2. **Ignored Spoof Vectors**:
+   - URL parameters (`?region=...`, `?country=...`) are ignored by `resolveRequestRegion`.
+   - Client cookies (`region=...`, `pricingRegion=...`) are ignored.
+   - Non-edge headers (`cf-ipcountry`, `x-forwarded-for`, `x-real-ip`) are ignored.
+   - Request body fields (`pricingRegion`, `currency`, `totalAmount`) are rejected by `createCheckout` and strict JSON schemas with HTTP 400 (`INVALID_INPUT`).
+3. **Server Quotation & Binding (`quoteToken`)**:
+   - `/api/checkout/quote` recalculates prices based on server-resolved region and database rates.
+   - Returns a cryptographically signed HMAC `quoteToken` binding product, variant, quantity, region, currency, payment provider, method, and amounts.
+4. **Idempotency & Price Drift Protection**:
+   - `/api/checkout` verifies the `quoteToken` under transactional database locks.
+   - If pricing rates or detected region change between quote and final checkout, the transaction aborts with `PRICE_CHANGED` without creating an order or charging the customer.
 
-Apply `npx prisma migrate deploy` before starting new app code. Missing regional
-columns cause Prisma P2022 in both admin order and fulfillment lists. The pending
-assisted-login and regional migrations were applied to the configured database on
-2026-10-08 after verifying zero stored Roblox secrets; its three orders and one
-stock row remained present. Do not use reset/db push as a deployment workaround.
+## Incorrect Detection and Support
 
-## Validation
+When location cannot be determined or belongs to an unsupported country (`reason: 'unsupported'` or `'unverified'`), checkout remains blocked and presents a neutral message linking to store WhatsApp support. There is no automatic fallback to IDR.
 
-`tests/region.test.mjs` checks authenticated region mapping, spoofing, expiration,
-wrong audience/path/method and unknown locations. MySQL tests cover actual order
-creation, snapshots, quote drift, retry, stock and fulfillment. The isolated HTTP
-harness uses a test ingress secret and signed fixture requests; this is not a
-public test-country header and does not enable a production override. Without
-signed fixture requests the harness also returns the neutral unavailable state.
+## Payments and Currency
+
+- **IDR (Indonesia)**: Settled in IDR via Midtrans QRIS integration.
+- **MYR (Malaysia) & PHP (Philippines)**: Display configured regional prices, but payment creation remains disabled until local merchant gateway accounts, verified API credentials, and signed webhooks are fully implemented.
+
+## Validation Suite
+
+- `tests/region.test.mjs`:
+  - Unit tests for HMAC signed-ingress verification, batasan jendela waktu timestamp (60 detik), and audience binding.
+  - Unit tests for invalid/unknown `GEOIP_SOURCE` configurations (enforcing fail-closed behavior).
+  - Unit tests for Vercel Edge boundary mode in isolated test scope (`VERCEL=1`), including unsupported countries, missing headers, malformed country codes, and immunity to spoof vectors.
+  - Unit tests for requests outside Vercel boundary (`VERCEL` not `'1'`), confirming fail-closed rejection.
+- `tests/http.test.mjs`: Full end-to-end HTTP integration tests under the signed ingress harness.
+- Production checks: `npm test`, `npm run lint`, `npx tsc --noEmit`, and `npm run build`.
