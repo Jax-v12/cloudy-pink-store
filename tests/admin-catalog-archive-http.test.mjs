@@ -48,6 +48,35 @@ test('catalog lifecycle and order archive HTTP authorization, filters and invoic
       response = await request(`/api/admin/catalog/${p.id}`, 'DELETE', { confirmationName: p.name, expectedUpdatedAt: current.updatedAt });
       assert.equal(response.status, 409);
     });
+    await t.test('editor state regression: editing a deactivated product maintains its active state', async () => {
+      const p = await createProduct();
+      
+      // Admin clicks Deactivate in the UI list
+      let res = await request(`/api/admin/catalog/${p.id}`, 'PATCH', { active: false, expectedUpdatedAt: p.updatedAt });
+      assert.equal(res.status, 200);
+      let updatedP = (await res.json()).data;
+      assert.equal(updatedP.active, false);
+
+      // The UI form remounts with the new 'active: false' status.
+      // Admin changes the name and clicks save. The UI correctly sends active: false.
+      res = await request('/api/admin/catalog', 'POST', { kind: 'product', id: p.id, type: p.type, name: 'Renamed Product', slug: p.slug, active: false });
+      assert.equal(res.status, 200);
+      updatedP = (await res.json()).data;
+      
+      // Verify product remains inactive
+      assert.equal(updatedP.active, false);
+      assert.equal(updatedP.name, 'Renamed Product');
+      
+      // Edit -> Reactivate -> Save
+      res = await request(`/api/admin/catalog/${p.id}`, 'PATCH', { active: true, expectedUpdatedAt: updatedP.updatedAt });
+      updatedP = (await res.json()).data;
+      assert.equal(updatedP.active, true);
+      
+      res = await request('/api/admin/catalog', 'POST', { kind: 'product', id: p.id, type: p.type, name: 'Renamed Again', slug: p.slug, active: true });
+      updatedP = (await res.json()).data;
+      assert.equal(updatedP.active, true);
+      assert.equal(updatedP.name, 'Renamed Again');
+    });
     await t.test('archive authorization, idempotency, views, redaction, pagination and customer invoice', async () => {
       const p = await createProduct(); const order = await orderFixture(p); const second = await orderFixture(p);
       const queued = await orderFixture(p, { fulfillmentStatus: 'QUEUED', job: { create: {} } });

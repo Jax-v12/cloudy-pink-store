@@ -72,7 +72,7 @@ export default function TopupAdmin() {
         <div className="flex flex-wrap gap-3">{deleteTarget.active && <button disabled={busy} onClick={() => void lifecycle(deleteTarget, false)} className="border rounded-lg p-2">{c.deactivateProduct}</button>}<button disabled={busy} onClick={() => setDeleteTarget(null)} className="border rounded-lg p-2">{c.cancelAction}</button></div>
       </div>}
     </AdminDialog>}
-    <form key={`product-${product.id || 0}`} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'product', id: product.id, type: f.get('type'), name: f.get('name'), slug: f.get('slug'), active: f.has('active') }); }} className="grid sm:grid-cols-2 gap-4 bg-white rounded-2xl border p-5">
+    <form key={`product-${product.id || 0}-${product.active}`} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); void save({ kind: 'product', id: product.id, type: f.get('type'), name: f.get('name'), slug: f.get('slug'), active: f.has('active') }); }} className="grid sm:grid-cols-2 gap-4 bg-white rounded-2xl border p-5">
       <h3 className="sm:col-span-2 font-bold">{product.id ? c.edit : c.newProduct}</h3>
       <label>{c.product}<select name="type" defaultValue={product.type} className={field}><option value="ROBLOX">{c.ROBLOX}</option><option value="GAME">{c.GAME}</option></select></label>
       <label>{c.name}<input name="name" defaultValue={product.name} required maxLength={100} className={field} /></label>

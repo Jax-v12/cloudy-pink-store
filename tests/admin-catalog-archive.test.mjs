@@ -5,7 +5,6 @@ import { archiveEligibility } from '../src/lib/orderArchive.ts';
 import { deletionEligibility } from '../src/lib/catalogLifecycle.ts';
 import { adminMutation, adminMutationError, expectedTimestamp } from '../src/lib/adminMutation.ts';
 import { commerceTranslations } from '../src/lib/commerceTranslations.ts';
-import { prisma } from '../src/lib/prisma.ts';
 
 test('archive policy fails closed for each obligation and unsupported type', () => {
   const final = { type: 'ROBLOX', status: 'PAID', fulfillmentStatus: 'COMPLETED', refundStatus: 'NONE', archivedAt: null,
@@ -76,6 +75,7 @@ test('catalog and archive MySQL transactions, audit, races and rollback', { skip
   process.env.ENCRYPTION_KEY = 'isolated-test'; process.env.ROBLOX_CHECKOUT_ENABLED = 'true';
   process.env.MIDTRANS_SERVER_KEY = 'isolated-test'; process.env.GAME_PROVIDER = 'simulator';
   delete process.env.TELEGRAM_BOT_TOKEN;
+  const { prisma } = await import('../src/lib/prisma.ts');
   const { deleteCatalogProduct, setCatalogProductActive } = await import('../src/lib/catalogLifecycle.ts');
   const { setOrderArchived } = await import('../src/lib/orderArchive.ts');
   const { manualAction } = await import('../src/lib/manualFulfillment.ts');
