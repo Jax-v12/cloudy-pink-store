@@ -2,11 +2,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
+import AdminDialog from './AdminDialog';
 
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
   totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
   paymentMethod?: string;
+  archivedAt: string | null; canArchive: boolean; archiveReasonCodes: string[];
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
@@ -17,9 +19,12 @@ export default function FulfillmentAdmin() {
   const label = (value: string) => value === 'QUEUED' ? ops.ready : value === 'WAITING_CUSTOMER' ? ops.waiting : value === 'assisted-login-required' ? ops.assistedAudit : c[value as keyof typeof c] || value;
   const [rows, setRows] = useState<Row[]>([]); const [type, setType] = useState('ROBLOX'); const [status, setStatus] = useState('');
   const [method, setMethod] = useState(''); const [payment, setPayment] = useState('');
+  const [archive, setArchive] = useState('active');
+  const [archiveTarget, setArchiveTarget] = useState<Row | null>(null);
+  const [archiveError, setArchiveError] = useState('');
   const [search, setSearch] = useState(''); const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true); const activeRequest = useRef<AbortController | null>(null);
-  const filters = new URLSearchParams({ type, status, method, payment, q: query }).toString();
+  const filters = new URLSearchParams({ type, status, method, payment, archive, q: query }).toString();
   const [cursor, setCursor] = useState<number | null>(null); const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [evidence, setEvidence] = useState<Record<number, string>>({});
@@ -52,15 +57,26 @@ export default function FulfillmentAdmin() {
     } catch (e) { if (current && !current.signal.aborted) setError(e instanceof Error ? e.message : 'LOAD_FAILED'); }
     finally { setBusy(false); }
   }
+  async function changeArchive(row: Row, archived: boolean) {
+    if (busy) return;
+    setBusy(true); setArchiveError('');
+    try {
+      const response = await fetch(`/api/admin/fulfillment/${row.id}/archive`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.errorCode || 'SYSTEM_ERROR');
+    } catch (e) { setArchiveError(e instanceof Error ? e.message : 'SYSTEM_ERROR'); }
+    finally { setArchiveTarget(null); setBusy(false); setRefresh(n => n + 1); }
+  }
   return <section className="space-y-5">
     <h2 className="text-2xl font-bold text-pink-800">{c.fulfillmentAdmin}</h2>
     <p className="text-sm text-neutral-600">{ops.queueIntro}</p>
+    {archiveTarget && <AdminDialog title={c.archive} busy={busy} onClose={() => setArchiveTarget(null)}><p className="mb-3 break-all font-bold">{archiveTarget.invoice}</p><p className="mb-4 text-sm">{c.archiveWarning}</p><div className="flex gap-3"><button disabled={busy} onClick={() => void changeArchive(archiveTarget, true)} className="bg-pink-600 text-white rounded-lg p-2">{c.archive}</button><button disabled={busy} onClick={() => setArchiveTarget(null)} className="border rounded-lg p-2">{c.cancelAction}</button></div></AdminDialog>}
     {monitor && <div className="bg-pink-100 p-4 rounded-xl text-sm space-y-1">
       <p>{c.pendingCount}: {monitor.pendingCount} · {c.reviewCount}: {monitor.reviewCount}</p>
       <details><summary className="cursor-pointer">{ops.diagnostics}</summary><p>{c.lastRun}: {monitor.lastRun ? new Date(monitor.lastRun).toLocaleString() : c.noData}</p>
       {monitor.overdue && <p role="status" className="text-amber-800">{c.overdue}</p>}</details>
     </div>}
     <div className="flex flex-wrap gap-3">
+      <select aria-label={c.archiveView} value={archive} disabled={busy} onChange={e => { setArchive(e.target.value); setArchiveError(''); }} className="border p-2 rounded-lg"><option value="active">{c.activeOrders}</option><option value="archived">{c.archivedOrders}</option><option value="all">{c.all}</option></select>
       <select aria-label={c.product} value={type} onChange={e => { setType(e.target.value); setMethod(''); }} className="border p-2 rounded-lg"><option value="">{c.all}</option><option value="ROBLOX">{c.ROBLOX}</option><option value="GAME">{c.GAME}</option><option value="APPS">{c.APPS}</option></select>
       <select aria-label={c.fulfillment} value={status} onChange={e => setStatus(e.target.value)} className="border p-2 rounded-lg"><option value="">{c.all}</option>{['NOT_READY', 'QUEUED', 'PROCESSING', 'WAITING_CUSTOMER', 'COMPLETED', 'REQUIRES_REVIEW'].map(s => <option key={s} value={s}>{label(s)}</option>)}</select>
       {(!type || type === 'ROBLOX') && <select aria-label={ops.method} value={method} onChange={e => setMethod(e.target.value)} className="border p-2 rounded-lg"><option value="">{ops.method}: {c.all}</option>{['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'].map(m => <option key={m} value={m}>{label(m)}</option>)}</select>}
@@ -73,10 +89,12 @@ export default function FulfillmentAdmin() {
       {query && <button type="button" onClick={() => { setSearch(''); setQuery(''); }} className="p-2 border rounded-lg">{ops.clear}</button>}
     </form>
     {error && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{error === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : error === 'LOAD_FAILED' ? t.regional.adminLoadError : c.actionError}</p>}
+    {archiveError && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{c[archiveError as keyof typeof c] || c.SYSTEM_ERROR}</p>}
     {loading && <p role="status">{ops.loading}</p>}
     {!loading && !error && rows.length === 0 && <p>{ops.empty}</p>}
     {rows.map(row => <article key={row.id} className="border border-pink-200 rounded-2xl p-5 space-y-3 bg-white">
       <h3 className="font-bold break-all">{row.invoice}</h3>
+      {row.archivedAt ? <div className="space-y-2"><p className="text-sm">{c.archivedOn}: {new Date(row.archivedAt).toLocaleString()}</p><button disabled={busy || loading} onClick={() => void changeArchive(row, false)} className="border rounded-lg p-2">{c.restore}</button></div> : row.canArchive ? <button disabled={busy || loading} onClick={() => { setArchiveError(''); setArchiveTarget(row); }} className="border rounded-lg p-2">{c.archive}</button> : row.type !== 'APPS' && <details className="text-sm text-neutral-600"><summary>{c.archiveUnavailable}</summary>{row.archiveReasonCodes.map(code => <p key={code}>{c[code as keyof typeof c] || c.actionError}</p>)}</details>}
       <p>{row.productName} · {row.variantName} · {row.units}</p>
       <p>{t.regional.region}: {t.regional[row.pricingRegion]} · {formatMoney(row.totalAmount, row.currency, language)}</p>
       <div className="bg-pink-50/50 border border-pink-100 rounded-xl p-3 text-xs text-neutral-600 space-y-1">

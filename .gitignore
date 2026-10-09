@@ -30,12 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env
-.env*.local
+# env files
+.env*
+!.env.example
 node_modules
 .next
-.env.example
 
 # vercel
 .vercel
@@ -46,3 +45,9 @@ next-env.d.ts
 
 # Local tooling and isolated test data
 /.cache/
+
+# Database dumps and temporary scripts
+*.sql
+!prisma/migrations/**/*.sql
+scratch*.js
+my.cnf

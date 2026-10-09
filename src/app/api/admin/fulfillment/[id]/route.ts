@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: true }, { headers: privateHeaders });
   } catch (e) {
     const err = e as { code?: string };
-    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+    if (err && typeof err === 'object' && typeof err.code === 'string' && /^P\d{4}$/.test(err.code)) {
       console.error(`[Fulfillment] Prisma Database Error: ${err.code}`);
       return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
     }

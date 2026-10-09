@@ -19,6 +19,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
   const createCheckout = quotedCheckout(prisma, rawCheckout, checkoutPricing, checkoutQuoteToken);
   const { applyPaymentStatus } = await import('../src/lib/payments.ts');
   try {
+    await prisma.rateLimit.deleteMany({});
     const p = await prisma.product.create({ data: { name: 'HTTP Roblox', slug: `http-${crypto.randomUUID()}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const secret = { password: 'HTTP-private-password', backupCodes: ['code111','code222','code333','code444','code555'], note: 'HTTP confidential note' };
     const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest' } }, crypto.randomUUID());

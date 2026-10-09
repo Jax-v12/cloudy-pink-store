@@ -41,7 +41,7 @@ model Product {
 model AccountStock {
   id              Int         @id @default(autoincrement())
   productId       Int
-  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Restrict, map: "AccountStock_productId_restrict_fkey")
   emailAccount    String      @db.Text
   passwordAccount String      @db.Text
   profileName     String?
@@ -89,6 +89,7 @@ model Order {
   units             Int                @default(1)
   fulfillmentStatus FulfillmentStatus  @default(NOT_READY)
   refundStatus      RefundStatus       @default(NONE)
+  archivedAt        DateTime?
   refundReference   String?            @db.Text
   checkoutKey       String?            @unique
   requestHash       String?
@@ -99,6 +100,8 @@ model Order {
   audits            AdminAudit[]
 
   @@index([type, fulfillmentStatus, id])
+  @@index([archivedAt, id])
+  @@index([type, archivedAt, id])
   @@index([status, expiresAt])
   @@index([status, createdAt])
 }
@@ -257,4 +260,17 @@ model AdminAudit {
 model WorkerHeartbeat {
   name        String   @id
   succeededAt DateTime
+}
+
+// Snapshots deliberately survive product deletion and session expiry cleanup.
+model CatalogAudit {
+  id          Int         @id @default(autoincrement())
+  productId   Int
+  productName String
+  productType ProductType
+  sessionId   String
+  action      String
+  createdAt   DateTime    @default(now())
+
+  @@index([productId, id])
 }

@@ -8,16 +8,20 @@ import { InputError, readJson, textField, positiveInt, pagination, pageResult, p
 import { ROBLOX_MAX_GAMEPASS_UNITS, robloxGamepassPrice } from '@/lib/roblox';
 import { isRegion, type RegionalPrice } from '@/lib/regionalPricing';
 import { paymentMethods } from '@/lib/paymentProvider';
+import { adminMutation, adminMutationError, requireCurrentSession } from '@/lib/adminMutation';
+import { catalogAudit, deletionEligibility } from '@/lib/catalogLifecycle';
+import { CommerceError } from '@/lib/commerce';
 
 export async function GET(req: Request) {
   try {
     await adminAccess(req);
     const { limit, cursor } = pagination(req);
-    const rows = await prisma.product.findMany({ where: { type: { not: 'APPS' }, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, include: { variants: { orderBy: { id: 'asc' }, include: { regionalPrices: true } } } });
-    return NextResponse.json({ success: true, ...pageResult(rows, limit), paymentMethods: { ID: paymentMethods('ID'), MY: paymentMethods('MY'), PH: paymentMethods('PH') } }, { headers: privateHeaders });
+    const rows = await prisma.product.findMany({ where: { type: { not: 'APPS' }, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, include: { _count: { select: { orders: true, stocks: true } }, variants: { orderBy: { id: 'asc' }, include: { regionalPrices: true } } } });
+    const page = pageResult(rows, limit);
+    return NextResponse.json({ success: true, ...page, data: page.data.map(({ _count, ...row }) => ({ ...row, deletion: deletionEligibility(_count) })), paymentMethods: { ID: paymentMethods('ID'), MY: paymentMethods('MY'), PH: paymentMethods('PH') } }, { headers: privateHeaders });
   } catch (e) {
     const err = e as { code?: string };
-    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+    if (err && typeof err === 'object' && typeof err.code === 'string' && /^P\d{4}$/.test(err.code)) {
       console.error(`[Admin Catalog] Prisma Database Error: ${err.code}`);
       return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
     }
@@ -27,7 +31,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    await adminAccess(req, true);
+    const session = await adminAccess(req, true);
     const body = await readJson(req);
     if (body.kind === 'product') {
       const name = textField(body.name, 100)!; const slug = textField(body.slug, 100)!;
@@ -36,14 +40,19 @@ export async function POST(req: Request) {
       if (coverImage && !/^\/[A-Za-z0-9/_.-]+$/.test(coverImage)) throw new InputError();
       const data = { name, slug, type: body.type as 'GAME' | 'ROBLOX', active: body.active, coverImage, price: 0 };
       if (body.id !== undefined && !positiveInt(body.id)) throw new InputError();
-      const result = await prisma.$transaction(async tx => {
+      const result = await adminMutation('save-product', async tx => {
         if (body.id) {
+          await tx.$queryRaw`SELECT id FROM \`Product\` WHERE id = ${body.id as number} FOR UPDATE`;
+          await requireCurrentSession(tx, session.id);
           const existing = await tx.product.findUnique({ where: { id: body.id as number } });
           if (!existing || existing.type !== data.type) throw new InputError();
-          return tx.product.update({ where: { id: existing.id }, data });
+          const saved = await tx.product.update({ where: { id: existing.id }, data });
+          if (existing.active !== saved.active) await catalogAudit(tx, saved, session.id, saved.active ? 'product-reactivated' : 'product-deactivated');
+          return saved;
         }
+        await requireCurrentSession(tx, session.id);
         return tx.product.create({ data });
-      }, { maxWait: 5000, timeout: 15000 });
+      });
       return NextResponse.json({ success: true, data: result }, { headers: privateHeaders });
     }
     if (body.kind !== 'variant' || !positiveInt(body.productId) || !positiveInt(body.price) || !positiveInt(body.units) || typeof body.active !== 'boolean') throw new InputError();
@@ -80,9 +89,12 @@ export async function POST(req: Request) {
       providerSku, requiresZone: body.requiresZone === true,
       capacityCheckedAt: method === 'GIFT_USERNAME' && body.capacityConfirmed === true ? new Date() : null };
     if (body.id !== undefined && !positiveInt(body.id)) throw new InputError();
-    const result = await prisma.$transaction(async tx => {
+    const result = await adminMutation('save-variant', async tx => {
       // Serialize configuration changes with checkout's product lock.
       await tx.$queryRaw`SELECT id FROM \`Product\` WHERE id = ${product.id} FOR UPDATE`;
+      await requireCurrentSession(tx, session.id);
+      const current = await tx.product.findUnique({ where: { id: product.id } });
+      if (!current || current.type !== product.type) throw new CommerceError('PRODUCT_CHANGED');
       let saved;
       if (body.id) {
         const existing = await tx.productVariant.findUnique({ where: { id: body.id as number } });
@@ -96,12 +108,16 @@ export async function POST(req: Request) {
         create: { variantId: saved.id, ...row }, update: { amount: row.amount, active: row.active },
       });
       await tx.regionalPrice.updateMany({ where: { variantId: saved.id, region: 'ID' }, data: { amount: saved.price } });
+      // Invalidate a deletion confirmation when its dependent configuration changed.
+      await tx.product.update({ where: { id: product.id }, data: { updatedAt: new Date() } });
       return saved;
-    }, { maxWait: 10000, timeout: 20000 });
+    });
     return NextResponse.json({ success: true, data: result }, { headers: privateHeaders });
   } catch (e) {
+    const mapped = adminMutationError(e);
+    if (mapped !== e) return apiError(mapped);
     const err = e as { code?: string };
-    if (err && typeof err === 'object' && typeof err.code === 'string' && err.code.startsWith('P')) {
+    if (err && typeof err === 'object' && typeof err.code === 'string' && /^P\d{4}$/.test(err.code)) {
       console.error(`[Admin Catalog] Prisma Database Error: ${err.code}`);
       return NextResponse.json({ success: false, errorCode: 'DATABASE_ERROR' }, { status: 500, headers: privateHeaders });
     }

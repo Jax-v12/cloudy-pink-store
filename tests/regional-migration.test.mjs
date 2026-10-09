@@ -20,7 +20,7 @@ test('regional migration preserves existing IDR orders and backfills their histo
     await prisma.$executeRaw`INSERT INTO Product (id, name, slug, price, updatedAt) VALUES (1, 'Legacy Apps', 'legacy-apps', 7000, NOW())`;
     await prisma.$executeRaw`INSERT INTO \`Order\` (invoice, accessToken, customerEmail, totalAmount, status, expiresAt, productId, updatedAt) VALUES ('INV-legacy', 'test-token', 'legacy@example.test', 7000, 'PAID', NOW(), 1, NOW())`;
     await apply(migration);
-    const order = await prisma.order.findUnique({ where: { invoice: 'INV-legacy' } });
+    const order = await prisma.order.findUnique({ where: { invoice: 'INV-legacy' }, select: { totalAmount: true, productSubtotal: true, currency: true, pricingRegion: true, paymentProvider: true, paymentFee: true, discount: true, status: true, accessToken: true } });
     assert.equal(order.totalAmount, 7000); assert.equal(order.productSubtotal, 7000);
     assert.equal(order.currency, 'IDR'); assert.equal(order.pricingRegion, 'ID'); assert.equal(order.paymentProvider, 'MIDTRANS');
     assert.equal(order.paymentFee, 0); assert.equal(order.discount, 0); assert.equal(order.status, 'PAID');
