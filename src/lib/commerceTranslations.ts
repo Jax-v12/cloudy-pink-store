@@ -1,4 +1,8 @@
 const en = {
+  confirmInvoice: 'Type the exact invoice number',
+  INVOICE_CONFIRMATION_MISMATCH: 'The confirmation must match the full invoice number exactly.',
+  ORDER_NOT_ARCHIVED: 'Archive this invoice before removing it.', ORDER_REMOVED: 'Restore this invoice from Removed to Archived first.',
+  remove: 'Invoice hidden from admin lists', restore_removed: 'Invoice restored to archive',
   deleteProduct: 'Delete product', deactivateProduct: 'Deactivate product', reactivateProduct: 'Reactivate product', inactive: 'Inactive', cancelAction: 'Cancel',
   deleteWarning: 'Permanently remove this unused product and its packages and regional prices. This cannot be undone.',
   deleteBlocked: 'This product has linked records. Deactivate it to stop new purchases while preserving its history.',
@@ -57,9 +61,14 @@ const en = {
   dangerZone: 'Sensitive action', deleteBlockedTitle: 'Permanent deletion is blocked', regionsLabel: 'Regions',
   filtersLabel: 'Filters', orderCustomer: 'Customer', orderItem: 'Item', nextAction: 'Next action', deliveryNotes: 'Delivery notes', historyLabel: 'History',
   readyToArchive: 'Ready to archive', ordersShown: '{count} orders shown', regionalInfo: 'Regional details',
+  removeInvoice: 'Remove Invoice', restoreRemovedInvoice: 'Restore Invoice to Archive', invoiceRemoved: 'Invoice Removed', confirmRemove: 'Remove Invoice from Archive?', confirmRemoveDesc: 'This only hides the invoice from ordinary admin lists. Customer access, payment and delivery history remain intact. Find it under Removed and restore it to Archived at any time.', successfullyRemoved: 'Successfully removed', cannotRemove: 'Cannot be removed', removedView: 'Removed',
 };
 type Copy = typeof en;
 const id: Copy = {
+  confirmInvoice: 'Ketik nomor invoice lengkap dengan tepat',
+  INVOICE_CONFIRMATION_MISMATCH: 'Konfirmasi harus sama persis dengan nomor invoice lengkap.',
+  ORDER_NOT_ARCHIVED: 'Arsipkan invoice ini sebelum menghapusnya.', ORDER_REMOVED: 'Pulihkan invoice dari Dihapus ke Diarsipkan terlebih dahulu.',
+  remove: 'Invoice disembunyikan dari daftar admin', restore_removed: 'Invoice dipulihkan ke arsip',
   deleteProduct: 'Hapus produk', deactivateProduct: 'Nonaktifkan produk', reactivateProduct: 'Aktifkan kembali', inactive: 'Nonaktif', cancelAction: 'Batal',
   deleteWarning: 'Hapus permanen produk yang belum digunakan ini beserta paket dan harga regionalnya. Tindakan ini tidak dapat dibatalkan.',
   deleteBlocked: 'Produk ini memiliki data terkait. Nonaktifkan untuk menghentikan pembelian baru sambil mempertahankan riwayatnya.',
@@ -118,9 +127,14 @@ const id: Copy = {
   dangerZone: 'Tindakan sensitif', deleteBlockedTitle: 'Penghapusan permanen diblokir', regionsLabel: 'Wilayah',
   filtersLabel: 'Filter', orderCustomer: 'Pelanggan', orderItem: 'Item', nextAction: 'Langkah berikutnya', deliveryNotes: 'Catatan pengiriman', historyLabel: 'Riwayat',
   readyToArchive: 'Siap diarsipkan', ordersShown: '{count} pesanan ditampilkan', regionalInfo: 'Detail regional',
+  removeInvoice: 'Hapus Invoice', restoreRemovedInvoice: 'Pulihkan Invoice ke Arsip', invoiceRemoved: 'Invoice Dihapus', confirmRemove: 'Hapus Invoice dari Arsip?', confirmRemoveDesc: 'Invoice hanya disembunyikan dari daftar admin biasa. Akses pelanggan, riwayat pembayaran, dan pengiriman tetap utuh. Temukan di filter Dihapus dan pulihkan ke Diarsipkan kapan saja.', successfullyRemoved: 'Berhasil dihapus', cannotRemove: 'Tidak dapat dihapus', removedView: 'Dihapus',
 };
 const my: Copy = {
   ...id,
+  confirmInvoice: 'Taip nombor invois penuh dengan tepat',
+  INVOICE_CONFIRMATION_MISMATCH: 'Pengesahan mesti sepadan tepat dengan nombor invois penuh.',
+  ORDER_NOT_ARCHIVED: 'Arkibkan invois ini sebelum memadamkannya.', ORDER_REMOVED: 'Pulihkan invois daripada Dipadamkan ke Diarkibkan dahulu.',
+  remove: 'Invois disembunyikan daripada senarai pentadbir', restore_removed: 'Invois dipulihkan ke arkib',
   deleteProduct: 'Padam produk', deactivateProduct: 'Nyahaktifkan produk', reactivateProduct: 'Aktifkan semula', inactive: 'Tidak aktif', cancelAction: 'Batal',
   deleteWarning: 'Padam produk yang belum digunakan ini bersama pakej dan harga wilayahnya secara kekal. Tindakan ini tidak boleh dibatalkan.',
   deleteBlocked: 'Produk ini mempunyai rekod berkaitan. Nyahaktifkan untuk menghentikan pembelian baharu sambil mengekalkan sejarahnya.',
@@ -173,5 +187,6 @@ const my: Copy = {
   dangerZone: 'Tindakan sensitif', deleteBlockedTitle: 'Pemadaman kekal disekat', regionsLabel: 'Wilayah',
   filtersLabel: 'Penapis', orderCustomer: 'Pelanggan', orderItem: 'Item', nextAction: 'Langkah seterusnya', deliveryNotes: 'Catatan penghantaran', historyLabel: 'Sejarah',
   readyToArchive: 'Sedia diarkibkan', ordersShown: '{count} pesanan dipaparkan', regionalInfo: 'Butiran wilayah',
+  removeInvoice: 'Padam Invois', restoreRemovedInvoice: 'Pulihkan Invois ke Arkib', invoiceRemoved: 'Invois Dipadamkan', confirmRemove: 'Padam Invois dari Arkib?', confirmRemoveDesc: 'Ini hanya menyembunyikan invois daripada senarai pentadbir biasa. Akses pelanggan, sejarah pembayaran dan penghantaran kekal utuh. Cari melalui penapis Dipadamkan dan pulihkan ke Diarkibkan pada bila-bila masa.', successfullyRemoved: 'Berjaya dipadamkan', cannotRemove: 'Tidak dapat dipadamkan', removedView: 'Dipadamkan',
 };
 export const commerceTranslations = { ID: id, EN: en, MY: my };

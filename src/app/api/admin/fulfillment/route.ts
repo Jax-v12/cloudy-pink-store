@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { adminAccess } from '@/lib/adminAccess';
 import { apiError } from '@/lib/apiError';
 import { InputError, pagination, pageResult, privateHeaders } from '@/lib/http';
-import { archiveEligibility } from '@/lib/orderArchive';
+import { archiveEligibility, removeEligibility } from '@/lib/orderArchive';
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const { limit, cursor } = pagination(req);
     const query = new URL(req.url).searchParams;
     const archive = query.get('archive') ?? 'active';
-    if (!['active', 'archived', 'all'].includes(archive)) throw new InputError();
+    if (!['active', 'archived', 'removed', 'all'].includes(archive)) throw new InputError();
     const type = query.get('type'); const status = query.get('status');
     const method = query.get('method'); const payment = query.get('payment'); const search = (query.get('q') || '').trim();
     if (search.length > 120) throw new InputError();
@@ -27,10 +27,10 @@ export async function GET(req: Request) {
       ...(payment ? { status: payment as OrderStatus } : {}),
       ...(search ? { OR: [{ invoice: { contains: search } }, { customerEmail: { contains: search } }, { robloxDetail: { is: { username: { contains: search } } } }] } : {}),
     };
-    const archiveFilter = archive === 'active' ? { archivedAt: null } : archive === 'archived' ? { archivedAt: { not: null } } : {};
+    const archiveFilter = archive === 'active' ? { archivedAt: null, removedFromAdminAt: null } : archive === 'archived' ? { archivedAt: { not: null }, removedFromAdminAt: null } : archive === 'removed' ? { removedFromAdminAt: { not: null } } : { removedFromAdminAt: null };
     const rows = await prisma.order.findMany({ where: { ...filters, ...archiveFilter, ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' }, select: {
       id: true, invoice: true, type: true, status: true, fulfillmentStatus: true, refundStatus: true,
-      archivedAt: true, secret: { select: { orderId: true } }, accountStock: { select: { status: true } },
+      archivedAt: true, removedFromAdminAt: true, secret: { select: { orderId: true } }, accountStock: { select: { status: true } },
       customerEmail: true, totalAmount: true, currency: true, pricingRegion: true, productName: true, variantName: true, units: true, createdAt: true,
       paymentMethod: true,
       robloxDetail: true, gameDetail: true,
@@ -40,10 +40,10 @@ export async function GET(req: Request) {
     const page = pageResult(rows, limit);
     const [heartbeat, reviewCount, pendingCount] = await Promise.all([
       prisma.workerHeartbeat.findUnique({ where: { name: 'fulfillment' } }),
-      prisma.order.count({ where: { AND: [filters, { archivedAt: null, fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
-      prisma.order.count({ where: { AND: [filters, { archivedAt: null, fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }] } }),
+      prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
+      prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }] } }),
     ]);
-    return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, ...row }) => ({ ...row, ...archiveEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,
+    return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, ...row }) => ({ ...row, ...archiveEligibility({ ...row, secret, accountStock }), ...removeEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,
       job: row.job ? { evidence: row.job.evidence, attempts: row.job.attempts } : null })),
       monitoring: { lastRun: heartbeat?.succeededAt ?? null, overdue: !heartbeat || Date.now() - heartbeat.succeededAt.getTime() > 180_000, reviewCount, pendingCount },
     }, { headers: privateHeaders });

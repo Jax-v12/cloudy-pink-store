@@ -8,7 +8,7 @@ type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
   totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
   paymentMethod?: string;
-  archivedAt: string | null; canArchive: boolean; archiveReasonCodes: string[];
+  archivedAt: string | null; canArchive: boolean; archiveReasonCodes: string[]; canRemove: boolean; removeReasonCodes: string[]; removedFromAdminAt: string | null;
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   job: { evidence: string | null; attempts: { id: number; operation: string; outcome: string; createdAt: string }[] } | null;
@@ -22,6 +22,11 @@ export default function FulfillmentAdmin() {
   const [archive, setArchive] = useState('active');
   const [archiveTarget, setArchiveTarget] = useState<Row | null>(null);
   const [archiveError, setArchiveError] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<Row | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState('');
+  const [removePassword, setRemovePassword] = useState('');
+  const [removeReauth, setRemoveReauth] = useState(false);
+  const removing = useRef(false);
   const [search, setSearch] = useState(''); const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true); const activeRequest = useRef<AbortController | null>(null);
   const filters = new URLSearchParams({ type, status, method, payment, archive, q: query }).toString();
@@ -57,6 +62,31 @@ export default function FulfillmentAdmin() {
     } catch (e) { if (current && !current.signal.aborted) setError(e instanceof Error ? e.message : 'LOAD_FAILED'); }
     finally { setBusy(false); }
   }
+  async function changeRemove(row: Row, removed: boolean) {
+    if (busy || removing.current) return;
+    removing.current = true;
+    setBusy(true); setArchiveError('');
+    try {
+      // Try removal first; a valid recent session must not consume another password attempt.
+      if (removed && removeReauth) {
+        const reauth = await fetch('/api/admin/reauth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: removePassword }) });
+        const result = await reauth.json();
+        if (!reauth.ok) throw new Error(result.errorCode || 'SYSTEM_ERROR');
+        setRemoveReauth(false); setRemovePassword('');
+      }
+      const response = await fetch(`/api/admin/fulfillment/${row.id}/remove`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ removed, ...(removed ? { confirmationInvoice: removeConfirm } : {}) }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.errorCode || 'SYSTEM_ERROR');
+      closeRemove();
+    } catch (e) {
+      const code = e instanceof Error ? e.message : 'SYSTEM_ERROR';
+      if (code === 'REAUTH_REQUIRED') setRemoveReauth(true);
+      setArchiveError(code);
+    } finally { removing.current = false; setBusy(false); setRefresh(n => n + 1); }
+  }
+  function closeRemove() {
+    setRemoveTarget(null); setRemoveConfirm(''); setRemovePassword(''); setRemoveReauth(false); setArchiveError('');
+  }
+
   async function changeArchive(row: Row, archived: boolean) {
     if (busy) return;
     setBusy(true); setArchiveError('');
@@ -78,6 +108,28 @@ export default function FulfillmentAdmin() {
       </button>
     </div>
 
+    {removeTarget && <AdminDialog title={c.confirmRemove} busy={busy} onClose={closeRemove}>
+      <p className="mb-3 break-all font-black text-lg text-neutral-800">{removeTarget.invoice}</p>
+      <dl className="mb-4 text-sm text-neutral-700 space-y-1">
+        <div><dt className="inline font-bold">{c.product}: </dt><dd className="inline break-words">{removeTarget.productName}</dd></div>
+        <div><dt className="inline font-bold">{c.payment}: </dt><dd className="inline">{label(removeTarget.status)}</dd></div>
+        <div><dt className="inline font-bold">{c.fulfillment}: </dt><dd className="inline">{label(removeTarget.fulfillmentStatus)}</dd></div>
+      </dl>
+      <p className="mb-5 text-sm font-medium text-neutral-600">{c.confirmRemoveDesc}</p>
+      <form onSubmit={e => { e.preventDefault(); if (removeConfirm === removeTarget.invoice && (!removeReauth || removePassword)) void changeRemove(removeTarget, true); }}>
+      <label className="block text-sm font-bold text-neutral-700">{c.confirmInvoice}
+        <input type="text" disabled={busy} autoComplete="off" maxLength={191} value={removeConfirm} onChange={e => setRemoveConfirm(e.target.value)} className="w-full border-2 border-neutral-200 rounded-xl px-4 py-3 text-sm font-bold text-neutral-800 focus:border-red-500 focus:outline-none transition-all mt-1 mb-4" />
+      </label>
+      {removeReauth && <label className="block text-sm font-bold text-neutral-700">{c.adminPassword}
+        <input type="password" disabled={busy} autoComplete="current-password" maxLength={1024} value={removePassword} onChange={e => setRemovePassword(e.target.value)} className="w-full border-2 border-pink-200 rounded-xl px-4 py-3 mt-1 mb-4 focus:border-pink-500 focus:outline-none" />
+      </label>}
+      {archiveError && <p role="alert" className="mb-4 text-sm text-rose-700">{c[archiveError as keyof typeof c] || c.SYSTEM_ERROR}</p>}
+      <div className="flex gap-3">
+        <button type="submit" disabled={busy || removeConfirm !== removeTarget.invoice || (removeReauth && !removePassword)} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl p-3 shadow-sm transition active:scale-95 disabled:opacity-50">{c.removeInvoice}</button>
+        <button type="button" disabled={busy} onClick={closeRemove} className="flex-1 border-2 border-neutral-200 text-neutral-600 font-bold hover:bg-neutral-50 rounded-xl p-3 transition active:scale-95">{c.cancelAction}</button>
+      </div>
+      </form>
+    </AdminDialog>}
     {archiveTarget && <AdminDialog title={c.archive} busy={busy} onClose={() => setArchiveTarget(null)}>
       <p className="mb-3 break-all font-black text-lg text-neutral-800">{archiveTarget.invoice}</p>
       <p className="mb-5 text-sm font-medium text-neutral-600">{c.archiveWarning}</p>
@@ -113,7 +165,7 @@ export default function FulfillmentAdmin() {
     <div className="bg-white border-2 border-pink-100 rounded-3xl p-5 shadow-lg shadow-pink-900/5 flex flex-col gap-4">
       <div className="flex flex-wrap gap-3">
         <select aria-label={c.archiveView} value={archive} disabled={busy} onChange={e => { setArchive(e.target.value); setArchiveError(''); }} className="border-2 border-pink-100 bg-neutral-50 rounded-xl px-3 py-2 text-sm font-bold text-neutral-700 hover:border-pink-200 focus:border-pink-500 focus:outline-none transition-all">
-          <option value="active">{c.activeOrders}</option><option value="archived">{c.archivedOrders}</option><option value="all">{c.all}</option>
+          <option value="active">{c.activeOrders}</option><option value="archived">{c.archivedOrders}</option><option value="removed">{c.removedView}</option><option value="all">{c.all}</option>
         </select>
         <select aria-label={c.product} value={type} onChange={e => { setType(e.target.value); setMethod(''); }} className="border-2 border-pink-100 bg-neutral-50 rounded-xl px-3 py-2 text-sm font-bold text-neutral-700 hover:border-pink-200 focus:border-pink-500 focus:outline-none transition-all">
           <option value="">{c.all}</option><option value="ROBLOX">{c.ROBLOX}</option><option value="GAME">{c.GAME}</option><option value="APPS">{c.APPS}</option>
@@ -139,7 +191,7 @@ export default function FulfillmentAdmin() {
       </form>
     </div>
     {error && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{error === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : error === 'LOAD_FAILED' ? t.regional.adminLoadError : c.actionError}</p>}
-    {archiveError && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{c[archiveError as keyof typeof c] || c.SYSTEM_ERROR}</p>}
+    {archiveError && !removeTarget && <p role="alert" className="p-3 rounded-lg bg-rose-100 text-rose-800">{c[archiveError as keyof typeof c] || c.SYSTEM_ERROR}</p>}
         {loading && <div className="flex justify-center p-8"><svg className="h-8 w-8 text-pink-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></div>}
 
     {!loading && !error && rows.length === 0 && (
@@ -194,7 +246,11 @@ export default function FulfillmentAdmin() {
             {row.archivedAt ? (
               <div className="bg-neutral-50 rounded-xl p-3 border border-neutral-100">
                 <p className="text-sm font-medium text-neutral-600">{c.archivedOn}: <span className="font-bold">{new Date(row.archivedAt).toLocaleString()}</span></p>
-                <button disabled={busy || loading} onClick={() => void changeArchive(row, false)} className="mt-2 text-xs font-bold border-2 border-pink-200 text-pink-600 hover:bg-pink-50 rounded-lg px-4 py-2 transition active:scale-95">{c.restore}</button>
+                {row.removedFromAdminAt && <p className="text-sm font-medium text-red-600 mt-1">{c.removedView}: <span className="font-bold">{new Date(row.removedFromAdminAt).toLocaleString()}</span></p>}
+                {!row.removedFromAdminAt && <button disabled={busy || loading} onClick={() => void changeArchive(row, false)} className="mt-2 text-xs font-bold border-2 border-pink-200 text-pink-600 hover:bg-pink-50 rounded-lg px-4 py-2 transition active:scale-95">{c.restore}</button>}
+                {row.archivedAt && !row.removedFromAdminAt && <button disabled={busy || loading || !row.canRemove} onClick={() => { setArchiveError(''); setRemoveTarget(row); }} className="mt-2 ml-2 text-xs font-bold border-2 border-red-200 text-red-600 hover:bg-red-50 rounded-lg px-4 py-2 transition active:scale-95">{c.removeInvoice}</button>}
+                {row.removedFromAdminAt && <button disabled={busy || loading} onClick={() => void changeRemove(row, false)} className="mt-2 text-xs font-bold border-2 border-pink-200 text-pink-600 hover:bg-pink-50 rounded-lg px-4 py-2 transition active:scale-95">{c.restoreRemovedInvoice}</button>}
+                {!row.removedFromAdminAt && !row.canRemove && <div className="mt-2 text-sm text-rose-600">{row.removeReasonCodes.map(code => <p key={code}>{c[code as keyof typeof c] || c.actionError}</p>)}</div>}
               </div>
             ) : row.canArchive ? (
               <button disabled={busy || loading} onClick={() => { setArchiveError(''); setArchiveTarget(row); }} className="text-xs font-bold border-2 border-neutral-200 text-neutral-600 hover:bg-neutral-50 rounded-lg px-4 py-2 transition active:scale-95">{c.archive}</button>

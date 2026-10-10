@@ -235,3 +235,70 @@ tests/admin-catalog-archive-migration.test.mjs.
 
 Root instructions/roadmap, environment files, Midtrans, checkout, webhook and
 fulfillment state machine are not part of the changes.
+
+## 13. Remove archived invoices (2026-10-10)
+
+Continues the uncommitted Gemini implementation on main after `fac7c1d`.
+This is reversible admin visibility only: customer tokens, invoices, financial
+snapshots, fulfillment jobs/details/provider attempts and existing audits survive.
+Revenue analytics remain inclusive. Ordinary admin order lists now exclude
+removed invoices, including the fulfillment All view. Removed is a separate view.
+
+The single additive migration `20261010145353_add_removed_from_admin_at` adds
+nullable `Order.removedFromAdminAt` and indexes `(removedFromAdminAt,id)` and
+`(type,removedFromAdminAt,id)`. No backfill, DROP, FK or enum changes. Corrected
+Gemini's lowercase table identifier to match the canonical `Order` table on
+case-sensitive MySQL hosts. Migration lock comments are generated boilerplate.
+
+`PATCH /api/admin/fulfillment/[id]/remove` accepts:
+
+- Remove: `{ removed: true, confirmationInvoice: "exact complete invoice" }`.
+- Restore to archive: `{ removed: false }`.
+
+Authenticate and verify CSRF before any lookup. Removal requires five-minute
+reauthentication both at the route and after acquiring Order then FulfillmentJob
+locks. Compare the invoice exactly on the server; reject extra fields and invalid
+IDs/types/oversized bodies. Reuse the archive obligation policy plus archivedAt:
+only PAID/COMPLETED Roblox or Game, refund NONE, completed job, no lease token or
+unexpired lease, no OrderSecret or locked stock. Write visibility and the `remove`
+or `restore_removed` audit atomically. Same-state retries have no duplicate audit.
+Recent reauth and exact confirmation are still required for removal retries.
+
+Removed implies archived. The old archive endpoint rejects removed invoices;
+restore-from-removed clears only removedFromAdminAt and retains archivedAt.
+It does not requeue delivery. Inconsistent removed-without-archive rows fail closed.
+All transitions serialize on the Order lock using the existing bounded mutation
+transaction/retry/error handling.
+
+The translated dialog displays the full invoice, product and final statuses,
+explains retained customer access, requires exact invoice typing, and preserves
+input/error state after failure. Attempt removal first; request a password only
+after REAUTH_REQUIRED, using the existing reauth endpoint and unchanged limiter.
+Refresh list state after every outcome, including an ambiguous network failure.
+
+Validation uses only explicitly selected disposable localhost `cloudy_test_*`
+databases and the mocked production-mode HTTP harness. Added removal policy,
+MySQL concurrency/rollback/session-lock, HTTP authorization/filter/pagination/
+invoice/analytics, and additive migration tests. The historical storefront HTTP
+assertion now matches the already-deployed Anya heading; storefront code unchanged.
+Browser QA covers removal, restoration, password errors, reauth reuse, keyboard
+Escape, ID/EN/MY and a 390px mobile viewport. Staging migration, push and deployment
+still require separate user approval. No protected or remote database is accessed.
+
+Final local results: full suite 81 passed / 0 failed / 0 skipped (serial test files,
+production HTTP harness, all three historical migration fixtures enabled).
+Focused removal policy/MySQL suite repeated after test-helper lint cleanup:
+8 passed / 0 failed / 0 skipped. Prisma validate/generate, TypeScript, production
+build and git diff --check passed. ESLint: no errors; the existing StoreShell.tsx
+`<img>` warning remains. Local MySQL 8.4.3 on 127.0.0.1:3306; fresh databases
+`cloudy_test_remove_20261010_02`, `cloudy_test_remove_migration_20261010_02`,
+`cloudy_test_remove_archive_20261010_02`, `cloudy_test_remove_regional_20261010_02`.
+All eight migrations deployed cleanly to the first; history up to date. Windows
+MySQL uses lower_case_table_names=1; remote case-sensitive behavior, metadata-lock
+duration and backup/restore readiness still need rollout verification.
+
+Initial full run exposed the stale storefront headline assertion (80/81);
+after correcting only that assertion, the fresh full run above passed.
+Prisma generation initially hit a DLL lock from the existing dev server on 3000;
+the verified project dev processes were stopped and generation/build then passed.
+The temporary test HTTP server was stopped after QA. No commit, push or deployment.

@@ -29,6 +29,7 @@ export async function setOrderArchived(id: number, sessionId: string, archived: 
     } });
     if (!order) throw new CommerceError('ORDER_NOT_FOUND', 404);
     if (!['ROBLOX', 'GAME'].includes(order.type)) throw new CommerceError('ORDER_TYPE_UNSUPPORTED', 403);
+    if (order.removedFromAdminAt) throw new CommerceError('ORDER_REMOVED');
     if (Boolean(order.archivedAt) === archived) return { id, archivedAt: order.archivedAt, changed: false };
     if (archived) {
       const eligibility = archiveEligibility(order);
@@ -38,5 +39,39 @@ export async function setOrderArchived(id: number, sessionId: string, archived: 
     await tx.order.update({ where: { id }, data: { archivedAt } });
     await tx.adminAudit.create({ data: { orderId: id, sessionId, action: archived ? 'archive' : 'restore' } });
     return { id, archivedAt, changed: true };
+  });
+}
+
+type RemoveCandidate = ArchiveCandidate & Pick<Order, 'removedFromAdminAt'>;
+
+export function removeEligibility(order: RemoveCandidate, now = new Date()) {
+  const reasonCodes = archiveEligibility(order, now).archiveReasonCodes;
+  if (!order.archivedAt) reasonCodes.push('ORDER_NOT_ARCHIVED');
+  return { canRemove: !order.removedFromAdminAt && reasonCodes.length === 0, removeReasonCodes: reasonCodes };
+}
+
+export async function setOrderRemovedFromAdmin(id: number, sessionId: string, removed: boolean, confirmationInvoice?: string) {
+  return adminMutation('order-remove', async tx => {
+    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${id} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM \`FulfillmentJob\` WHERE orderId = ${id} FOR UPDATE`;
+    // Locks may have waited: recheck expiry and the five-minute reauth window here.
+    await requireCurrentSession(tx, sessionId, removed);
+    const order = await tx.order.findUnique({ where: { id }, include: {
+      job: { select: { completedAt: true, leaseToken: true, leaseUntil: true } },
+      secret: { select: { orderId: true } }, accountStock: { select: { status: true } },
+    } });
+    if (!order) throw new CommerceError('ORDER_NOT_FOUND', 404);
+    if (!['ROBLOX', 'GAME'].includes(order.type)) throw new CommerceError('ORDER_TYPE_UNSUPPORTED', 403);
+    if (removed && confirmationInvoice !== order.invoice) throw new CommerceError('INVOICE_CONFIRMATION_MISMATCH', 400);
+    if ((removed || order.removedFromAdminAt) && !order.archivedAt) throw new CommerceError('ORDER_NOT_ARCHIVED');
+    if (Boolean(order.removedFromAdminAt) === removed) return { id, archivedAt: order.archivedAt, removedFromAdminAt: order.removedFromAdminAt, changed: false };
+    if (removed) {
+      const eligibility = removeEligibility(order);
+      if (!eligibility.canRemove) throw new CommerceError(eligibility.removeReasonCodes[0]);
+    }
+    const removedFromAdminAt = removed ? new Date() : null;
+    await tx.order.update({ where: { id }, data: { removedFromAdminAt } });
+    await tx.adminAudit.create({ data: { orderId: id, sessionId, action: removed ? 'remove' : 'restore_removed' } });
+    return { id, archivedAt: order.archivedAt, removedFromAdminAt, changed: true };
   });
 }

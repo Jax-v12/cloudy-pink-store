@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     if (!(await verifyAdminAuth(req))) return NextResponse.json({ success: false }, { status: 401 });
     const { limit, cursor } = pagination(req);
     const rows = await prisma.order.findMany({
-      take: limit + 1, ...(cursor ? { where: { id: { lt: cursor } } } : {}), orderBy: { id: 'desc' },
+      take: limit + 1, where: { removedFromAdminAt: null, ...(cursor ? { id: { lt: cursor } } : {}) }, orderBy: { id: 'desc' },
       select: { id: true, invoice: true, customerEmail: true, totalAmount: true, currency: true, pricingRegion: true,
         paymentMethod: true, status: true, createdAt: true, product: { select: { name: true } } },
     });
