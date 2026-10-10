@@ -81,7 +81,7 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
         <span className={`mt-2 block text-[10px] sm:text-xs leading-snug ${i === step ? 'text-pink-900 font-semibold' : 'text-neutral-500'}`}>{label}</span>
       </button>
     </li>)}</ol>
-    <form onSubmit={submit} className="rounded-[2rem] border border-pink-100 bg-white px-5 py-8 sm:p-12 shadow-[0_12px_50px_-30px_#ec4899]">
+    <form onSubmit={submit} className="rounded-[2.5rem] border-4 border-pink-200 bg-white/95 backdrop-blur-md px-5 py-8 sm:p-12 shadow-2xl shadow-pink-900/10">
       <fieldset disabled={busy} className="min-w-0">
         <header className="mx-auto mb-8 max-w-xl text-center">
           {step === 0 && <span className="inline-block rounded-full bg-pink-100 px-4 py-2 text-xs font-extrabold tracking-wider text-pink-600 mb-4">{viaUsername ? u.badge : f.badge}</span>}

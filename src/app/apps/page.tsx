@@ -147,46 +147,26 @@ export default function HomePage() {
 
   return (
     <main
-      className="min-h-screen p-3 sm:p-6 md:p-10 font-sans relative bg-fixed bg-cover bg-center pb-24 md:pb-12"
+      className="min-h-screen p-3 sm:p-6 md:p-10 font-sans relative bg-fixed bg-cover bg-center pb-24 md:pb-12 animate-in fade-in duration-500"
       style={{ backgroundImage: "url('/bg-anya.jpg')" }}
     >
       <div className="fixed inset-0 bg-pink-950/40 backdrop-blur-[2px] pointer-events-none"></div>
 
       <div className="relative z-10 max-w-5xl mx-auto">
-        <Link href="/" className="text-white font-bold">{t.commerce.home}</Link>
-        {/* Switch Bahasa: ID | MY | EN */}
-        <div className="flex justify-end mb-3 sm:mb-4">
-          <div className="inline-flex bg-white/95 backdrop-blur-sm p-1 rounded-2xl border-2 border-pink-300 shadow-md">
-            <button
-              onClick={() => setLanguage('ID')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
-                language === 'ID'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
-              }`}
-            >
-              ID
-            </button>
-            <button
-              onClick={() => setLanguage('MY')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
-                language === 'MY'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
-              }`}
-            >
-              MY
-            </button>
-            <button
-              onClick={() => setLanguage('EN')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
-                language === 'EN'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
-              }`}
-            >
-              EN
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <Link href="/" className="text-white font-bold hover:text-pink-200 transition-colors drop-shadow-md">
+            &larr; {t.commerce.home}
+          </Link>
+          <nav className="order-3 flex w-full gap-2 overflow-x-auto rounded-2xl bg-white/90 backdrop-blur-md p-1.5 text-sm font-bold sm:order-none sm:w-auto shadow-md border-2 border-pink-200" aria-label={t.commerce.home}>
+            {[['/apps', t.commerce.APPS], ['/games', t.commerce.GAME], ['/roblox', t.commerce.ROBLOX]].map(([href, label]) => {
+              const current = '/apps' === href;
+              return <Link key={href} href={href} aria-current={current ? 'page' : undefined}
+                className={`whitespace-nowrap rounded-xl px-4 py-2 transition-all active:scale-95 ${current ? 'bg-pink-500 text-white shadow-sm' : 'text-neutral-600 hover:bg-pink-100 hover:text-pink-700'}`}>{label}</Link>;
+            })}
+          </nav>
+          <div role="group" aria-label={t.commerce.language} className="inline-flex rounded-2xl border-2 border-pink-300 bg-white/95 backdrop-blur-sm p-1 text-xs font-bold shadow-md">
+            {(['ID', 'EN', 'MY'] as const).map(l => <button key={l} type="button" aria-pressed={language === l} onClick={() => setLanguage(l)}
+              className={`rounded-xl px-3 py-1.5 transition-all active:scale-95 ${language === l ? 'bg-pink-500 text-white shadow-sm' : 'text-neutral-600 hover:text-pink-600'}`}>{l}</button>)}
           </div>
         </div>
 
