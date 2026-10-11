@@ -1,12 +1,101 @@
 import { PrismaClient } from '@prisma/client';
 
+export function assertSafeDatabaseUrl(urlStr?: string): void {
+  if (!urlStr || typeof urlStr !== 'string' || !urlStr.trim()) {
+    throw new Error('FATAL: DATABASE_URL is missing or empty.');
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr.trim());
+  } catch {
+    throw new Error('FATAL: DATABASE_URL is malformed.');
+  }
+
+  if (parsed.protocol !== 'mysql:') {
+    throw new Error(`FATAL: Database protocol must be mysql:, got ${parsed.protocol}`);
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!host) {
+    throw new Error('FATAL: Database host is missing.');
+  }
+
+  const rawPath = parsed.pathname.replace(/^\/+/, '').split('?')[0].split('/')[0];
+  if (!rawPath) {
+    throw new Error('FATAL: Database name is missing in DATABASE_URL.');
+  }
+
+  let decodedName = rawPath;
+  try {
+    for (let i = 0; i < 5; i++) {
+      const prev = decodedName;
+      decodedName = decodeURIComponent(decodedName);
+      if (decodedName === prev) break;
+    }
+  } catch {
+    throw new Error('FATAL: Database name has invalid URL encoding.');
+  }
+
+  const dbName = decodedName.toLowerCase();
+
+  let decodedUrl = urlStr;
+  try {
+    for (let i = 0; i < 5; i++) {
+      const prev = decodedUrl;
+      decodedUrl = decodeURIComponent(decodedUrl);
+      if (decodedUrl === prev) break;
+    }
+  } catch {
+    // If full URL decoding encounters formatting issues, pathname check still guards
+  }
+
+  const lowerDecodedUrl = decodedUrl.toLowerCase();
+  if (
+    dbName === 'defaultdb' ||
+    dbName.includes('defaultdb') ||
+    lowerDecodedUrl.includes('/defaultdb') ||
+    lowerDecodedUrl.includes('database=defaultdb')
+  ) {
+    throw new Error('FATAL: Connection to defaultdb is strictly blocked by fail-closed guard.');
+  }
+
+  const isAiven = host === 'aivencloud.com' || host.endsWith('.aivencloud.com');
+  const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+
+  if (isAiven) {
+    if (dbName !== 'cloudy_staging') {
+      throw new Error(`FATAL: Only cloudy_staging is permitted on Aiven during testing, got ${dbName}.`);
+    }
+    return;
+  }
+
+  if (isLocal) {
+    if (!/^cloudy_test(?:_[a-z0-9_]+)?$/.test(dbName)) {
+      throw new Error(`FATAL: Only cloudy_test_* databases are permitted on local hosts, got ${dbName}.`);
+    }
+    return;
+  }
+
+  throw new Error(`FATAL: Unauthorized database host: ${host}`);
+}
+
+// Enforce fail-closed validation on startup / module evaluation whenever DATABASE_URL is present
+// or when running in runtime environments (production, Next.js build/runtime).
+if (process.env.DATABASE_URL !== undefined || process.env.NODE_ENV === 'production' || process.env.NEXT_RUNTIME) {
+  assertSafeDatabaseUrl(process.env.DATABASE_URL);
+}
+
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma =
   globalForPrisma.prisma ||
-  new PrismaClient({
-    // Route-level logging emits safe error codes, never Prisma query arguments.
-    log: [],
-  });
+  (() => {
+    assertSafeDatabaseUrl(process.env.DATABASE_URL);
+    return new PrismaClient({
+      // Route-level logging emits safe error codes, never Prisma query arguments.
+      log: [],
+    });
+  })();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

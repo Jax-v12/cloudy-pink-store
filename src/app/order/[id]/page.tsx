@@ -108,6 +108,15 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const downloadQrisImage = async () => {
     if (!order?.qrisUrl) return;
     try {
+      if (order.qrisUrl.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = order.qrisUrl;
+        link.download = `QRIS-${order.invoice}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
       const response = await fetch(order.qrisUrl);
       if (!response.ok) throw new Error('QR_DOWNLOAD_FAILED');
       const blob = await response.blob();
