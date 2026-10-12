@@ -64,6 +64,19 @@ export function isGatewayQrUrl(value: string): boolean {
   } catch { return false; }
 }
 
+export function expectedGatewayQrHost(): string {
+  return process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
+    ? 'api.midtrans.com'
+    : 'api.sandbox.midtrans.com';
+}
+
+export function isValidOrderQrUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return isGatewayQrUrl(value) && url.hostname === expectedGatewayQrHost() && !url.search && !url.hash;
+  } catch { return false; }
+}
+
 export function extractQr(data: Record<string, unknown>): string | null {
   if (Array.isArray(data.actions)) {
     const action = data.actions.find(a => a && ['generate-qr-code', 'generate-qr-code-v2'].includes(a.name) && typeof a.url === 'string' && isGatewayQrUrl(a.url));

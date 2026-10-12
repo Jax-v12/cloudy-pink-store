@@ -46,6 +46,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState('');
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedString, setCopiedString] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +108,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   };
 
   const downloadQrisImage = async () => {
-    if (!order?.qrisUrl) return;
+    if (!order?.qrisUrl || downloading) return;
+    setDownloadError('');
     try {
       if (order.qrisUrl.startsWith('data:')) {
         const link = document.createElement('a');
@@ -117,8 +120,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         document.body.removeChild(link);
         return;
       }
-      const response = await fetch(order.qrisUrl);
-      if (!response.ok) throw new Error('QR_DOWNLOAD_FAILED');
+
+      setDownloading(true);
+      const token = localStorage.getItem(`token_${id}`);
+      if (!token) throw new Error('NO_TOKEN');
+
+      const response = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/qris/download`, {
+        headers: { 'x-order-token': token },
+      });
+
+      if (!response.ok) {
+        throw new Error('DOWNLOAD_FAILED');
+      }
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -128,8 +142,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-    } catch (err: unknown) {
-      console.error('Failed downloading QRIS image:', err);
+    } catch {
+      setDownloadError(t.downloadFailed || 'Gagal mengunduh QRIS. Silakan coba lagi.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -288,10 +304,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
               <div className="flex flex-col sm:flex-row justify-center gap-2 max-w-sm mx-auto">
                 <button
+                  disabled={downloading}
                   onClick={downloadQrisImage}
-                  className="flex-1 py-2 px-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer"
+                  className="flex-1 py-2 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {t.btnDownloadQris}
+                  {downloading ? t.btnProcessing : t.btnDownloadQris}
                 </button>
                 <button
                   disabled={!order.qrisCode}
@@ -301,6 +318,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   {copiedString ? t.copiedNotice : t.btnCopyCode}
                 </button>
               </div>
+
+              {downloadError && (
+                <p className="text-xs text-rose-500 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>
+              )}
 
               <p className="text-[11px] text-neutral-400 italic mt-2">{t.autoCheckNotice}</p>
             </div>

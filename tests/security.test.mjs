@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { encryptData, decryptData } from '../src/lib/crypto.ts';
 import { checkoutInput, parseDetails, requestDigest, checkoutEnabled } from '../src/lib/commerce.ts';
-import { verifySignature, getGatewayStatus } from '../src/lib/midtrans.ts';
+import { verifySignature, getGatewayStatus, isValidOrderQrUrl } from '../src/lib/midtrans.ts';
+import { handleQrisDownload } from '../src/app/api/orders/[id]/qris/download/route.ts';
 import { getGameProvider } from '../src/lib/gameProvider.ts';
 import { assertSafeDatabaseUrl } from '../src/lib/prisma.ts';
 import { clientKey } from '../src/lib/rateLimit.ts';
@@ -248,4 +249,313 @@ test('next.config.ts configures mandatory HTTP security headers, Midtrans allowl
   assert.ok(csp.includes("img-src 'self' data: blob: https://*.rbxcdn.com https://thumbnails.roblox.com https://api.sandbox.midtrans.com https://api.midtrans.com"));
   assert.ok(csp.includes("connect-src 'self' https://api.sandbox.midtrans.com https://api.midtrans.com"));
   assert.ok(csp.includes("frame-ancestors 'none'"));
+});
+
+test('server-side QRIS download validates order auth, Midtrans URL, rejects SSRF, enforces limits and MIME', async () => {
+  const priorProd = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION;
+  const originalFetch = globalThis.fetch;
+  try {
+    delete process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION; // Sandbox mode
+
+    // 1. URL validation helper tests (isValidOrderQrUrl)
+    // Sandbox mode: accepts sandbox host
+    assert.equal(isValidOrderQrUrl('https://api.sandbox.midtrans.com/v2/qris/test-123/qr-code'), true);
+    // Sandbox mode: rejects production host
+    assert.equal(isValidOrderQrUrl('https://api.midtrans.com/v2/qris/test-123/qr-code'), false);
+    // Rejects SSRF and internal addresses
+    assert.equal(isValidOrderQrUrl('http://localhost/v2/qris/1/qr-code'), false);
+    assert.equal(isValidOrderQrUrl('https://127.0.0.1/v2/qris/1/qr-code'), false);
+    assert.equal(isValidOrderQrUrl('https://169.254.169.254/v2/qris/1/qr-code'), false);
+    // Rejects arbitrary domains and query/hash spoofing
+    assert.equal(isValidOrderQrUrl('https://attacker.test/v2/qris/1/qr-code'), false);
+    assert.equal(isValidOrderQrUrl('https://api.sandbox.midtrans.com/v2/qris/1/qr-code?redirect=evil'), false);
+    assert.equal(isValidOrderQrUrl('https://api.sandbox.midtrans.com/v2/qris/1/qr-code#hash'), false);
+    assert.equal(isValidOrderQrUrl('https://user:pass@api.sandbox.midtrans.com/v2/qris/1/qr-code'), false);
+
+    // Production mode check
+    process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION = 'true';
+    assert.equal(isValidOrderQrUrl('https://api.midtrans.com/v2/qris/test-123/qr-code'), true);
+    assert.equal(isValidOrderQrUrl('https://api.sandbox.midtrans.com/v2/qris/test-123/qr-code'), false);
+    delete process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION;
+
+    // 2. Token invoice salah atau tidak ada -> akses ditolak (404)
+    const mockOrder = {
+      id: 1,
+      invoice: 'INV-TEST-001',
+      status: 'PENDING',
+      qrisUrl: 'https://api.sandbox.midtrans.com/v2/qris/valid-action/qr-code',
+    };
+    const mockDb = {
+      order: {
+        findFirst: async ({ where }) => {
+          if (where.invoice === mockOrder.invoice && where.accessToken === 'valid-token') {
+            return mockOrder;
+          }
+          return null;
+        },
+      },
+    };
+
+    // Missing token
+    const resNoToken = await handleQrisDownload(new Request('http://localhost'), 'INV-TEST-001', mockDb);
+    assert.equal(resNoToken.status, 404);
+    assert.equal((await resNoToken.json()).errorCode, 'ORDER_NOT_FOUND');
+
+    // Invalid token
+    const resWrongToken = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'wrong-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resWrongToken.status, 404);
+    assert.equal((await resWrongToken.json()).errorCode, 'ORDER_NOT_FOUND');
+
+    // 3. URL tidak valid / URL server internal (SSRF) -> ditolak (400)
+    const invalidUrlDb = {
+      order: {
+        findFirst: async () => ({
+          id: 2,
+          invoice: 'INV-INVALID-URL',
+          status: 'PENDING',
+          qrisUrl: 'https://attacker.example.com/v2/qris/1/qr-code',
+        }),
+      },
+    };
+    const resInvalidUrl = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-INVALID-URL',
+      invalidUrlDb
+    );
+    assert.equal(resInvalidUrl.status, 400);
+    assert.equal((await resInvalidUrl.json()).errorCode, 'INVALID_QR_URL');
+
+    const ssrfDb = {
+      order: {
+        findFirst: async () => ({
+          id: 3,
+          invoice: 'INV-SSRF',
+          status: 'PENDING',
+          qrisUrl: 'http://127.0.0.1:8080/secret',
+        }),
+      },
+    };
+    const resSsrf = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-SSRF',
+      ssrfDb
+    );
+    assert.equal(resSsrf.status, 400);
+    assert.equal((await resSsrf.json()).errorCode, 'INVALID_QR_URL');
+
+    // 4. QRIS Midtrans valid -> gambar PNG dikembalikan (200)
+    const validPngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array(100).fill(0)]);
+    globalThis.fetch = async () => new Response(validPngBytes, {
+      status: 200,
+      headers: {
+        'content-type': 'image/png',
+        'content-length': String(validPngBytes.length),
+      },
+    });
+
+    const resSuccess = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resSuccess.status, 200);
+    assert.equal(resSuccess.headers.get('content-type'), 'image/png');
+    assert.equal(resSuccess.headers.get('content-disposition'), 'attachment; filename="QRIS-INV-TEST-001.png"');
+    assert.equal(resSuccess.headers.get('cache-control'), 'private, no-store');
+    const returnedBytes = Buffer.from(await resSuccess.arrayBuffer());
+    assert.deepEqual(returnedBytes, validPngBytes);
+
+    // 4b. Valid JPEG with .jpg filename
+    const validJpgBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Array(100).fill(1)]);
+    globalThis.fetch = async () => new Response(validJpgBytes, {
+      status: 200,
+      headers: {
+        'content-type': 'image/jpeg',
+        'content-length': String(validJpgBytes.length),
+      },
+    });
+
+    const resJpg = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resJpg.status, 200);
+    assert.equal(resJpg.headers.get('content-type'), 'image/jpeg');
+    assert.equal(resJpg.headers.get('content-disposition'), 'attachment; filename="QRIS-INV-TEST-001.jpg"');
+    assert.deepEqual(Buffer.from(await resJpg.arrayBuffer()), validJpgBytes);
+
+    // 5a. Network failure simulation -> 502 UPSTREAM_FETCH_FAILED
+    globalThis.fetch = async () => { throw new TypeError('fetch failed: network error'); };
+    const resNetErr = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resNetErr.status, 502);
+    assert.equal((await resNetErr.json()).errorCode, 'UPSTREAM_FETCH_FAILED');
+
+    // 5b. Timeout simulation -> 502 UPSTREAM_FETCH_FAILED
+    globalThis.fetch = async () => {
+      const timeoutErr = new Error('The operation was aborted due to timeout');
+      timeoutErr.name = 'TimeoutError';
+      throw timeoutErr;
+    };
+    const resTimeout = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resTimeout.status, 502);
+    assert.equal((await resTimeout.json()).errorCode, 'UPSTREAM_FETCH_FAILED');
+
+    // 5c. Upstream HTTP 500 error -> 502 UPSTREAM_FETCH_FAILED
+    globalThis.fetch = async () => new Response('Internal error', { status: 500 });
+    const resUpstreamErr = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resUpstreamErr.status, 502);
+    assert.equal((await resUpstreamErr.json()).errorCode, 'UPSTREAM_FETCH_FAILED');
+
+    // 5d. Mid-stream network failure/timeout after partial bytes -> 502 UPSTREAM_FETCH_FAILED
+    let readCount = 0;
+    const partialStream = new ReadableStream({
+      pull(controller) {
+        readCount++;
+        if (readCount === 1) {
+          controller.enqueue(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+        } else {
+          controller.error(new Error('Connection terminated mid-stream'));
+        }
+      },
+    });
+
+    globalThis.fetch = async () => new Response(partialStream, {
+      status: 200,
+      headers: { 'content-type': 'image/png' },
+    });
+
+    const resMidStreamErr = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resMidStreamErr.status, 502);
+    assert.equal((await resMidStreamErr.json()).errorCode, 'UPSTREAM_FETCH_FAILED');
+
+    // 6a. Upfront Content-Length > 2 MB -> 502 RESPONSE_TOO_LARGE
+    globalThis.fetch = async () => new Response('large', {
+      status: 200,
+      headers: { 'content-type': 'image/png', 'content-length': String(3 * 1024 * 1024) },
+    });
+    const resTooLarge = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resTooLarge.status, 502);
+    assert.equal((await resTooLarge.json()).errorCode, 'RESPONSE_TOO_LARGE');
+
+    // 6b. Streaming lebih dari 2 MB TANPA Content-Length -> streaming reader cancels and returns 502 RESPONSE_TOO_LARGE
+    let streamCancelled = false;
+    const chunk1MB = new Uint8Array(1024 * 1024);
+    const chunk1_5MB = new Uint8Array(1.5 * 1024 * 1024);
+    const chunkStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(chunk1MB);
+        controller.enqueue(chunk1_5MB);
+      },
+      cancel() {
+        streamCancelled = true;
+      },
+    });
+
+    globalThis.fetch = async () => new Response(chunkStream, {
+      status: 200,
+      headers: { 'content-type': 'image/png' }, // No content-length header
+    });
+
+    const resStreamTooLarge = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resStreamTooLarge.status, 502);
+    assert.equal((await resStreamTooLarge.json()).errorCode, 'RESPONSE_TOO_LARGE');
+    assert.equal(streamCancelled, true);
+
+    // 7a. MIME tidak valid (HTML / SVG) -> 502 INVALID_QR_MIME
+    globalThis.fetch = async () => new Response('<html>attack</html>', {
+      status: 200,
+      headers: { 'content-type': 'text/html' },
+    });
+    const resInvalidMime = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resInvalidMime.status, 502);
+    assert.equal((await resInvalidMime.json()).errorCode, 'INVALID_QR_MIME');
+
+    globalThis.fetch = async () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+      status: 200,
+      headers: { 'content-type': 'image/svg+xml' },
+    });
+    const resSvg = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resSvg.status, 502);
+    assert.equal((await resSvg.json()).errorCode, 'INVALID_QR_MIME');
+
+    // 7b. MIME tidak sesuai magic bytes (Claimed image/png but body is JPEG) -> 502 INVALID_IMAGE_DATA
+    globalThis.fetch = async () => new Response(validJpgBytes, {
+      status: 200,
+      headers: { 'content-type': 'image/png' },
+    });
+    const resMimeMismatch = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-TEST-001',
+      mockDb
+    );
+    assert.equal(resMimeMismatch.status, 502);
+    assert.equal((await resMimeMismatch.json()).errorCode, 'INVALID_IMAGE_DATA');
+
+    // 8. Download direct QR string (000201...) -> 200 PNG
+    const qrStringDb = {
+      order: {
+        findFirst: async () => ({
+          id: 4,
+          invoice: 'INV-QR-STRING',
+          status: 'PENDING',
+          qrisUrl: '00020101021126570011ID.CO.QRIS.WWW0118936009110000000000020300051440014ID.LINKAJA.WWW02150000000000000005204599953033605802ID5910STORE TEST6007JAKARTA61051234062070703A016304',
+        }),
+      },
+    };
+    const resQrString = await handleQrisDownload(
+      new Request('http://localhost', { headers: { 'x-order-token': 'valid-token' } }),
+      'INV-QR-STRING',
+      qrStringDb
+    );
+    assert.equal(resQrString.status, 200);
+    assert.equal(resQrString.headers.get('content-type'), 'image/png');
+    assert.equal(resQrString.headers.get('content-disposition'), 'attachment; filename="QRIS-INV-QR-STRING.png"');
+    const qrStringBytes = Buffer.from(await resQrString.arrayBuffer());
+    assert.ok(qrStringBytes.length > 50);
+    assert.equal(qrStringBytes[0], 0x89);
+    assert.equal(qrStringBytes[1], 0x50);
+    assert.equal(qrStringBytes[2], 0x4e);
+    assert.equal(qrStringBytes[3], 0x47);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (priorProd === undefined) delete process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION;
+    else process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION = priorProd;
+  }
 });
