@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { regionalAmount, formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
+import { formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
 import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 import { type RobloxMethodKey } from '@/lib/roblox';
 
-type Product = { id: number; slug: string; name: string; checkoutEnabled: boolean; variants: { regionalPrices?: RegionalPrice[]; method: string | null; price: number; units: number }[] };
+type Product = { id: number; slug: string; name: string; checkoutEnabled: boolean; variants: { regionalPrices?: RegionalPrice[]; method: string | null; price: number | null; units: number }[] };
 function ServiceArt({ method }: { method: RobloxMethodKey }) {
   return <svg viewBox="0 0 160 150" aria-hidden="true" className="h-28 w-28 shrink-0 text-pink-300">
     <circle cx="85" cy="80" r="60" fill="#fff1f5" /><circle cx="133" cy="24" r="8" fill="#fbcfe0" />
@@ -20,11 +20,11 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
   const [selection, setSelection] = useState<Partial<Record<RobloxMethodKey, number>>>({});
   const features = { GAMEPASS: [f.noPassword, f.taxIncluded, f.pending], LOGIN: [t.robloxOps.noCredentials, f.verification, f.manual], GIFT_USERNAME: [f.gift, f.eligibility, f.accepted] };
   const tag = { GAMEPASS: f.passTag, LOGIN: f.loginTag, GIFT_USERNAME: f.giftTag };
-  return <div className="grid gap-5 md:grid-cols-3">{(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
+  return <div className="grid gap-5 lg:grid-cols-3">{(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
     const eligible = products.filter(p => p.variants.some(v => v.method === method));
     const product = eligible.find(p => p.id === selection[method]) ?? eligible[0];
-    const rate = region ? product?.variants.filter(v => v.method === method).sort((a, b) => (regionalAmount(a, region) ?? Infinity) - (regionalAmount(b, region) ?? Infinity))[0] : undefined;
-    const amount = rate && region ? regionalAmount(rate, region) : null;
+    const rate = region ? product?.variants.filter(v => v.method === method).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))[0] : undefined;
+    const amount = rate?.price ?? null;
     const price = amount === null || !region ? t.regional.unavailable : formatMoney(amount, REGION_CURRENCY[region], language);
     const ready = Boolean(product && region && amount !== null && product.checkoutEnabled);
     return <article key={method} className="group flex flex-col overflow-hidden rounded-3xl border-2 border-pink-200 bg-white/95 backdrop-blur-md shadow-lg shadow-pink-900/10 transition hover:-translate-y-1 hover:border-pink-300 hover:shadow-xl hover:shadow-pink-900/20">

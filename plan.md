@@ -16,7 +16,7 @@ Do not merge these three user journeys into one confusing catalog. They may shar
 
 ## 2. Current Priority
 
-**Current priority: P0 QRIS post-release hardening, then P0-B checkout diagnosis.** Preserve all three Roblox flows and Apps Premium; resume Roblox feature work after stabilization. See sections 17–24 for the active roadmap.
+**Current priority (2026-10-13): P0-C — Roblox storefront UX correction based on customer screenshots.** P0-A1 and P0-A2 QRIS have been committed, deployed and verified at the Vercel level; preserve those implementations. P0-B `/api/checkout` HTTP 400 diagnosis remains OPEN pending the actual errorCode. Execute **only the approved P0-C local UI milestone** in sections 25–26 before asking for commit/push/deploy approval. Preserve all three Roblox flows and Apps Premium.
 
 Do not spend time implementing Game Top-up unless the user explicitly asks for it. Do not redesign or remove existing Apps Premium behavior unless required for compatibility with shared infrastructure.
 
@@ -506,11 +506,14 @@ If a requested change would materially conflict with this plan, point out the co
 
 ---
 
-## 17. ROADMAP TERPADU — ACTIVE SOURCE OF TRUTH (updated 2026-10-13)
+## 17. ROADMAP TERPADU — ACTIVE SOURCE OF TRUTH (updated 2026-10-13; see §25–26 for current UX scope)
+
+**2026-10-13 update:** `P0-A2` has already been committed/deployed (`b12c28b`); do not rerun its old local implementation checklist. **P0-C Roblox screenshot-driven UX (§25)** is now the current user-requested milestone, to be implemented locally only. `P0-B` checkout 400 remains open pending evidence. P1/P2/P3 unchanged.
+
 
 **Tujuan:** satu dokumen untuk semua coding agent (Antigravity/Gemini, Codex, ChatGPT Work), agar tidak perlu prompt satu-satu untuk perbaikan kecil. Baca `AGENTS.md`, seluruh `plan.md`, kondisi Git `main`, dan kode relevan sebelum mengedit. Catatan lama adalah histori, bukan selalu status implementasi terkini.
 
-**Scope kerja:** tuntaskan milestone yang diizinkan beserta tes dalam satu batch; jangan menganggap seluruh roadmap sebagai izin mengerjakan semua fase, mengubah database remote, atau melakukan deploy. Prioritas saat ini adalah **P0-A2: post-release hardening QRIS** (lihat §24) dan **P0-B: checkout HTTP 400** (lihat §19). Bagian lama P0-A (§18) tetap merupakan spesifikasi/acceptance yang harus dipertahankan.
+**Scope kerja:** tuntaskan milestone yang diizinkan beserta tes dalam satu batch; jangan menganggap seluruh roadmap sebagai izin mengerjakan semua fase, mengubah database remote, atau melakukan deploy. Prioritas **saat ini adalah P0-C: perbaikan UI/UX Roblox berbasis screenshot** (§25–26). P0-A1/P0-A2 telah dirilis dan harus dipertahankan; P0-B checkout 400 tetap OPEN menunggu errorCode, tanpa perubahan spekulatif. Semua persyaratan keamanan lama tetap berlaku.
 
 ### Baseline yang sudah diverifikasi / dilaporkan
 
@@ -528,7 +531,8 @@ If a requested change would materially conflict with this plan, point out the co
 | Urutan | Area | Status terkini | Syarat selesai |
 | --- | --- | --- | --- |
 | **P0-A1** | QRIS same-origin download dasar | **Selesai dan berhasil diuji di website** pada commit `9fc5f50` | Jangan implementasi ulang; pertahankan perilaku |
-| **P0-A2** | QA & hardening QRIS setelah review | **Dikerjakan di lokal, menunggu review user** | Semua temuan §24 ditangani, tes lulus, user approve perubahan |
+| **P0-A2** | QA & hardening QRIS setelah review | **DONE: committed/deployed `b12c28b`; post-release browser recheck belum dikonfirmasi** | Pertahankan implementasi; jangan ulang patch |
+| **P0-C** | Roblox customer UX: one-time method selection, text legibility, Via Login package grid | **Implemented locally; isolated QA passed; awaiting user review** | 41 browser cases passed on production build; remaining limits in `docs/qa/p0c-2026-10-13.md`; user review before commit/release |
 | **P0-B** | Checkout 400 diagnosis | **Terbuka** | Ada `errorCode` aktual dan bukti root cause; perubahan hanya bila ada bug |
 | **P1** | Security/integration/operational QA | Sebagian smoke test; 9 integration skipped | Rencana test terisolasi, backup/recovery, monitoring |
 | **P2** | ID/MY/PH pembayaran live | **Blocked** sampai merchant/provider sah siap | Integrasi resmi, metode sesuai negara, webhook/payout/refund diverifikasi |
@@ -597,11 +601,12 @@ Bug asal: gambar QRIS Midtrans Sandbox bisa ditampilkan melalui `<img>`, tetapi 
 
 ## 23. CODING AGENT HANDOFF — ONE KICKOFF PER MILESTONE
 
+**NOTICE (2026-10-13):** The old P0-A2 kickoff below is retained as history. For the next coding-agent run, use the **§26 P0-C kickoff** instead; do not repeat deployed QRIS hardening.
+
+
 Coding agent harus membaca `AGENTS.md`, seluruh `plan.md`, `git status`, dan diff yang ada; hanya melanjutkan scope terbaru yang diizinkan. Tidak boleh membuat branch tambahan secara otomatis; pakai `main` sesuai workflow pengguna. Jangan overwrite pekerjaan lokal yang belum di-commit.
 
-**Satu kickoff yang cukup untuk milestone saat ini:**
-
-> Baca AGENTS.md dan seluruh plan.md. Tetap pada branch main. Inspect `git status` dan kode lokal. Kerjakan semua subtask P0-A2 di §24 dalam SATU batch, termasuk perubahan minimal dan test matrix, lalu cek P0-B secara read-only jika bukti errorCode ada. Jangan bikin fitur ulang yang sudah berfungsi. Jalankan npm test, npx tsc --noEmit, npm run lint, npm run build, git diff --check, git status --short. Jangan akses/mutasi remote database, migrasi, ubah .env, commit, push atau deploy. Laporkan file/diff dan pass/fail/skip; berhenti minta review.
+**Kickoff yang berlaku untuk milestone saat ini: lihat §26.** Instruksi P0-A2 sebelumnya sudah selesai dan tidak boleh dijalankan ulang. Agent cukup membaca satu kickoff di §26 dan menyelesaikan perbaikan visual §25 pada branch `main` secara lokal.
 
 Agent boleh melakukan local code edits, mocked tests dan koreksi yang logis dalam milestone yang diizinkan tanpa prompt per satu bug. **Tetap minta izin terpisah** sebelum commit/push/deploy, database write/migration, Vercel env edit, payment/live activation, atau penghapusan data pelanggan.
 
@@ -609,13 +614,13 @@ Agent boleh melakukan local code edits, mocked tests dan koreksi yang logis dala
 
 - [x] Commit `9fc5f50` sudah masuk `main` dan Vercel Production **Ready**.
 - [x] Customer Sandbox QRIS tampil dan **Download QRIS berhasil** di website utama.
-- [x] Audit hardening QRIS setelah rilis (§24) dan regresi selesai **di lokal, menunggu review user sebelum commit/deploy** (38 passed / 0 failed / 9 skipped; tsc/lint/build/diff-check bersih).
+- [x] Audit hardening QRIS setelah rilis (§24) dan regresi selesai; `b12c28b` telah deployed Vercel Ready (QA browser baru belum dikonfirmasi).
 - [ ] Checkout 400 terdiagnosis secara spesifik bila `errorCode` diberikan.
 - [ ] QA integrasi/operasi sesuai milestone P1 (terpisah).
 
-## 24. P0-A2 — POST-RELEASE QRIS AUDIT FIXES (NEW; DO IN ONE BATCH)
+## 24. P0-A2 — POST-RELEASE QRIS AUDIT FIXES (DONE; HISTORICAL AUDIT)
 
-**Audit reviewed:** commit `9fc5f50` (2026-10-13). Audit kode tidak membatalkan bukti bahwa unduh QRIS Sandbox PNG yang diuji user sudah berhasil. Ini pekerjaan quality/safety follow-up yang belum diimplementasikan. Jangan tandai selesai sebelum diff dan pengujian benar-benar memenuhi gate.
+**Audit reviewed:** commit `9fc5f50` (2026-10-13). Ini adalah arsip persyaratan P0-A2 yang **sudah diimplementasikan dan di-deploy** melalui `b12c28b`. Instruksi A–F di bawah dipertahankan sebagai audit histori, **bukan pekerjaan untuk diulang**. Bukti tes: 38 pass/0 fail/9 skipped, lint/typecheck/build lulus; user belum mengonfirmasi smoke-test browser setelah P0-A2.
 
 ### A. JPEG extension mismatch — confirmed bug, highest priority
 
@@ -661,7 +666,7 @@ Tambahkan tes nyata pada `tests/security.test.mjs` atau file test yang relevan, 
 - Semua perubahan awal **lokal saja pada branch main**. Jangan membuat branch lain, jangan commit, push, deploy, database migration, remote DB writes, env secrets update, atau live payment. Berikan laporan diff, hasil tes dan blockers untuk review.
 - Setelah operator memberikan izin commit & push, tunggu Vercel `Ready`, cocokkan alias dan commit, lalu tes ulang PNG download di invoice Sandbox dan JPEG path menggunakan mock jika Midtrans tidak menyediakan sampel JPEG. **Tidak melakukan pembayaran nyata.**
 
-### Acceptance checklist P0-A2
+### Acceptance checklist P0-A2 (completed via `b12c28b`; historical)
 
 - [x] PNG/JPEG filename konsisten dari browser dan server; data URI tetap berjalan.
 - [x] Non-PENDING/null QR, wrong invoice, malicious redirect regression tests berhasil.
@@ -670,6 +675,146 @@ Tambahkan tes nyata pada `tests/security.test.mjs` atau file test yang relevan, 
 - [x] Error string hanya melalui i18n ID/MY/EN; tidak ada unrelated refactor.
 - [x] Suite pass, skip count transparan, user review sebelum commit/deploy.
 
-**Status implementasi lokal (2026-10-13, belum commit/deploy):** semua subtask A–E dikerjakan dalam satu batch di branch `main` lokal. Verifikasi: `npm test` 38 passed / 0 failed / 9 skipped (9 skipped = suite MySQL/HTTP terisolasi, bukan pass), `npx tsc --noEmit` exit 0, `npm run lint` 0 errors + 1 warning `<img>` lama, `npm run build` sukses (route `ƒ /api/orders/[id]/qris/download` terdaftar), `git diff --check` bersih. File: `src/lib/qrisDownload.ts` (baru), `src/app/order/[id]/page.tsx`, `src/app/api/orders/[id]/qris/download/route.ts`, `src/app/api/orders/[id]/route.ts`, `tests/security.test.mjs`. Rate limit operasional memakai scope `qris-download`, key `order.invoice`, 10/60s, 429 + `Retry-After: 60` + `private, no-store`; unit test memakai mock limiter/fetch tanpa DB remote. P0-B tetap OPEN (menunggu `errorCode` operator). Menunggu review user sebelum commit/push/deploy dan smoke-test browser pasca-deploy.
+**Historical note:** Section 24 was originally written before the P0-A2 implementation. Its tasks were subsequently implemented and the release was approved; do not repeat its old 'NEW' instructions. The release confirmation below supersedes that status.
+
+**Release confirmation (2026-10-13):** P0-A2 was committed on `main` as `b12c28b`, pushed to GitHub, and Vercel Production deployment `https://cloudy-pink-store-kxqx76cv5-jax-v12.vercel.app` reported **Ready** with aliases including `https://cloudy-pink-store.vercel.app`. Reported checks before release: 38 passed / 0 failed / 9 skipped; TypeScript/lint/build succeeded. **Do not claim post-P0-A2 QRIS smoke test was performed** unless the user explicitly confirms it; an earlier P0-A1 Sandbox download did succeed in the browser. The lines above are preserved as historical development instructions, not commands to rerun the release.
+
+---
+
+## 25. P0-C — ROBLOX CUSTOMER UI/UX CORRECTION (CURRENT USER-APPROVED DESIGN SCOPE, 2026-10-13)
+
+### A. Screenshot reference and non-negotiable decisions
+
+The user provided four reference screenshots of the Roblox storefront and asked for the following changes. Treat these as **explicit current user requirements**, superseding older instructions requiring the detail-page method selector. Screenshots are visual guidance, not an authorization to copy arbitrary prices, discounts, imagery, supplier names or to add financial features.
+
+| Reference | Existing view / requested comparison | Design decision |
+| --- | --- | --- |
+| **Gambar 1** | `/roblox` landing: hero and three method cards, **Via Gamepass**, **Via Login**, **Via Username** | **Preserve** these three customer choices as the *only place* the buyer initially selects a Roblox method. Keep the pink/Anya-themed service cards and per-region availability information. |
+| **Gambar 2** | Detail for Gamepass: a redundant tab row `Via Gamepass / Via Username / Via Login`, along with the line `1. Pilih metode`, after choosing from Gambar 1 | **REMOVE** the second method selector from the detail page. The method must be determined by the card the buyer clicked; a detail flow cannot silently switch to another method. Keep a clear Back to Roblox catalog link. |
+| **Gambar 2 and 3** | Dark heading/subtitle and step labels over a detailed pink anime background, some text hard to read | **Fix contrast and hierarchy** using solid/light high-opacity surfaces or a proper contrast panel; headings, steps, breadcrumb, prices and help text must remain clearly legible. |
+| **Gambar 3** | `Via Login`: large mostly empty selection panel (`Belum ada paket tersedia untuk metode ini`) and a payment sidebar with dashes and disabled CTA | Replace the Login fixed-package selection design with a **compact grid of selectable Robux denomination cards**, visually inspired by Gambar 4; gracefully distinguish empty configuration from a presentation bug. Do not fake packages. |
+| **Gambar 4** | Reference image: dense clean grid of pink-tinted denomination cards showing Robux amount, icon, price, optionally genuine original price and discount badge | Apply this **visual language** to Via Login (not as hard-coded product/price data). Read amounts, prices, availability and optional discounts from server/admin data. Keep cards large enough to read on small screens. |
+
+**Priority order:** 1) remove repeated method selection, 2) make all detail text readable, 3) rebuild Via Login package cards and empty state, 4) test regressions, 5) report and stop for review. Do this as one coherent local coding batch, not a series of micro-prompts.
+
+### B. Method selection: choose ONCE, then lock method to detail route
+
+**Desired flow:**
+
+`/roblox` → click `Beli sekarang` under exactly one method card → `/roblox/[slug]?method=GAMEPASS|LOGIN|GIFT_USERNAME` (or another existing safe canonical route) → **detail view immediately shows only the chosen method** → choose Robux amount/package and fill required details → confirmed Sandbox payment → existing invoice.
+
+Implementation guidelines:
+
+1. On `/roblox`, preserve `RobloxServiceCards.tsx` with the three distinct choices; `GIFT_USERNAME` is the technical method key for the user-facing `Via Username`. Do not rename database enum or break existing links.
+2. In `src/components/TopupCatalog.tsx`, **remove** the detail-only `RobloxMethodSelector` and the `1. Pilih metode` header (and any `role=tabpanel`/`aria-labelledby` attributes only meaningful for that removed tab UI). Delete unused imports/state/change handlers after confirming no other flows depend on them. Do **not** remove the method cards on `/roblox`.
+3. In `src/app/roblox/[slug]/page.tsx`, preserve/validate the incoming method from the originating card. `isRobloxMethod` already recognizes `GAMEPASS`, `LOGIN`, `GIFT_USERNAME`. No user-controlled price/country changes; `?method=` is **UI navigation, not authority for price or fulfillment**. Validate method-compatible variants again server-side in final checkout.
+4. Handle direct/old links safely: if a detail URL lacks a valid method or the selected product has no variants for that method, show clear method-specific unavailable/help guidance with a way back to `/roblox`; optionally use a canonical redirect only if that is unambiguous and preserves draft semantics. **Never silently default a Login/Username entry to Gamepass.** Determine compatibility from configured data, not from a hardcoded slug heuristic.
+5. After selection, use method-specific breadcrumb and title, e.g. `Roblox / Via Gamepass`, `Roblox / Via Login`, `Roblox / Via Username`; no generic instruction saying `Pilih cara mendapatkan Robux` after the choice has already been made. Keep page language translations ID/MY/EN.
+6. Preserve separate implementations, state machines and fulfillment: Gamepass wizard is not Login; Username remains its own flow. Changing the URL must not inject one method's fields into another method's order.
+
+### C. Readability: heading, breadcrumb, stepper, forms and summary
+
+- On the detail page, **do not put dark magenta/dark gray text directly on the busy `/bg-anya.jpg` collage**. Make headings and subtitles part of a near-opaque white/light-pink rounded panel (preferred), or use genuinely high-contrast white text with a dark scrim. Do not rely on thin drop shadows for legibility.
+- Fix the specific breadcrumb `Kembali ke katalog` and large heading in Gambar 2 (currently low contrast). Ensure breadcrumb has a real click target and visible hover/focus styles. Avoid duplicating `← Beranda` and `Kembali ke katalog` as visually equivalent navigation without hierarchy; keep both only if clearly distinct.
+- Gamepass stepper: numbered circles, connective lines and labels must remain readable against the themed image. Put the stepper on a high-opacity panel or integrate into the wizard container. Use dark text on pale panels and adequate step states; do not use low-opacity gray for the only label identifying a step.
+- Via Login panel and order summary: maintain readable dark labels, pink accents, clear price typography, explicit selected-card state, and distinguish unavailable content from clickable elements. Any help/error/empty-state text must be readable, not pink on transparent pink.
+- Contrast targets: **WCAG AA ≥4.5:1** for normal text, **≥3:1** for large text and important control boundaries. Avoid hardcoded 9–10px essential labels; use roughly 12–14px as a practical minimum where space allows, and larger for primary price/action. Preserve logical keyboard tab order, visible focus, accessible radio labels and screen-reader status messages.
+- Check desktop, tablet and phone widths **~1440, 810 and 375 CSS px**. No clipped stepper labels, horizontal scroll of entire page, overlapping floating WhatsApp/contact widget, or payment summary covering form actions. The reference screenshot is visual direction; use a responsive layout, not fixed pixel positioning.
+- Keep Anya theme, pink gradients and existing brand imagery. **Do not change product assets, rebuild the entire landing page or redesign Apps Premium/Game** under this milestone.
+
+### D. Via Login: package picker styled like Gambar 4
+
+**User intent:** Via Login should feel like a polished Roblox denomination catalog, not a blank generic form with a sidebar full of dashes. The reference uses compact rounded pink cards in a dense grid.
+
+**Required UI:**
+
+1. On the `LOGIN` detail page, render a clear heading such as `Pilih nominal Robux` followed by a **responsive grid of selectable package cards** (one/card for an active configured LOGIN `ProductVariant`). Each card shows a Roblox/Robux-style decorative icon (use existing safe assets/inline SVG, no external unverified image dependency), **Robux quantity**, **actual selling price for the server-detected region**, and a strong selected state (border/ring/check/aria-checked). If the current schema provides a genuine package label, show it; do not show meaningless unit counts or duplicate labels.
+2. **Pricing must be data-driven:** use the existing product API, `regionalAmount`, `formatMoney` and independently configured IDR/MYR/PHP prices. Quote/checkout must use existing server-signed total and idempotency. The screen must not derive MYR/PHP by relabeling IDR or using client-provided region.
+3. The reference image's package denominations, original prices, sale prices, discount percentages and pink badge labels are **samples of the visual layout, NOT store prices**. Do not seed 160/240/.../10,000 Robux, copy Rp values or invent `Disc 15%` / strikethrough prices. Show a discount/original price only when **real admin-configured, validated discount data** already exists; otherwise omit discount label and original price cleanly. Do not add a discount engine/schema migration under this task.
+4. Support one clearly selected package at a time with existing checkout contract. The reference mentions that multiple nominal packages can be selected simultaneously, but **current storefront appears to create a single-variant order**. **Do not fake multi-select, sum prices only in frontend, or send unsupported cart payload.** Multi-item cart/order is a separate future architecture decision requiring explicit approval, verified backend support and tests. Make single-select state obvious.
+5. Layout target: compact cards with pale-pink background, roughly 2 columns on narrow phones if legible, 3–4 on desktop as width allows (may use 1 column on exceptionally narrow devices). Robux amount and final price must be larger/more legible than optional badges. Consistent card dimensions and spacing; keyboard navigation works.
+6. The sidebar/order summary should show selected method **Via Login**, chosen denomination, customer price, supported payment method, region/currency, applicable fee/discount, and verified total. When the package changes, recompute the quote. Disable pay until valid selection, region, provider, form and quote are confirmed. Preserve responsive sticky summary on wide screens; stack below product picker on mobile without blocking content.
+7. **Fix the misleading screenshot label** `Status pembayaran` over the QRIS select if that text is currently used for method selection. The user-facing label should say `Metode pembayaran` (via the existing translations). A payment status is not a selectable payment method.
+8. If the user's screen shows **`Belum ada paket tersedia untuk metode ini`**, diagnose before redesigning away the problem: inspect `/api/products?type=ROBLOX&slug=...` response shape without exposing secrets, active LOGIN variant filters, slug, product availability, and region prices. This may be genuinely **zero active LOGIN variants**, a data configuration issue, or a filtering/UI bug. **Do not invent hardcoded packages**. If no valid packages exist, display a compact helpful empty state with admin/support direction; hide/reduce the order summary, no misleading empty price rows, and disable/hide checkout affordances. Do not create or edit remote product rows without explicit approval.
+9. If the current data model/admin does not allow creating LOGIN denominations, document exactly what is missing and provide an additive *proposal* only; do not apply schema migrations or seed staging under this milestone.
+10. Preserve current safe Via Login requirement: **do not request, display, save, log or transmit Roblox passwords, OTP, cookies, backup codes or session tokens**. The package visual redesign must not expand credential collection. Customer identity/contact and manual fulfillment stay under existing workflow.
+
+### E. Keep Gamepass and Username functional and distinct
+
+- **Gamepass:** No second method selector. Preserve slider/input, min/max/step, Roblox Gamepass listing price calculation, username verification, Gamepass URL guide, 5-step progression (minus redundant method-selection wrapper only), quote refresh and payment-on-final-confirmation. Fix headings/step contrast from Gambar 2.
+- **Via Username:** No second method selector. Preserve username verification and 4-step wizard, draft state when navigating backward, regional pricing, supported payment selection and manual fulfillment. Do not turn Username into a fixed-price Login grid unless separately requested.
+- **Via Login:** Fixed-package card grid per §25.D, current payment and manual fulfillment intact. Selection must never accidentally submit a Gamepass variant or gamepassUrl field. A valid active Login variant stays Login on server and on invoice.
+- Method availability: always show three high-level method choices on `/roblox`, but a method with no configured/region-available packages should be visibly unavailable/non-purchasable. No redirect into a broken detail checkout and no invented stock/discounts.
+
+### F. Target files and minimally invasive implementation path
+
+Inspect and modify only relevant files after reading actual current code:
+
+- `src/components/RobloxServiceCards.tsx` — ensure method-card links correctly identify the chosen method and unavailable status.
+- `src/app/roblox/[slug]/page.tsx` — validate/canonicalize chosen method from query (or route), avoid silent Gamepass default for invalid deep links.
+- `src/components/TopupCatalog.tsx` — remove detail-only selector and tab semantics; method-specific hero, Via Login denomination-card grid + appropriate summary/empty state.
+- `src/components/RobloxMethodSelector.tsx` — remove its use from detail UI only. Delete file only if verified unused everywhere and not needed for other flows; no broad component removal.
+- `src/components/RobloxCheckoutWizard.tsx` — stepper/readability adjustments for Gamepass/Username without changing business logic.
+- `src/components/DetectedLocation.tsx`, `src/components/RegionalPaymentSummary.tsx`, `src/components/StoreShell.tsx` — alter only if needed for contrast/spacing; preserve trusted region data.
+- `src/lib/translations.ts`, `src/lib/regionalTranslations.ts` — all new titles, empty state, CTA and payment labels ID/MY/EN via `LanguageContext`, no hardcoded UI strings.
+- `tests/*` — add small targeted tests for method route, picker rendering/state, empty config, pricing/locale, and safe checkout payload. Prefer existing test infrastructure. No unapproved browser automation against Production and no remote DB writes.
+
+### G. Completion checklist / QA evidence
+
+- [ ] On `/roblox`, all three high-level choices **Gamepass/Login/Username** remain visible and clearly labeled (available vs unavailable state is accurate).
+- [ ] Click `Beli sekarang` under Gamepass → its detail starts immediately in Gamepass and **does not display the three-method tabs or `1. Pilih metode` again**.
+- [ ] Click Via Login or Via Username → the respective method is fixed correctly; old/direct/invalid URLs handled safely, not silently defaulted to Gamepass.
+- [ ] Gamepass hero, breadcrumb, step labels and instructions remain readable over Anya background; contrast verified at desktop/tablet/mobile widths.
+- [ ] Via Login shows a compact responsive pink **denomination-card** design inspired by Gambar 4; selected/disabled/focus states work; real product/region prices only.
+- [ ] If Login has no active packages or no price for the visitor's region, display honest helpful empty/unavailable state and no fake checkout summary or active payment CTA; report backend/config evidence separately.
+- [ ] Product selection updates server quote and summary consistently; no price/cart/discount fabrication. Existing single-variant checkout still validates the chosen Login variant, region, amount, method, and idempotency.
+- [ ] `Status pembayaran` is not used as the label for a method selector; ID/MY/EN UI copy is coherent and legible.
+- [ ] Gamepass and Via Username checkout workflows, progress, identity checks, invoice and fulfillment remain functional; admin product settings unaffected.
+- [ ] Automated tests, TypeScript, lint, production build and `git diff --check` pass; browser/manual QA scope and skipped suites reported honestly.
+- [ ] UI changes stay **local on `main` until user approves diff**; no commit/push/deploy/migrate/env changes or real payments.
+
+### H. Detailed working instructions for one Antigravity/Codex batch
+
+**First:** inspect `git status -sb`, `AGENTS.md`, current `plan.md` and references/screenshots or the screenshot requirements above. Identify the most minimal component changes preserving checkout behavior. Review the existing variant and quote contracts before modifying picker selection. Avoid wholesale rewrites of TopupCatalog and wizard.
+
+**Then:** implement §§25.B–E completely in one local batch. Use example/mock variants for visual/tests, **not remote database inserts**. Audit the exact reason the current Login panel is empty without claiming zero products purely from the screenshot. Test responsive display (375/810/1440), keyboard navigation, real pricing format, selected state, empty/unavailable view, and method-specific checkout payload.
+
+**Finally:** run `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`, `git diff --check`, `git status --short`, and relevant tests that do not write remote data. Report files, actual test counts and skips, UI screenshot/QA results if available, missing data/config requirements, remaining risks, and next recommended step. **STOP before commit, push, Vercel deploy, DB writes/migrations, creating real orders, or editing `.env`.**
+
+---
+
+## 26. ACTIVE HANDOFF / RELEASE LOG — 2026-10-13
+
+### Latest verified milestones (do not reset)
+
+| Area | Evidence / status |
+| --- | --- |
+| P0-A1 base QRIS | Commit `9fc5f50` on `main`, Vercel Ready and a Sandbox invoice QRIS download succeeded in browser. |
+| P0-A2 QRIS hardening | Commit `b12c28b` pushed to `main`. Vercel Production deployment **Ready**, verified alias `https://cloudy-pink-store.vercel.app`, build 42 seconds. Local tests reported 38 pass / 0 fail / 9 skipped. Post-deploy customer QRIS smoke retest **not yet confirmed in the conversation**. |
+| P0-B checkout 400 | **OPEN**; needs actual non-secret errorCode from DevTools before changing validation. Do not conflate with UI work. |
+| **P0-C Roblox UX** | **Implemented locally, not committed/deployed.** OpenCode work preserved; Codex reproduced and corrected mobile card layout, method-specific copy, empty-catalog methods and critical contrast. See the dated QA report below before repeating work. |
+| P1/P2/P3 | Preserved in previous sections; P2 real international payment adapters remain blocked pending authorized provider/merchant setup. |
+
+### Single kickoff for the next Antigravity / Codex session
+
+> **Baca AGENTS.md dan seluruh plan.md. Tetap di branch main. Jangan menimpa pekerjaan lokal. Kerjakan seluruh milestone P0-C di §25 dalam satu batch: hapus pemilihan metode kedua di halaman detail Roblox, buat judul/breadcrumb/stepper kontras dan terbaca di atas Anya Theme, serta desain ulang Via Login menjadi grid kartu nominal seperti Gambar 4 dengan harga dan paket nyata dari admin. Audit kenapa Via Login saat ini menampilkan “Belum ada paket tersedia”; jangan membuat data/discount palsu atau mengubah DB untuk mengakalinya. Pertahankan Gamepass, Username, invoice, quote, Midtrans Sandbox, dan seluruh pengamanan checkout. Jalankan test/typecheck/lint/build/diff-check, laporkan perubahan dan kendala, kemudian berhenti untuk review. Jangan commit/push/deploy, migrasi, mengakses defaultdb, menulis ke Aiven remote, atau mengubah environment.**
+
+**This project remains TESTING ONLY; runtime target is `cloudy_staging` and Midtrans Sandbox. No authority to change financial or production settings is implied by this document.**
+
+### P0-C local continuation — 2026-10-13
+
+- Latest user restriction supersedes historical staging permissions: **no Aiven/defaultdb access, no `.env` or secret/log reads, no schema/migration/env changes, no orders/payments, no commit/push/deploy**.
+- OpenCode's local implementation was audited and retained. Browser fixtures use `route.fulfill()` against a separate copy of the app without environment files. Synthetic prices/fees are test data only; this does not verify production GeoIP, gateways or configured Login packages.
+- Reproduced UI issues: 375 px Login grid had one column; Username hero described Gamepass; empty catalog removed all three method cards; wizard CTA/step numbers had low contrast (1.82:1). Corrected these and added an opaque breadcrumb background; existing translations reused.
+- Unit/regression verification: **42 passed, 0 failed, 9 skipped**. Skipped suites require isolated MySQL/HTTP/migration prerequisites and are not evidence of live integration.
+- Browser suite: `tests/roblox-p0c.e2e.mjs`, three requested viewports, all three methods, region/locale/empty/null states, keyboard selection, quote retry, username lookup, draft retention and Apps/Game smoke. Final run and screenshots: [QA report](docs/qa/p0c-2026-10-13.md).
+- Final browser verification on the isolated production build: **41 passed, 0 failed**. Typecheck, lint (one existing image warning), production build and diff-check passed. No final order submission or live invoice/fulfillment was exercised.
+- Earlier local catalog HTTP 500 remains **historically unconfirmed**. An isolated unavailable database reproduced `SYSTEM_ERROR`; a separate connection probe returned `PrismaClientInitializationError / P1001`. The product query precedes GeoIP resolution. No old secret-bearing logs or real environment/database were inspected; no speculative backend patch was made.
+- Login packages are absent according to the user; no packages were created. Credentials exposed by the earlier OpenCode session require operator rotation/revocation and review of the old logs. No credential values were inspected or reported.
+- P0-B, live invoice/fulfillment and P1/P2/P3 remain outside this UI QA scope. **Stop for user review before commit.**
 
 **End of living project plan.**
+
+### P0-C release authorization — 14 Oktober 2026
+
+User approved committing the reviewed P0-C files on `main`, pushing to `origin/main`, and deploying the existing linked Vercel project to Production. This supersedes the earlier stop-before-release instructions for this milestone only. Prefer the deployment triggered by the Git push; do not create a duplicate project or deployment. Verify Ready, matching commit SHA and non-transactional public storefront smoke tests before reporting success. No environment/credential/payment changes, database writes/migrations or order creation are authorized. Credential rotation remains an urgent separate follow-up. The QA evidence above describes pre-release validation; final deployment results must be reported separately after verification.
