@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logFailure, privateHeaders } from '@/lib/http';
 import { isValidOrderQrUrl } from '@/lib/midtrans';
+import { consumeRateLimit } from '@/lib/rateLimit';
 import QRCode from 'qrcode';
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 const MIN_IMAGE_BYTES = 50;
+
+export const QRIS_DOWNLOAD_RATE_SCOPE = 'qris-download';
+export const QRIS_DOWNLOAD_RATE_LIMIT = 10;
+export const QRIS_DOWNLOAD_RATE_WINDOW_MS = 60_000;
+const QRIS_DOWNLOAD_RETRY_AFTER_SECONDS = String(QRIS_DOWNLOAD_RATE_WINDOW_MS / 1000);
 
 interface OrderDbClient {
   order: {
@@ -13,10 +19,16 @@ interface OrderDbClient {
   };
 }
 
+interface QrisDownloadDeps {
+  limiter?: (scope: string, key: string, limit: number, windowMs: number) => Promise<boolean>;
+  fetchFn?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+}
+
 export async function handleQrisDownload(
   req: Request,
   id: string,
-  dbClient?: OrderDbClient
+  dbClient?: OrderDbClient,
+  deps?: QrisDownloadDeps
 ): Promise<Response> {
   try {
     const token = req.headers.get('x-order-token');
@@ -37,6 +49,25 @@ export async function handleQrisDownload(
     if (order.status !== 'PENDING' || !order.qrisUrl) {
       return NextResponse.json({ success: false, errorCode: 'QRIS_NOT_AVAILABLE' }, { status: 400, headers: privateHeaders });
     }
+
+    // Authenticated per-invoice rate limit, checked after auth so invoice
+    // existence is never leaked, and before any QR work or upstream fetch.
+    const limiter = deps?.limiter ?? consumeRateLimit;
+    let allowed: boolean;
+    try {
+      allowed = await limiter(QRIS_DOWNLOAD_RATE_SCOPE, order.invoice, QRIS_DOWNLOAD_RATE_LIMIT, QRIS_DOWNLOAD_RATE_WINDOW_MS);
+    } catch (error) {
+      logFailure('QRIS download rate limit failed', error);
+      return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500, headers: privateHeaders });
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, errorCode: 'RATE_LIMIT_EXCEEDED' },
+        { status: 429, headers: { ...privateHeaders, 'Retry-After': QRIS_DOWNLOAD_RETRY_AFTER_SECONDS } }
+      );
+    }
+
+    const doFetch = deps?.fetchFn ?? globalThis.fetch;
 
     const safeInvoice = order.invoice.replace(/[^A-Za-z0-9_-]/g, '') || 'INVOICE';
 
@@ -65,7 +96,7 @@ export async function handleQrisDownload(
     // Secure server-side fetch preventing CORS issues, SSRF, redirects, and oversize payloads
     let upstream: Response;
     try {
-      upstream = await fetch(order.qrisUrl, {
+      upstream = await doFetch(order.qrisUrl, {
         method: 'GET',
         headers: { Accept: 'image/png,image/jpeg' },
         cache: 'no-store',

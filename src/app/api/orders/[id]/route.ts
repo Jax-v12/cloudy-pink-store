@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { decryptData, decryptLegacyField } from '@/lib/crypto';
 import { logFailure, privateHeaders } from '@/lib/http';
 import QRCode from 'qrcode';
-import { isGatewayQrUrl } from '@/lib/midtrans';
+import { isValidOrderQrUrl } from '@/lib/midtrans';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,9 +27,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       additionalInfo: stock.additionalInfo ? decryptLegacyField(stock.additionalInfo) : null,
     } : null;
     const qrisCode = order.status === 'PENDING' && order.qrisUrl?.startsWith('000201') && order.qrisUrl.length <= 3000 ? order.qrisUrl : null;
+    // Remote QR display uses the same environment-pinned policy as the
+    // download proxy: a sandbox QR stays hidden once the store runs in
+    // production mode (and vice versa) so display never promises a download
+    // that the proxy would reject with INVALID_QR_URL.
     const qrisUrl = order.status !== 'PENDING' ? null : qrisCode
       ? await QRCode.toDataURL(qrisCode, { width: 500, errorCorrectionLevel: 'L' })
-      : order.qrisUrl && isGatewayQrUrl(order.qrisUrl) ? order.qrisUrl : null;
+      : order.qrisUrl && isValidOrderQrUrl(order.qrisUrl) ? order.qrisUrl : null;
     return NextResponse.json({ success: true, data: {
       invoice: order.invoice, totalAmount: order.totalAmount, status: order.status,
       type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,

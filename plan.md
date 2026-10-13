@@ -16,7 +16,7 @@ Do not merge these three user journeys into one confusing catalog. They may shar
 
 ## 2. Current Priority
 
-**Current priority: stabilization (QRIS download + checkout 400) first, then resume Roblox.** Read sections 17–23 for the active queue. Retain all three Roblox methods; do not implement unrelated roadmap items in the same task.
+**Current priority: P0 QRIS post-release hardening, then P0-B checkout diagnosis.** Preserve all three Roblox flows and Apps Premium; resume Roblox feature work after stabilization. See sections 17–24 for the active roadmap.
 
 Do not spend time implementing Game Top-up unless the user explicitly asks for it. Do not redesign or remove existing Apps Premium behavior unless required for compatibility with shared infrastructure.
 
@@ -314,7 +314,7 @@ The store must support direct customer payment for the initial three markets:
 
 This is a real multi-country checkout requirement, not display-only currency conversion. Customers from Malaysia and the Philippines must be able to create and pay orders using the payment integration configured for those markets.
 
-### Automatic region detection (required customer UX; implementation status documented in sections 16 and 17)
+### Automatic region detection (required customer UX; see section 16 and release status in section 17)
 
 **Decision: pricing/payment region is fully automatic; customer-facing country/region dropdowns, country switchers, and manual pricing-region choices must be removed from the website.** Apply consistent server-resolved region behavior to Roblox landing/cards, all three Roblox checkout methods, product prices, quotes, invoices, and payment methods. Use the shared pricing/payment infrastructure for other service areas where applicable without breaking existing Apps Premium behavior.
 
@@ -444,7 +444,7 @@ Before making changes:
 
 After making changes:
 
-1. Run read-only Prisma validation/checks as relevant. Never execute a migration, db push, reset, seed, or any database write without separate explicit user approval and verified target DB.
+1. Run read-only Prisma validation and schema checks where relevant. Never migrate, db push, reset, seed, or perform DB writes without separately approved instructions and target verification.
 2. Run TypeScript/typecheck/lint/build commands available in the project.
 3. Fix errors caused by the change.
 4. Summarize exactly what changed and mention anything still incomplete.
@@ -493,126 +493,183 @@ If a requested change would materially conflict with this plan, point out the co
 - **Release blocker:** the earlier audit found no trusted GeoIP infrastructure. Codex must first inspect deployment configuration and implement/test a trusted signal or clearly report that automatic determination cannot yet be safely enabled. Do not ship an unverified IP/header guess as trusted pricing authority.
 - **International payment blocker remains:** MY/PH provider accounts/credentials/webhooks are not set up yet. GeoIP detection does not solve international payment processing. No real MY/PH checkout until suitable live integrations exist.
 
+
 ### Implementation audit — automatic region and admin repair (2026-10-08)
 
 - Removed the public country selector and region-bearing purchase links. Language selection is explicitly labeled as language and does not determine prices. Catalogs disclose only the authenticated detected region's price/currency/methods; unavailable options have no purchase action. Empty catalogs no longer render active-looking service purchase cards.
-- `requestRegion.ts` verifies request-scoped HMAC country attestations from a trusted ingress. Raw CDN/forwarded headers, query/body country values, cookies and language cannot select a checkout region. This ingress contract is implemented and tested but **not deployed or enabled**: the user confirmed local/ngrok hosting and no verified GeoIP source exists. Unverified or unsupported locations receive a neutral blocked state and the existing store WhatsApp support link. There is no default IDR Roblox checkout.
+- `requestRegion.ts` verifies request-scoped HMAC country attestations from a trusted ingress. Raw CDN/forwarded headers, query/body country values, cookies and language cannot select a checkout region. This ingress contract is implemented and tested but **was not deployed or enabled at the time of this historical audit**: the user confirmed local/ngrok hosting and no verified GeoIP source existed at that time. Revalidate against current Vercel configuration; never use an unverified header as trusted pricing authority. Unverified or unsupported locations need a blocked checkout state and support guidance.
 - Quotes and every new Roblox order require the server-resolved region and signed quote, including legacy clients. Existing idempotent retries resolve before new location/price checks to preserve historical invoices. Regional responses are private/no-store; server-rendered page shells contain no region-specific prices. Region drift while paginating discards incompatible catalog data; quote drift requires review and renewed confirmation.
 - Incorrect-location support is available; self-service corrections and unaudited admin overrides are not implemented. Checkout remains blocked until trustworthy verification is possible. See `docs/regional-deployment.md` for ingress prerequisites, trust boundaries and the required constraints for any future support correction facility. IP-derived country is not billing-country proof.
 - Both screenshot errors were caused by missing regional schema in the configured database (Prisma P2022, `Order.pricingRegion`). Applied the existing assisted-login and regional migrations after checking that no Roblox secrets were stored. The three existing orders and one stock row were preserved. Authenticated `/api/admin/orders` and `/api/admin/fulfillment?type=ROBLOX` subsequently returned HTTP 200, with three and two rows respectively. Admin load errors now have a specific translated message; failed order fetches no longer log a client exception that opens the development overlay.
 - Sections 9–14 remain intact: Apps Premium and the three Roblox methods retain separate fulfillment; payment confirmation does not complete Roblox delivery. Section 11 remains the later Game Top-up phase, without a new live game integration.
-- Validation: 39 unit/database checks and the separate HTTP integration test passed; Prisma schema validation and migration status are clean; TypeScript, ESLint and `next build` passed. `npm run build` initially hit a Windows Prisma DLL lock held by the running development server during its `prebuild` generation step; the already-current generated client was used for the successful production build. Browser checks verified unavailable location despite `?region=ID`, no buyer country switcher, working admin order/fulfillment lists and no console errors in the isolated admin harness. Gateway and GeoIP attestations in tests are fixtures, not proof of a live provider or GeoIP deployment.
+- Validation at that time: 39 unit/database checks and the separate HTTP integration test passed; Prisma schema validation and migration status were clean; TypeScript, ESLint and `next build` passed. `npm run build` initially hit a Windows Prisma DLL lock held by the running development server during its `prebuild` generation step; the already-current generated client was used for the successful production build. Browser checks verified unavailable location despite `?region=ID`, no buyer country switcher, working admin order/fulfillment lists and no console errors in the isolated admin harness. Gateway and GeoIP attestations in tests are fixtures, not proof of a live provider or GeoIP deployment.
 
 ---
 
-## 17. ROADMAP TERPADU — ACTIVE SOURCE OF TRUTH (2026-10-12)
+## 17. ROADMAP TERPADU — ACTIVE SOURCE OF TRUTH (updated 2026-10-13)
 
-**Purpose:** A single durable task list for Gemini, Codex, and ChatGPT Work. Agents must read AGENTS.md and this full file first, then check working-tree changes before writing code. Historical chapters 1–16 remain for requirements and architectural decisions; dated statements in old audit notes are not necessarily current. This section overrides old scheduling claims such as "Roblox first" while preserving all permanent Roblox and Apps Premium requirements.
+**Tujuan:** satu dokumen untuk semua coding agent (Antigravity/Gemini, Codex, ChatGPT Work), agar tidak perlu prompt satu-satu untuk perbaikan kecil. Baca `AGENTS.md`, seluruh `plan.md`, kondisi Git `main`, dan kode relevan sebelum mengedit. Catatan lama adalah histori, bukan selalu status implementasi terkini.
 
-**Execution model:** Complete the currently approved milestone as one coherent batch, including bug fixes that are direct consequences and regression tests; do not stop for a new user prompt after each tiny issue. Do not interpret this roadmap as blanket authorization to execute later milestones, modify remote data, deploy, or activate payments.
+**Scope kerja:** tuntaskan milestone yang diizinkan beserta tes dalam satu batch; jangan menganggap seluruh roadmap sebagai izin mengerjakan semua fase, mengubah database remote, atau melakukan deploy. Prioritas saat ini adalah **P0-A2: post-release hardening QRIS** (lihat §24) dan **P0-B: checkout HTTP 400** (lihat §19). Bagian lama P0-A (§18) tetap merupakan spesifikasi/acceptance yang harus dipertahankan.
 
-### Baseline and verified versus reported status
+### Baseline yang sudah diverifikasi / dilaporkan
 
-- GitHub project Jax-v12/cloudy-pink-store; Next.js App Router, Prisma, Aiven MySQL, Vercel. Latest user-confirmed Production Ready security commit: 69d19b2 on main; canonical alias https://cloudy-pink-store.vercel.app pointed to it.
-- **Testing database:** user confirmed local .env and Vercel DATABASE_URL target Aiven cloudy_staging. **Never access defaultdb**. Runtime Prisma guard is not protection for Prisma CLI. Do not print secrets, database URLs, access tokens, customer data, or credentials.
-- **Payments:** Midtrans Sandbox only, NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=false, Sandbox server key. MY/PH merchant adapters not active. Do not enable real payments.
-- **Production smoke tests already reported:** API products HTTP 200, CSP and nosniff headers active, Admin login and Ruang Pengiriman normal, and Sandbox QRIS image visible.
-- **Confirmed current bug:** clicking Download QRIS on a pending Sandbox invoice fails because direct browser fetch of the api.sandbox.midtrans.com QR-code image is blocked by Midtrans CORS. Whitelisting the domain in CSP does not grant browser CORS access.
-- **Separate unresolved issue:** Console also showed HTTP 400 on /api/checkout. Exact response errorCode was not provided. Diagnose independently; do not assume same cause as CORS.
-- **Local changes not yet deployed, per Gemini report:** new authenticated same-origin QRIS endpoint, strict Midtrans URL validation, bounded streaming of image responses, direct-download frontend integration, translation updates and security tests. Last reported outcome 34 passed, 0 failed, 9 skipped; TypeScript, lint and production build passed. Inspect actual local diff; reports alone do not validate real browser behavior.
-- **Admin archive:** existing archive/hide/remove invoice is a reversible administrative soft removal, not deletion of customer financial records. Protect historical orders.
+- Repository: `Jax-v12/cloudy-pink-store`, branch utama **main**, Next.js App Router / Prisma / Aiven MySQL / Vercel.
+- **Testing-only:** lokal dan Vercel sebelumnya dikonfirmasi memakai Aiven `cloudy_staging`, tidak pernah `defaultdb`. Jangan cetak atau berbagi kredensial `.env` atau `DATABASE_URL`. Runtime Prisma guard **tidak** melindungi Prisma CLI.
+- Midtrans tetap **Sandbox** (`NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=false`); MY/PH belum memiliki gateway pembayaran lokal yang aktif. Jangan hidupkan pembayaran riil.
+- Security hardening `69d19b2` sebelumnya sudah deployed; admin, katalog produk, QRIS image dan headers telah di-smoke-test.
+- **QRIS release `9fc5f50`:** `fix: secure QRIS download via server-side proxy`; lima file berubah. User telah membuktikan Vercel deployment berstatus **Ready**, alias `https://cloudy-pink-store.vercel.app`, dan **tombol Download QRIS berhasil mengunduh gambar** pada invoice testing Sandbox. Ini adalah bukti end-to-end untuk alur yang diuji, bukan jaminan semua format/edge case.
+- Review pascarilis terhadap `9fc5f50` melaporkan suite **34 pass, 0 fail, 9 skipped**; typecheck/build berhasil, lint satu warning `<img>` lama. Audit lebih lanjut menemukan peluang perbaikan JPEG, test coverage, limiter, dan konsistensi validator (detail §24).
+- Console sebelumnya menampilkan **HTTP 400 `/api/checkout`**, terpisah dari CORS unduhan QRIS. Sampai sekarang **errorCode spesifik belum diketahui**; jangan klaim sudah selesai.
+- Admin invoice removal adalah **soft removal** yang bisa dipulihkan; riwayat keuangan tidak boleh hard delete.
 
-### Priorities and completion gates
+### Milestone / gate
 
-| Priority | Milestone | Current state | Acceptance gate |
+| Urutan | Area | Status terkini | Syarat selesai |
 | --- | --- | --- | --- |
-| P0-A | Reliable Download QRIS | Local implementation reported; final mid-stream error handling pending | Review + tests + successful Sandbox browser download after approved deploy |
-| P0-B | Diagnose checkout HTTP 400 | Not yet attributed | Concrete response errorCode and minimal tested fix only if genuine bug |
-| P1 | Security, integration QA and operations | Some smoke tests passed; integrations skipped | Test coverage, restore drill, cron/webhook monitoring and operational checklist |
-| P2 | Live payments for ID / MY / PH | Blocked on provider and merchant readiness | Legitimate merchant approval, actual supported methods, verified settlement & webhooks |
-| P3 | Admin UX, catalog, Roblox enhancements, Game top-up | Backlog | Scope approval after stabilization |
+| **P0-A1** | QRIS same-origin download dasar | **Selesai dan berhasil diuji di website** pada commit `9fc5f50` | Jangan implementasi ulang; pertahankan perilaku |
+| **P0-A2** | QA & hardening QRIS setelah review | **Dikerjakan di lokal, menunggu review user** | Semua temuan §24 ditangani, tes lulus, user approve perubahan |
+| **P0-B** | Checkout 400 diagnosis | **Terbuka** | Ada `errorCode` aktual dan bukti root cause; perubahan hanya bila ada bug |
+| **P1** | Security/integration/operational QA | Sebagian smoke test; 9 integration skipped | Rencana test terisolasi, backup/recovery, monitoring |
+| **P2** | ID/MY/PH pembayaran live | **Blocked** sampai merchant/provider sah siap | Integrasi resmi, metode sesuai negara, webhook/payout/refund diverifikasi |
+| **P3** | UX/Admin/Roblox/Game backlog | Ditunda | Scope dan izin baru setelah stabilisasi |
 
-## 18. P0-A — DOWNLOAD QRIS: FINISH AND VERIFY THE FIX
+## 18. P0-A1 — DOWNLOAD QRIS BASELINE (DONE; PRESERVE)
 
-**Goal:** pending Sandbox invoice displays the QR image and downloads the same valid PNG/JPEG successfully, via Cloudy Pink Store same-origin API, without browser CORS errors.
+Bug asal: gambar QRIS Midtrans Sandbox bisa ditampilkan melalui `<img>`, tetapi browser `fetch` untuk menyimpan gambar secara langsung ke `api.sandbox.midtrans.com` ditolak karena CORS. CSP allowlisting tidak memberikan izin CORS.
 
-**Reuse existing local changes; do not rebuild from scratch.**
+**Implementasi yang sudah dirilis, jangan dibangun ulang:**
 
-1. Server endpoint GET /api/orders/[id]/qris/download. Require matching invoice + x-order-token in the DB query, 404 for absent/incorrect access. Only PENDING orders with QR are eligible. Do not reveal customer information to unauthorized callers.
-2. Take QR URL ONLY from the authenticated stored Order, never from a browser-supplied URL. Validate exact Midtrans Sandbox/Production hostname and configured mode, HTTPS, known QR-code path, no embedded credentials, port override, query or fragment. Do not allow arbitrary hosts, private-network URLs, or redirects (use fetch redirect:error).
-3. Remote fetch with 5-second timeout, no-store, maximum 2 MiB **incremental body streaming**; do not buffer an unbounded response before checking size. Fail on oversized content even with absent or false Content-Length. Cancel stream when invalid/too large.
-4. Strict PNG/JPEG Content-Type and matching full PNG/JPEG magic bytes; reject HTML, SVG and mismatches. Use sanitized Content-Disposition name and correct png/jpg file extension. Return private,no-store. Preserve safe direct QR raw string (000201...) to PNG rendering.
-5. **Remaining confirmed code-review issue:** a network failure or timeout thrown by body reader.read() after upstream headers currently reaches outer catch and returns HTTP 500. Catch mid-stream upstream failures separately as HTTP **502 UPSTREAM_FETCH_FAILED**. Clean up reader/cancel/release reliably; leave real DB/internal failures as HTTP 500. Test stream failure after partial bytes.
-6. Frontend invoice page must use same-origin download endpoint plus x-order-token for remote Midtrans QR, not direct cross-origin fetch. Keep data:image/png immediate download, visible loading/error state, no duplicate clicks, translated errors for ID/MY/EN. QR image display should remain unaffected.
-7. Review whether per-order authenticated download abuse needs a modest existing rate limit. Avoid shared-IP false 429, token leaks and extra Midtrans calls on each UI render. No unrelated checkout/DB schema changes.
+- `GET /api/orders/[id]/qris/download`: validasi pasangan invoice dan `x-order-token` di database sebelum mengambil QR; unauthorized => HTTP 404; bukan `PENDING` / tidak tersedia => safe error.
+- URL remote hanya berasal dari Order terautentikasi, bukan input client. `isValidOrderQrUrl` mewajibkan HTTPS, host Midtrans persis sesuai mode, path QR yang sesuai, tanpa port/kredensial/query/hash; `fetch` dengan `redirect: 'error'` dan timeout 5 detik.
+- Upstream response harus `image/png` / `image/jpeg`, sesuai magic bytes; max 2 MiB dengan incremental streaming dan cancellation, termasuk bila `Content-Length` hilang. Mid-stream network/timeout failure => HTTP 502, kegagalan internal/DB => HTTP 500.
+- `Content-Disposition` aman, `Cache-Control: private, no-store`; raw QR string `000201...` tetap dapat dijadikan PNG tanpa remote fetch.
+- UI untuk data URI memakai direct client download; URL Midtrans memakai same-origin endpoint + `x-order-token`, dengan loading dan error terjemahan ID/MY/EN.
+- User telah mengonfirmasi QRIS berhasil di-download di Vercel utama setelah deployment commit `9fc5f50` berstatus Ready. Jangan ulang QA yang sudah cukup kecuali area terdampak patch berikutnya.
 
-**Required tests:** no/wrong token; wrong invoice; non-PENDING; malicious URL/host; valid PNG/JPEG/raw-QR; wrong MIME/magic; malicious redirects; no Content-Length; >2 MiB incremental stream; timeout during connect and after partial body; cleanup; same-origin frontend call. Run npm test, npx tsc --noEmit, npm run lint, npm run build. Document skipped tests honestly.
+**Catatan:** sejumlah acceptance edge case pada spesifikasi awal belum memiliki regresi eksplisit; pekerjaan tersebut dipindahkan ke §24, bukan alasan menyatakan fitur dasar gagal.
 
-**Only after approved commit and deployment:** use a *testing* PENDING invoice to verify QR visible, Download QRIS works, file decodes properly, no CORS error. No real payment required. Do not claim fully solved from unit tests alone.
+## 19. P0-B — INVESTIGATE SEPARATE CHECKOUT HTTP 400 (OPEN)
 
-## 19. P0-B — INVESTIGATE SEPARATE /api/checkout HTTP 400
+1. Lacak kontrak frontend ke `src/app/api/checkout/route.ts`, `src/lib/checkout.ts` dan `src/lib/commerce.ts` **secara read-only**. Tidak perlu menciptakan order atau menghubungi Midtrans untuk investigasi kode.
+2. Minta ke operator **hanya `errorCode` non-sensitif** dari DevTools → Network → `/api/checkout` → Response. Jangan meminta body payload penuh, email, order token, Roblox credentials, header rahasia, atau customer personal data.
+3. Bedakan `STOCK_EMPTY`, `INVALID_INPUT` email/variant/quantity/details/idempotency, region/payment method unavailable, Roblox user/gamepass validation failure, dan signed quote drift. Semua hanya kandidat sampai dibuktikan.
+4. Jika request memang invalid, dokumentasikan penolakan yang wajar dan UX; jangan melonggarkan validasi. Jika bug aplikasi terbukti, lakukan perubahan minimal, tes dengan mocked provider dan DB disposable lokal berizin.
+5. **Completion gate:** penyebab respons 400 ditetapkan berdasarkan bukti, bukan spekulasi. Jika user belum menyediakan `errorCode`, tetap status OPEN.
 
-- Inspect frontend and server validation contract read-only, without sending extra checkout/payment requests to remote staging.
-- Request only the NON-SENSITIVE response errorCode from DevTools Network → /api/checkout → Response; never request full payload with email, invoice token, passwords or headers.
-- Distinguish intended errors from defects: STOCK_EMPTY in Apps inventory; INVALID_INPUT email, extra fields or variants; missing/invalid idempotency key; unavailable provider/region; invalid Roblox URL/details, and price quote mismatch. Confirm actual cause from errorCode and code, not a guess.
-- For legitimate rejected input, document expected behavior and improve user-visible guidance as needed. For proven bug, make minimal fix with mock/disposable-local regression. Do not weaken fraud, price or CSRF checks.
-- Acceptance gate: the observed 400 has a verifiable root cause, and either expected rejection or tested correction.
+## 20. P1 — SECURITY, REGRESSION & OPERATIONS (PRESERVE)
 
-## 20. P1 — SECURITY & REGRESSION PRESERVATION
+### Invariants wajib
 
-### Security invariants
+- Remote Aiven hanya `cloudy_staging` selama testing; **jangan mengakses `defaultdb`**. Tulis data untuk tes hanya di instance localhost disposable `cloudy_test_*` jika secara terpisah diizinkan; Prisma CLI tidak terlindungi runtime guard.
+- Jangan jalankan `prisma migrate deploy`, db push, reset, seed, maupun mutasi DB untuk patch QRIS, karena **tidak ada perubahan schema**.
+- Pertahankan cookie Admin HttpOnly/SameSite/Secure, Origin/CSRF check, recent reauth untuk aksi sensitif, locking dan audit log, safe soft delete & restore. Tidak boleh menghapus hard financial Order.
+- Pertahankan trusted Vercel proxy edge boundary untuk IP/GeoIP; jangan memakai country/region client-supplied untuk mengubah harga. VERCEL env saja bukan bukti kriptografis.
+- Cron tetap memakai `CRON_SECRET` exact tanpa `trim()`, time-safe verify, no-store responses.
+- Midtrans Sandbox webhook harus diverifikasi server-side; amount/currency/provider/reference/order matching, idempotensi settlement, stock locking, dan fulfillment atomic. Payment PAID berbeda dari fulfillment COMPLETED.
+- Lindungi invoice `x-order-token`, kredensial Apps Premium, data pelanggan, provider secret. Hindari log sensitif dan akses via akun ChatGPT sharing.
+- CSP/security headers tetap dipakai. CSP tidak menyelesaikan CORS; evaluasi `unsafe-inline` dan HSTS preload sebelum custom-domain launch.
+- `npm audit --omit=dev` terakhir **dilaporkan** 0 advisory setelah compatible updates; masih ada beberapa dev-only advisory. Jangan `npm audit fix --force` secara membabi buta.
 
-- Only cloudy_staging on remote Aiven during testing; only cloudy_test_* on disposable localhost for data-writing integration tests; never defaultdb. Prisma CLI is outside the application runtime database guard. NO migrate, db push, seed, reset, or staging mutation without separate user approval.
-- Preserve admin HttpOnly/SameSite/Secure sessions, Origin CSRF, five-minute reauthentication, order/fulfillment row locks, audit trails, soft invoice removal. Do not turn soft remove into irreversible deletion to bypass product foreign keys.
-- Keep rate limit trust anchored in actual Vercel Edge proxy settings; user-controlled headers/VERCEL flag alone are not cryptographic authentication. Non-Vercel proxy headers require strict operator-guaranteed overwrite.
-- Keep CRON_SECRET exact-value validation (never trim secrets), timed-safe comparison, no-store responses, and worker/cleanup authorization.
-- Payment status depends on verified Midtrans webhook/status, matching invoice/provider/IDR currency/amount/reference, atomic stock/order changes and idempotent fulfillment. Payment success is distinct from Roblox delivery completion.
-- Customer invoice access token required; Apps credentials encrypted server-side; no passwords, tokens or gateway secrets in logging/Telegram.
-- CSP/security headers remain enabled. Current CSP permits unsafe-inline; review HSTS includeSubDomains/preload before custom domains. CSP and CORS are separate protections.
-- Last Gemini-reported npm audit --omit=dev: 0 vulnerabilities after compatible dependencies updated; five dev-only advisories remained. Recheck periodically; never blindly run npm audit fix --force.
+### Verification & release readiness
 
-### Test and operational requirements
+- Tes terkini (reported) **34 passed, 0 failed, 9 skipped**. Integrasi MySQL/HTTP skipped berarti belum end-to-end ter-cover, bukan otomatis bug. Jika menjalankan, gunakan terpisah `TEST_DATABASE_URL` hanya `cloudy_test_*`; jangan jalankan terhadap Aiven remote.
+- Smoke-test pasca setiap user-approved deploy: halaman utama, Apps, Roblox, region/quote, invoice-token access, QR render/download PNG/JPEG bila tersedia, admin login dan fulfillment/archive, status polling, console dan mobile.
+- Verifikasi backup & recovery Aiven di lingkungan terpisah sebelum menerima pembayaran live; snapshot belum sama dengan tested restore/PITR.
+- Monitor webhook errors, cron cleanup/fulfillment, payout/refund-required queue, order review, rate-limit failures. Vercel `Ready` berarti build berhasil, bukan bukti pembayaran berjalan.
 
-- Last Gemini-reported suite: **34 passed, 0 failed, 9 skipped**. The skipped MySQL/HTTP suites require isolated local TEST_DATABASE_URL / TEST_BASE_URL and may not touch cloudy_staging. Clearly report whether they were run, skipped, or blocked.
-- Manual smoke tests after release: home, Apps, Roblox, region-aware quote, checkout errors, token-auth invoice, QR image and download, status polling, Admin, archived/removed invoice filters, mobile and Console.
-- Keep Midtrans Sandbox; do not make paid transactions, perform refunds, purge customer orders, or use real login credentials for debugging.
-- Aiven backups were observed, but actual recovery/PITR restore has not been verified. Prepare restore drill only on isolated destination before handling real money.
-- Monitor checkout errors, webhook failures, cron cleanup/fulfillment heartbeats, backlog, refund-required and review queues, rate limit 429s, and log hygiene.
-- Production deployment Ready is a build signal, not proof that end-to-end checkout is correct.
-- This QRIS fix requires **no Prisma migration**. Do not rerun migrations just to deploy it.
+## 21. P2 — REAL PAYMENT / INTERNATIONAL READINESS (BLOCKED)
 
-## 21. P2 — REAL PAYMENT READINESS (BLOCKED UNTIL EXPLICIT APPROVAL)
+- **Sekarang hanya Midtrans Sandbox**. Jangan mengaktifkan key live, settlement, atau membuat real payments sebagai bagian P0/P1.
+- Indonesia: sebelum real launch, butuh merchant berwenang, verifikasi sesuai syarat provider, settlement, refund, fees, operasional, kebijakan customer support/terms/privacy dan explicit approval.
+- Malaysia/Filipina: konfigurasi harga IDR/MYR/PHP sengaja terpisah, tidak otomatis FX conversion. Checkout MY/PH harus tetap disabled sampai tersedia provider yang secara eksplisit mendukung mata uang/metode lokal (FPX/DuitNow/GCash/Maya dan/atau international card sesuai merchant country), webhook, payout, refunds, dan dokumen kontrak.
+- Backend auto region menggunakan trusted Vercel ingress dan policy server-side; IP bukan jaminan negara tagihan. Wrong-location correction via support, bukan arbitrary frontend switcher.
+- Jangan menggunakan akun/identitas pihak lain atau melanggar eligibility provider untuk mengaktifkan pembayaran.
 
-**Never activate live payments merely by changing Midtrans environment variables.** Before any real customer transaction, establish an authorized merchant, business/payout eligibility, provider approval, costs/settlement/refund terms, customer support, privacy and refund policy, monitoring and recovery.
+## 22. P3 — FEATURE & UX BACKLOG (SEPARATE SCOPE)
 
-- Indonesia: Midtrans IDR QRIS only in current implementation; stay Sandbox until deliberate, documented Production launch approval.
-- Malaysia (MYR) and Philippines (PHP): independent configured local prices already part of store design, but checkout stays **disabled** until actual supported provider accounts/adapters exist. Validate local channels (e.g. FPX/DuitNow, GCash/Maya) and international cards from provider contract for the merchant's registered country; do not infer from marketing pages. Validate gateway currencies/amounts, authenticated webhooks, refunds, and settlement minor units.
-- Auto region detection must use a genuinely trusted ingress; Vercel country signals rely on Edge overwrite and are not proof of billing country. No customer-controlled pricing country override.
-- Do not create accounts or submit credentials/business verification without user approval, and never bypass provider eligibility or represent the business inaccurately.
+- Pertahankan tiga metode Roblox: **Gamepass**, **Via Login**, **Via Username**; username check, independent regional prices, signed quote, pembayaran aman, manual fulfillment; dilarang menyimpan Roblox password/OTP/cookies/session tokens.
+- Pertahankan Apps Premium catalog/stock locking/credential security, dan hanya jual akses digital yang resmi/diizinkan.
+- Game Top-up API & provider nyata tetap nanti; jangan hidupkan simulasi sebagai transaksi Production.
+- Admin: search invoice, laporan per currency (IDR tidak dicampur MYR/PHP minor units), archive/restore, stok, fulfillment statuses, audit/operasional.
+- Testing/dummy cleanup harus eksplisit dan terisolasi; hindari hard-delete riwayat Order untuk menghindari foreign keys.
+- UX: Anya Theme, responsif mobile, accessibility, availability/fee transparency, clear customer status, support entry point.
 
-## 22. P3 — PRODUCT, ADMIN, UX, AND FUTURE WORK
+## 23. CODING AGENT HANDOFF — ONE KICKOFF PER MILESTONE
 
-- Roblox: preserve **Gamepass / Via Login / Via Username** separate flows, server quote signatures, independent IDR/MYR/PHP pricing, safe manual fulfillment, confirmed recipient and delivery evidence. Do not store Roblox passwords, OTPs, cookies or session secrets.
-- Apps Premium: preserve stock reservation/locking, encrypted delivery credentials, invoice history; use only legal, authorized product sources.
-- Game top-up: future real provider adapter/API, not part of current stabilization. Never enable simulator for Production sales.
-- Admin: invoice/username search, export and financial reconciliation by currency without mixing IDR with sen/centavo, better archived/removed filters, catalog/product stock operations, explicit irreversible-action safeguards.
-- Data cleanup: only explicitly approved isolated dummy data, never production transaction hard deletes or foreign-key bypass.
-- UX: Anya Theme preservation, mobile responsiveness, accessibility, clear fees/prices, localized errors, transparent delivery estimates and customer support.
+Coding agent harus membaca `AGENTS.md`, seluruh `plan.md`, `git status`, dan diff yang ada; hanya melanjutkan scope terbaru yang diizinkan. Tidak boleh membuat branch tambahan secara otomatis; pakai `main` sesuai workflow pengguna. Jangan overwrite pekerjaan lokal yang belum di-commit.
 
-## 23. ONE KICKOFF PROMPT, APPROVAL GATES & DEFINITION OF DONE
+**Satu kickoff yang cukup untuk milestone saat ini:**
 
-For the next Gemini/Codex/Work session, a single kickoff is enough:
+> Baca AGENTS.md dan seluruh plan.md. Tetap pada branch main. Inspect `git status` dan kode lokal. Kerjakan semua subtask P0-A2 di §24 dalam SATU batch, termasuk perubahan minimal dan test matrix, lalu cek P0-B secara read-only jika bukti errorCode ada. Jangan bikin fitur ulang yang sudah berfungsi. Jalankan npm test, npx tsc --noEmit, npm run lint, npm run build, git diff --check, git status --short. Jangan akses/mutasi remote database, migrasi, ubah .env, commit, push atau deploy. Laporkan file/diff dan pass/fail/skip; berhenti minta review.
 
-> Read AGENTS.md and plan.md as the project source of truth. Check Git status and existing local changes before edits. Complete **P0-A** in one small batch and perform read-only **P0-B** diagnosis as far as evidence allows; focus on mid-stream QRIS HTTP 502 handling, tests and accurate error reporting. Run npm test, TypeScript, lint and build. Do not access or mutate remote databases; never touch defaultdb, run Prisma migrations, change .env or Vercel env vars, commit, push or deploy. Report actual diffs, pass/fail/skip counts, unverified behavior, blockers and the next milestone. Stop for user review.
+Agent boleh melakukan local code edits, mocked tests dan koreksi yang logis dalam milestone yang diizinkan tanpa prompt per satu bug. **Tetap minta izin terpisah** sebelum commit/push/deploy, database write/migration, Vercel env edit, payment/live activation, atau penghapusan data pelanggan.
 
-Coding agent may autonomously make necessary local edits and tests within this **authorized P0 scope**, not P1–P3 actions. Stop and request explicit user approval for commit/push, Vercel deployment, environment changes, real gateway action, database write/migration, or destructive data cleanup. A shared external account must not receive private GitHub access or secrets.
+### Status stabilisasi
 
-### P0 completion checklist
+- [x] Commit `9fc5f50` sudah masuk `main` dan Vercel Production **Ready**.
+- [x] Customer Sandbox QRIS tampil dan **Download QRIS berhasil** di website utama.
+- [x] Audit hardening QRIS setelah rilis (§24) dan regresi selesai **di lokal, menunggu review user sebelum commit/deploy** (38 passed / 0 failed / 9 skipped; tsc/lint/build/diff-check bersih).
+- [ ] Checkout 400 terdiagnosis secara spesifik bila `errorCode` diberikan.
+- [ ] QA integrasi/operasi sesuai milestone P1 (terpisah).
 
-- [ ] Mid-stream network/timeout on QRIS image responds 502; cleanup/reject scenarios tested.
-- [ ] Authorized Sandbox PENDING invoice QR displays **and downloads** correctly after approved release; no browser CORS error in download path.
-- [ ] Checkout HTTP 400 has a concrete diagnosis from actual errorCode or is clearly documented as unresolved pending non-sensitive evidence.
-- [ ] Unit/typecheck/lint/build pass, integration skips acknowledged, no unauthorized DB operations.
-- [ ] User approves reviewed diff, deployment Ready/commit/alias verified, and postdeploy smoke tests pass.
+## 24. P0-A2 — POST-RELEASE QRIS AUDIT FIXES (NEW; DO IN ONE BATCH)
 
-**End of consolidated project roadmap.**
+**Audit reviewed:** commit `9fc5f50` (2026-10-13). Audit kode tidak membatalkan bukti bahwa unduh QRIS Sandbox PNG yang diuji user sudah berhasil. Ini pekerjaan quality/safety follow-up yang belum diimplementasikan. Jangan tandai selesai sebelum diff dan pengujian benar-benar memenuhi gate.
+
+### A. JPEG extension mismatch — confirmed bug, highest priority
+
+- Lokasi: `src/app/order/[id]/page.tsx` download handler, saat remote Midtrans URL dibuat menjadi `blob:`.
+- Kode klien saat ini selalu menetapkan `link.download = QRIS-<invoice>.png`, termasuk saat server mengembalikan JPEG dan `Content-Disposition: ...jpg`. Header server tidak mengatur nama file ketika frontend memakai `blob:` dan `a.download` eksplisit.
+- **Fix:** gunakan `blob.type` (hanya `image/png` atau `image/jpeg`) untuk menentukan `.png`/`.jpg`. Reject MIME lain dan tampilkan `t.downloadFailed`. Sanitasi invoice untuk filename. Jangan mengandalkan Content-Disposition untuk blob URL. Untuk QR `data:image/png`, tetap `.png`; tipe data lain hanya jika benar-benar didukung.
+- Tes client handler atau pure filename helper: PNG menghasilkan `.png`, JPEG `.jpg`, MIME unknown gagal dengan aman; pertahankan pengunduhan data URI yang berjalan.
+
+### B. Missing security regression tests
+
+Tambahkan tes nyata pada `tests/security.test.mjs` atau file test yang relevan, tanpa database remote:
+
+- Order `status !== 'PENDING'` dengan QR => HTTP 400 `QRIS_NOT_AVAILABLE`; Order PENDING dengan `qrisUrl: null` => HTTP 400.
+- Invoice salah dengan token valid dan invoice benar dengan token salah => masing-masing HTTP 404. Mock DB harus benar-benar memeriksa `where.invoice` DAN `where.accessToken`. **Catatan:** mock utama yang ada sebenarnya sudah menguji keduanya; tambahkan tes eksplisit invoice salah, dan rapikan mock tambahan jika sesuai.
+- Simulasikan upstream redirect 302 menuju external host. Assert outbound `fetch` dipanggil dengan `redirect: 'error'` dan redirect tidak boleh di-follow. Dalam mocking, pastikan test bisa menangkap regresi bila opsi fetch berubah menjadi default follow; jangan membuat mock 302 yang tetap gagal tanpa memeriksa opsi.
+- Pertahankan suite existing untuk SSRF, raw QR, PNG/JPEG, MIME/magic mismatch, >2 MiB streaming tanpa Content-Length, timeout/mid-stream failure dan cleanup.
+
+### C. Authenticated per-invoice rate limiting
+
+- Masalah: bearer `x-order-token` yang valid memungkinkan request berulang ke proxy, setiap hit dapat memicu outbound Midtrans. UI anti-double-click saja tidak menghalangi scripted HTTP requests.
+- Gunakan `consumeRateLimit` dari `src/lib/rateLimit.ts` **setelah** cek invoice+token dan status QRIS valid, **sebelum** membuat QR/fetch ke Midtrans. Key scope misalnya `qris-download`, key `order.invoice`, limit awal **10 download per 60_000 ms per invoice** (sesuaikan setelah QA; jangan mengandalkan IP/shared fallback). Backend limiter saat ini menggunakan DB `rateLimit` untuk counter: ini akan menjadi write operasional saat route live, **bukan izin bagi coding agent untuk mengakses/memutasi staging selama pengerjaan atau tes**.
+- Tes rate limit via mock/injection, tidak menjalankan `consumeRateLimit` nyata dari unit test. Verifikasi up to limit lulus; over limit mendapat 429 + `Retry-After` yang sesuai dan private/no-store; request ditolak harus **tidak** memanggil upstream fetch. Jangan membocorkan invoice existence sebelum token auth. Jika dependency-injection seam dibutuhkan, jaga minimal dan kompatibel.
+- Rate limiting tidak cukup sebagai pencegah semua abuse; laporkan kebutuhan monitoring apabila login/token exposure terdeteksi. Jangan sampai limiter IP bersama memblokir normal buyers.
+
+### D. Sibling QR URL validator mismatch
+
+- `src/app/api/orders/[id]/route.ts` sekarang menggunakan `isGatewayQrUrl`: menerima host production atau sandbox saat URL sesuai pola.
+- Download proxy memakai `isValidOrderQrUrl`: hanya menerima host yang **sama dengan configured Midtrans environment**.
+- Selaraskan display QR di order-detail dan keamanan download. Pilihan yang direkomendasikan: gunakan `isValidOrderQrUrl` untuk remote QR di detail juga, selama tidak menimbulkan regresi pada alur raw QR dan data existing. Dengan perubahan environment, sandbox QR lawas yang masih PENDING akan tidak tampil dan tidak bisa diunduh — ini lebih konsisten daripada tampil tapi gagal download. Dokumentasikan behavior ini dan buat tes Sandbox/Production mismatch.
+- Tetap pertahankan host pinning, redirect:error dan sanitasi penuh; jangan melemahkan validator proxy untuk menampilkan QR lintas environment.
+
+### E. Translation and implementation scope
+
+- `src/app/order/[id]/page.tsx`: hapus fallback literal hardcoded `t.downloadFailed || 'Gagal mengunduh QRIS. Silakan coba lagi.'`, karena `downloadFailed` ada di ID/MY/EN dan AGENTS.md melarang hardcoded UI strings. Cukup gunakan terjemahan yang ada.
+- Interface `OrderDbClient` dan dependency injection `dbClient` boleh dipertahankan selama typecheck sukses; **jangan lakukan refactor arsitektur besar** demi abstraksi yang tidak diperlukan. Jika memperkenalkan mock limiter, pastikan TypeScript typing jelas.
+- Jangan edit checkout, kredensial, payment gateway, Prisma schema, tampilan desain atau fitur lain yang tidak terkait.
+
+### F. Verification, release and exact handoff
+
+- Lakukan `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run build`, `git diff --check`, dan `git status --short`.
+- Uji eksplisit PNG/JPEG filename, no token/wrong token/wrong invoice, non-PENDING/null QRIS, malicious redirect prevention, rate limit 10/min, environment host mismatch, serta existing tests. Jangan memalsukan coverage atau menyatakan 9 skipped sebagai passed.
+- `plan.md` harus diperbarui dengan status checklist berdasarkan bukti. Seluruh bagian lain dan histori tetap ada; jangan menghapus P0-B, P1/P2/P3.
+- Semua perubahan awal **lokal saja pada branch main**. Jangan membuat branch lain, jangan commit, push, deploy, database migration, remote DB writes, env secrets update, atau live payment. Berikan laporan diff, hasil tes dan blockers untuk review.
+- Setelah operator memberikan izin commit & push, tunggu Vercel `Ready`, cocokkan alias dan commit, lalu tes ulang PNG download di invoice Sandbox dan JPEG path menggunakan mock jika Midtrans tidak menyediakan sampel JPEG. **Tidak melakukan pembayaran nyata.**
+
+### Acceptance checklist P0-A2
+
+- [x] PNG/JPEG filename konsisten dari browser dan server; data URI tetap berjalan.
+- [x] Non-PENDING/null QR, wrong invoice, malicious redirect regression tests berhasil.
+- [x] Per-invoice rate limiting terautentikasi bekerja tanpa shared-IP false blocking, dan tanpa real DB accesses saat unit test.
+- [x] URL display dan download memakai host/mode policy yang konsisten.
+- [x] Error string hanya melalui i18n ID/MY/EN; tidak ada unrelated refactor.
+- [x] Suite pass, skip count transparan, user review sebelum commit/deploy.
+
+**Status implementasi lokal (2026-10-13, belum commit/deploy):** semua subtask A–E dikerjakan dalam satu batch di branch `main` lokal. Verifikasi: `npm test` 38 passed / 0 failed / 9 skipped (9 skipped = suite MySQL/HTTP terisolasi, bukan pass), `npx tsc --noEmit` exit 0, `npm run lint` 0 errors + 1 warning `<img>` lama, `npm run build` sukses (route `ƒ /api/orders/[id]/qris/download` terdaftar), `git diff --check` bersih. File: `src/lib/qrisDownload.ts` (baru), `src/app/order/[id]/page.tsx`, `src/app/api/orders/[id]/qris/download/route.ts`, `src/app/api/orders/[id]/route.ts`, `tests/security.test.mjs`. Rate limit operasional memakai scope `qris-download`, key `order.invoice`, 10/60s, 429 + `Retry-After: 60` + `private, no-store`; unit test memakai mock limiter/fetch tanpa DB remote. P0-B tetap OPEN (menunggu `errorCode` operator). Menunggu review user sebelum commit/push/deploy dan smoke-test browser pasca-deploy.
+
+**End of living project plan.**

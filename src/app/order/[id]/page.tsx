@@ -7,6 +7,7 @@ import RobloxInstructions from '@/components/RobloxInstructions';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice } from '@/lib/orderNotice';
+import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl } from '@/lib/qrisDownload';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
@@ -112,9 +113,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     setDownloadError('');
     try {
       if (order.qrisUrl.startsWith('data:')) {
+        const dataExt = qrisExtensionForDataUrl(order.qrisUrl);
+        if (!dataExt) throw new Error('DOWNLOAD_FAILED');
         const link = document.createElement('a');
         link.href = order.qrisUrl;
-        link.download = `QRIS-${order.invoice}.png`;
+        link.download = qrisDownloadFilename(order.invoice, dataExt);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -134,16 +137,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       }
 
       const blob = await response.blob();
+      const blobExt = qrisExtensionForBlobMime(blob.type);
+      if (!blobExt) throw new Error('DOWNLOAD_FAILED');
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `QRIS-${order.invoice}.png`;
+      link.download = qrisDownloadFilename(order.invoice, blobExt);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch {
-      setDownloadError(t.downloadFailed || 'Gagal mengunduh QRIS. Silakan coba lagi.');
+      setDownloadError(t.downloadFailed);
     } finally {
       setDownloading(false);
     }
