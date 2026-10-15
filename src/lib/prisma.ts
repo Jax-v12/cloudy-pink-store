@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { databaseTlsUrl } from './databaseTls';
 import { createHash } from 'node:crypto';
 
-export function assertSafeDatabaseUrl(urlStr?: string): void {
+export function assertSafeDatabaseUrl(urlStr?: string, env: NodeJS.ProcessEnv = process.env): void {
   if (!urlStr || typeof urlStr !== 'string' || !urlStr.trim()) {
     throw new Error('FATAL: DATABASE_URL is missing or empty.');
   }
@@ -53,21 +53,43 @@ export function assertSafeDatabaseUrl(urlStr?: string): void {
   }
 
   const lowerDecodedUrl = decodedUrl.toLowerCase();
-  if (
-    dbName === 'defaultdb' ||
-    dbName.includes('defaultdb') ||
-    lowerDecodedUrl.includes('/defaultdb') ||
-    lowerDecodedUrl.includes('database=defaultdb')
-  ) {
-    throw new Error('FATAL: Connection to defaultdb is strictly blocked by fail-closed guard.');
-  }
+
+  // Explicit, fail-closed production identification.
+  // NODE_ENV === 'production' is NOT sufficient (Vercel Preview also runs a production build).
+  // Production requires exact VERCEL === '1' and VERCEL_ENV === 'production'.
+  const isVercelProduction = env.VERCEL === '1' && env.VERCEL_ENV === 'production';
 
   const isAiven = host === 'aivencloud.com' || host.endsWith('.aivencloud.com');
   const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
 
+  // Connection attempts targeting defaultdb outside of verified Vercel Production are strictly blocked
+  // across all variations (plain, URL-encoded, parameter injections).
+  const targetsDefaultDb =
+    dbName === 'defaultdb' ||
+    dbName.includes('defaultdb') ||
+    lowerDecodedUrl.includes('/defaultdb') ||
+    lowerDecodedUrl.includes('database=defaultdb');
+
+  if (targetsDefaultDb && !isVercelProduction) {
+    throw new Error('FATAL: Connection to defaultdb is strictly blocked outside of verified production.');
+  }
+
+  if (isVercelProduction) {
+    if (!isAiven) {
+      throw new Error(`FATAL: Production database must be hosted on Aiven, got ${host}.`);
+    }
+    if (dbName !== 'defaultdb') {
+      throw new Error(`FATAL: Only defaultdb is permitted on Aiven in production, got ${dbName}.`);
+    }
+    if (parsed.searchParams.has('database') && parsed.searchParams.get('database')?.toLowerCase() !== 'defaultdb') {
+      throw new Error('FATAL: Database query parameter mismatch in production DATABASE_URL.');
+    }
+    return;
+  }
+
   if (isAiven) {
     if (dbName !== 'cloudy_staging') {
-      throw new Error(`FATAL: Only cloudy_staging is permitted on Aiven during testing, got ${dbName}.`);
+      throw new Error(`FATAL: Only cloudy_staging is permitted on Aiven outside production, got ${dbName}.`);
     }
     return;
   }
