@@ -10,7 +10,10 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     if (!order) throw new Error('ORDER_NOT_FOUND');
     if (status && (order.paymentProvider !== status.provider || order.pricingRegion !== status.region || status.invoice !== order.invoice || status.amount !== order.totalAmount || status.currency !== order.currency ||
         !status.reference || (order.paymentReference && order.paymentReference !== status.reference))) throw new Error('PAYMENT_MISMATCH');
-    if (status && !order.paymentReference) await tx.order.update({ where: { id }, data: { paymentReference: status.reference } });
+    if (status && (!order.paymentReference || (order.status === 'PENDING' && state === 'pending' && status.qr && order.qrisUrl !== status.qr))) {
+      await tx.order.update({ where: { id }, data: { paymentReference: status.reference,
+        ...(order.status === 'PENDING' && state === 'pending' && status.qr ? { qrisUrl: status.qr } : {}) } });
+    }
     if (state === 'pending') return { action: 'unchanged' as const, order };
     if (order.status === 'PAID') return { action: 'unchanged' as const, order };
     if (order.status !== 'PENDING') {

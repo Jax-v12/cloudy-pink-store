@@ -28,6 +28,10 @@ for (const key of Object.keys(process.env)) {
 if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
+if (!process.env.DATABASE_CA_CERT_PATH && fs.existsSync(path.join(root, 'docs', 'ca.pem'))) {
+  process.env.DATABASE_CA_CERT_PATH = path.join(root, 'docs', 'ca.pem');
+}
+
 
 registerHooks({
   resolve(specifier, context, next) {

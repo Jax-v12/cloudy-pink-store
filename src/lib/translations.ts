@@ -1,3 +1,4 @@
+import { loginFlowTranslations } from './loginFlowTranslations';
 import { regionalTranslations } from './regionalTranslations';
 import { invoiceStatusTranslations } from './invoiceStatusTranslations';
 import { usernameFlowTranslations } from './usernameFlowTranslations';
@@ -9,6 +10,7 @@ export type Language = 'ID' | 'EN' | 'MY';
 
 export const translations = {
   ID: {
+    loginFlow: loginFlowTranslations.ID,
     loginDatabaseError: "Database belum diperbarui. Jalankan migrasi Prisma sebelum login.",
     loginOriginError: "Alamat website tidak sesuai konfigurasi APP_ORIGIN. Periksa domain dan HTTPS.",
     loginConfigError: "Password admin belum diatur pada server. Periksa ADMIN_PASSWORD lalu restart aplikasi.",
@@ -160,6 +162,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   MY: {
+    loginFlow: loginFlowTranslations.MY,
     loginDatabaseError: "Database belum dikemas kini. Jalankan migrasi Prisma sebelum log masuk.",
     loginOriginError: "Alamat laman tidak sepadan dengan APP_ORIGIN. Semak domain dan HTTPS.",
     loginConfigError: "Kata laluan pentadbir belum ditetapkan pada pelayan. Tetapkan ADMIN_PASSWORD dan mulakan semula aplikasi.",
@@ -311,6 +314,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   EN: {
+    loginFlow: loginFlowTranslations.EN,
     loginDatabaseError: "The database schema is outdated. Apply Prisma migrations before signing in.",
     loginOriginError: "The website address does not match APP_ORIGIN. Check the domain and HTTPS.",
     loginConfigError: "The server admin password is not configured. Set ADMIN_PASSWORD and restart the app.",

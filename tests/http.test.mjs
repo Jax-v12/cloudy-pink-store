@@ -22,7 +22,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     await prisma.rateLimit.deleteMany({});
     const p = await prisma.product.create({ data: { name: 'HTTP Roblox', slug: `http-${crypto.randomUUID()}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const secret = { password: 'HTTP-private-password', backupCodes: ['code111','code222','code333','code444','code555'], note: 'HTTP confidential note' };
-    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest' } }, crypto.randomUUID());
+    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest', whatsappE164: '+12133734253' } }, crypto.randomUUID());
     await applyPaymentStatus(order.id, { provider: 'MIDTRANS', invoice: order.invoice, amount: order.totalAmount, currency: 'IDR', region: 'ID', reference: 'tx-' + order.invoice, state: 'paid', cancelled: false, qr: null });
     const request = (path, init = {}, country = 'ID') => { const url = new URL(path, base); return fetch(url, { ...init, headers: { ...geoHeaders(url, country, init.method || 'GET'), ...init.headers } }); };
     // The HTTP harness mocks Roblox and blocks external providers.
@@ -146,6 +146,8 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
       const response = await request('/api/admin/fulfillment?' + new URLSearchParams({ type: 'ROBLOX', method: 'LOGIN', payment: 'PAID', status: 'PROCESSING', q, limit: '1' }), { headers });
       assert.equal(response.status, 200); const body = await response.json();
       assert.equal(body.data[0].contactEmail, 'http@example.test'); assert.equal(body.data[0].id, order.id); assert.equal(body.data[0].robloxDetail.method, 'LOGIN');
+      assert.equal(body.data[0].contactWhatsapp, '+12133734253');
+      assert.equal('whatsappE164' in body.data[0].robloxDetail, false);
       assert.equal(body.monitoring.pendingCount, 1);
     }
     for (const query of ['method=INVALID', 'type=APPS&method=LOGIN', 'payment=INVALID', 'q=' + 'x'.repeat(121)]) assert.equal((await request('/api/admin/fulfillment?' + query, { headers })).status, 400);

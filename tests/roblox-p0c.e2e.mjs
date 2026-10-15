@@ -5,12 +5,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.P0C_PLAYWRIGHT_MODULE || 'playwright');
-const base = process.env.P0C_BASE_URL || 'http://127.0.0.1:3124';
+const { chromium } = require(process.env.P0C_PLAYWRIGHT_MODULE || process.argv[2] || 'playwright');
+const base = process.env.P0C_BASE_URL || process.argv[3] || 'http://127.0.0.1:3124';
 assert.equal(new URL(base).hostname, '127.0.0.1');
 const output = path.resolve(process.env.P0C_OUTPUT || '.cache/p0c-qa/screenshots');
 await fs.mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true, ...(process.env.P0C_BROWSER_CHANNEL ? { channel: process.env.P0C_BROWSER_CHANNEL } : {}) });
+const browser = await chromium.launch({ headless: true, ...((process.env.P0C_BROWSER_CHANNEL || process.argv[4]) ? { channel: process.env.P0C_BROWSER_CHANNEL || process.argv[4] } : {}) });
 const results = [];
 const money = (amount, region = 'ID') => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: { ID: 'IDR', MY: 'MYR', PH: 'PHP' }[region],
@@ -114,12 +114,9 @@ try {
         const cards = f.page.locator('input[name=package]'); await cards.first().waitFor({ state: 'attached' });
         assert.equal(await cards.count(), 4);
         await cards.first().focus(); await f.page.keyboard.press('Space');
-        await f.page.locator('aside').waitFor(); await f.page.waitForFunction(() => document.querySelector('aside')?.innerText.includes('750'));
-        assert.equal(f.state.quoteCalls.at(-1).variantId, 13);
+        assert.equal(f.state.quoteCalls.length, 0);
         await cards.first().focus(); await f.page.keyboard.press('ArrowRight');
         await f.page.waitForFunction(() => document.querySelector('input[value="14"]')?.checked);
-        await f.page.waitForFunction(() => document.querySelector('aside')?.innerText.includes('48,750'));
-        assert.equal(f.state.quoteCalls.at(-1).variantId, 14);
         assert.equal(await f.page.locator('input[name=package]:checked').count(), 1);
         assert.equal(await f.page.locator('input[type=password]').count(), 0);
         await f.shot('login-selected'); await noOverflow(f.page);
@@ -176,9 +173,8 @@ try {
       const v = f.state.catalog.data[0].variants.find(v => v.method === method);
       if (method === 'LOGIN') {
         await f.page.locator('label').filter({ has: f.page.locator('input[name=package]') }).first().click();
-        await f.page.locator('aside').waitFor();
-        assert.ok((await f.page.locator('aside').innerText()).includes(money(v.price, region)));
-        if (region !== 'ID') assert.equal(await f.page.locator('button[type=submit]').isDisabled(), true);
+        assert.ok((await f.page.locator('main').innerText()).includes(money(v.price, region)));
+        if (region !== 'ID') assert.equal(await f.page.getByRole('button',{name:'Continue',exact:true}).isDisabled(),true);
       } else {
         await f.page.locator('ol').waitFor();
         assert.ok((await f.page.locator('form').innerText()).includes(money(v.price, region)));
@@ -191,13 +187,14 @@ try {
   for (const language of ['ID', 'EN', 'MY']) await test(`${language} Login translations and labelled controls`, async () => {
     const f = await fixture(viewports[0], { language }); try {
       await f.goto('/roblox/qa-roblox?method=LOGIN'); await f.page.locator('label').filter({ has: f.page.locator('input[name=package]') }).first().click();
-      await f.page.locator('aside input[type=email]').waitFor();
-      const missing = await f.page.locator('main input, main select').evaluateAll(elements => elements.filter(el => !el.labels?.length && !el.getAttribute('aria-label')).map(el => el.name || el.type));
-      assert.deepEqual(missing, [], 'Missing accessible labels');
-      const expected = { ID: ['Pilih nominal Robux', 'Metode pembayaran'], EN: ['Choose Robux amount', 'Payment method'], MY: ['Pilih jumlah Robux', 'Kaedah pembayaran'] }[language];
-      for (const label of expected) assert.ok((await f.page.locator('main').innerText()).includes(label));
+      const expected = { ID: 'Pilih nominal Robux', EN: 'Choose Robux amount', MY: 'Pilih jumlah Robux' }[language];
+      assert.ok((await f.page.locator('main').innerText()).includes(expected));
       const radio = f.page.locator('input[name=package]').first(); await radio.focus();
       assert.ok(await radio.evaluate(el => parseFloat(getComputedStyle(el.parentElement).outlineWidth) >= 2), 'No visible keyboard focus');
+      await f.page.getByRole('button', { name: {ID:'Lanjut',EN:'Continue',MY:'Teruskan'}[language], exact:true }).click();
+      await f.page.locator('input[type=email]').waitFor();
+      const missing = await f.page.locator('main input, main select').evaluateAll(elements => elements.filter(el => !el.labels?.length && !el.getAttribute('aria-label')).map(el => el.name || el.type));
+      assert.deepEqual(missing, [], 'Missing accessible labels');
       await f.shot(`login-${language.toLowerCase()}`); await noOverflow(f.page); await f.clean();
     } finally { await f.context.close(); }
   });
@@ -212,8 +209,9 @@ try {
   await test('Unverified region blocks purchase despite region query', async () => {
     const f = await fixture(viewports[0], { region: null }); try {
       await f.goto('/roblox/qa-roblox?method=LOGIN&region=ID');
-      await f.page.getByText('Robux via Login', { exact: true }).waitFor();
-      assert.equal(await f.page.locator('form,input[name=package]').count(), 0);
+      await f.page.getByRole('heading',{name:'Choose Robux amount',exact:true}).waitFor();
+      assert.equal(await f.page.locator('form').count(), 0);
+      assert.equal(await f.page.locator('input[name=package]:enabled').count(), 0);
       assert.equal(f.state.quoteCalls.length, 0); await f.shot('region-unverified'); await f.clean();
     } finally { await f.context.close(); }
   });
@@ -221,13 +219,21 @@ try {
     const f = await fixture(viewports[0]); try {
       f.state.quoteFailure = true;
       await f.goto('/roblox/qa-roblox?method=LOGIN'); await f.page.locator('label').filter({ has: f.page.locator('input[name=package]') }).first().click();
-      await f.page.locator('aside [role=alert]').waitFor();
-      assert.equal(await f.page.locator('button[type=submit]').isDisabled(), true);
+      await f.page.getByRole('button',{name:'Continue',exact:true}).click();
+      await f.page.locator('input[name=username]').waitFor();
+      await f.page.getByRole('button',{name:'Continue',exact:true}).click();
+      assert.equal(await f.page.locator('form [role=alert]').count(),3);
+      await f.page.locator('input[name=username]').fill('FixtureUser');
+      await f.page.locator('select[name=phoneCountry]').selectOption('US');
+      await f.page.locator('input[name=whatsapp]').fill('2133734253');
+      await f.page.locator('input[name=email]').fill('fixture@example.invalid');
+      await f.page.getByRole('button',{name:'Continue',exact:true}).click();
+      await f.page.waitForURL('**/login/summary');
+      await f.page.getByRole('alert').filter({has: f.page.getByRole('button',{name:'Try again',exact:true})}).waitFor();
+      assert.equal(await f.page.getByRole('button',{name:'Confirm order',exact:true}).isDisabled(),true);
       f.state.quoteFailure = false;
-      await f.page.locator('aside [role=alert] button').click();
-      await f.page.waitForFunction(() => !document.querySelector('aside [role=alert]') && !document.querySelector('button[type=submit]').disabled);
-      await f.page.locator('button[type=submit]').click(); // Native required fields must stop submission.
-      assert.equal(await f.page.locator('form').evaluate(form => form.checkValidity()), false);
+      await f.page.getByRole('button',{name:'Try again',exact:true}).click();
+      await f.page.waitForFunction(() => [...document.querySelectorAll('button')].some(b=>b.textContent==='Confirm order'&&!b.disabled));
       await f.clean();
     } finally { await f.context.close(); }
   });

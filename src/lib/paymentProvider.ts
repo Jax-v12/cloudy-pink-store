@@ -1,4 +1,5 @@
 import { gatewayBase, gatewayHeaders, extractQr, getGatewayStatus, paymentState } from './midtrans';
+import { createHash } from 'node:crypto';
 import { type Region, type Currency, REGION_CURRENCY } from './regionalPricing';
 
 export type PaymentMethod = { id: string; provider: string; label: string; feeBps: number; fixedFee: number };
@@ -11,22 +12,26 @@ type PaymentOrder = { invoice: string; totalAmount: number; currency: string; pr
 interface PaymentAdapter {
   id: string;
   methods(region: Region, currency: Currency): PaymentMethod[];
-  create(order: PaymentOrder, email: string): Promise<{ qr: string; reference: string }>;
+  create(order: PaymentOrder, email: string, notAfter?: number): Promise<{ qr: string; reference: string }>;
   status(order: PaymentOrder): Promise<VerifiedPayment | null>;
 }
 const midtrans: PaymentAdapter = {
   id: 'MIDTRANS',
   methods: (region, currency) => region === 'ID' && currency === 'IDR' && process.env.MIDTRANS_SERVER_KEY?.trim()
     ? [{ id: 'QRIS', provider: 'MIDTRANS', label: 'QRIS', feeBps: 0, fixedFee: 0 }] : [],
-  async create(order, email) {
+  async create(order, email, notAfter) {
     assertMidtransOrder(order);
+    const remaining = notAfter === undefined ? 15_000 : Math.min(15_000, notAfter - Date.now());
+    if (remaining <= 0) throw new Error('PAYMENT_REQUIRES_REVIEW');
+    // Global across Midtrans POST endpoints, <=46 characters; never rotate on retry.
+    const idempotencyKey = createHash('sha256').update(`midtrans:qris:charge:${order.invoice}`).digest('hex').slice(0, 46);
     const response = await fetch(`${gatewayBase()}/v2/charge`, {
-      method: 'POST', headers: gatewayHeaders(), signal: AbortSignal.timeout(15_000), redirect: 'error',
+      method: 'POST', headers: { ...gatewayHeaders(), 'Idempotency-Key': idempotencyKey }, signal: AbortSignal.timeout(remaining), redirect: 'error',
       body: JSON.stringify({ transaction_details: { order_id: order.invoice, gross_amount: order.totalAmount },
         payment_type: 'qris', qris: { acquirer: 'gopay' }, customer_details: { email } }),
     });
     const data = await response.json();
-    if (!response.ok || data?.status_code !== '201' || data.order_id !== order.invoice ||
+    if (!response.ok || response.status === 202 || data?.status_code !== '201' || data.order_id !== order.invoice ||
         Number(data.gross_amount) !== order.totalAmount || data.currency !== 'IDR' ||
         typeof data.transaction_id !== 'string' || !data.transaction_id || data.transaction_id.length > 191) throw new Error('CHARGE_UNCONFIRMED');
     const qr = extractQr(data);

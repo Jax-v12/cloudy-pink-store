@@ -4,6 +4,7 @@ import { logFailure, privateHeaders } from '@/lib/http';
 import { isValidOrderQrUrl } from '@/lib/midtrans';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import QRCode from 'qrcode';
+import { invoiceAccessWhere } from '@/lib/invoiceAccess';
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 const MIN_IMAGE_BYTES = 50;
@@ -31,14 +32,14 @@ export async function handleQrisDownload(
   deps?: QrisDownloadDeps
 ): Promise<Response> {
   try {
-    const token = req.headers.get('x-order-token');
-    if (!token || token.length > 128 || !id || id.length > 191) {
+    const where = await invoiceAccessWhere(req, id);
+    if (!where) {
       return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
     }
 
     const client = dbClient ?? prisma;
     const order = await client.order.findFirst({
-      where: { invoice: id, accessToken: token },
+      where,
       select: { id: true, invoice: true, status: true, qrisUrl: true },
     });
 

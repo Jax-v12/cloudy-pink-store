@@ -24,7 +24,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
   const suffix = crypto.randomUUID();
   const paid = order => ({ provider: 'MIDTRANS', invoice: order.invoice, amount: order.totalAmount, currency: 'IDR', region: 'ID', reference: 'tx-' + order.invoice, state: 'paid', cancelled: false, qr: null });
   const key = () => crypto.randomUUID();
-  const loginDetails = { username: 'customer' };
+  const loginDetails = { username: 'customer', whatsappE164: '+12133734253' };
   try {
     const apps = await prisma.product.create({ data: { name: 'Apps', slug: `apps-${suffix}`, price: 1000 } });
     await prisma.accountStock.create({ data: { productId: apps.id, emailAccount: encryptData('account@example.test'), passwordAccount: encryptData('stock-password') } });
@@ -101,7 +101,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
         assert.equal((await send({ ...signed({}), signature_key: '0'.repeat(128) })).status, 403);
         assert.equal((await send(signed({ gross_amount: '1.00' }))).status, 400);
         assert.equal((await send(signed({ currency: 'MYR' }))).status, 400);
-        assert.equal((await send(signed({ transaction_id: 'wrong-reference' }))).status, 503);
+        assert.equal((await send(signed({ transaction_id: 'wrong-reference' }))).status, 400);
         assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).status, 'PENDING');
         assert.equal((await send(signed({}))).status, 200);
         assert.equal((await send(signed({}))).status, 200);

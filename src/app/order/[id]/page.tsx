@@ -58,9 +58,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       let poll = true;
       try {
         const token = localStorage.getItem(`token_${id}`);
-        if (!token) { poll = false; throw new Error('ORDER_NOT_FOUND'); }
+        const headers: HeadersInit = token ? { 'x-order-token': token } : {};
         const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
-          headers: { 'x-order-token': token }, signal: controller.signal,
+          headers, signal: controller.signal,
         });
         const json = await response.json();
         if (!response.ok || !json.success) {
@@ -69,7 +69,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         }
         if (cancelled) return;
         if (json.data.status === 'PENDING') {
-          void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers: { 'x-order-token': token }, signal: controller.signal }).catch(() => {});
+          void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers, signal: controller.signal }).catch(() => {});
         }
         setOrder(json.data);
         setError('');
@@ -126,10 +126,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
       setDownloading(true);
       const token = localStorage.getItem(`token_${id}`);
-      if (!token) throw new Error('NO_TOKEN');
 
       const response = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/qris/download`, {
-        headers: { 'x-order-token': token },
+        headers: token ? { 'x-order-token': token } : {},
       });
 
       if (!response.ok) {
@@ -290,46 +289,53 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         </section>
 
           {/* PENDING QRIS */}
-          {order.status === 'PENDING' && order.qrisUrl && (
-            <div className="text-center space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-neutral-800">{t.scanNoticeTitle}</h3>
-                <p className="text-[11px] text-neutral-500 max-w-md mx-auto mt-1">
-                  {t.scanNoticeSubtitle}
-                </p>
+          {order.status === 'PENDING' && (
+            order.qrisUrl ? (
+              <div className="text-center space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-800">{t.scanNoticeTitle}</h3>
+                  <p className="text-[11px] text-neutral-500 max-w-md mx-auto mt-1">
+                    {t.scanNoticeSubtitle}
+                  </p>
+                </div>
+
+                <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
+                  <img
+                    src={order.qrisUrl}
+                    alt="QRIS Barcode"
+                    className="w-56 h-56 mx-auto rounded-xl"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-center gap-2 max-w-sm mx-auto">
+                  <button
+                    disabled={downloading}
+                    onClick={downloadQrisImage}
+                    className="flex-1 py-2 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {downloading ? t.btnProcessing : t.btnDownloadQris}
+                  </button>
+                  <button
+                    disabled={!order.qrisCode}
+                    onClick={handleCopyString}
+                    className="flex-1 py-2 px-3 bg-white border border-pink-300 text-pink-600 font-bold rounded-xl text-xs hover:bg-pink-50 transition active:scale-95 cursor-pointer"
+                  >
+                    {copiedString ? t.copiedNotice : t.btnCopyCode}
+                  </button>
+                </div>
+
+                {downloadError && (
+                  <p className="text-xs text-rose-500 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>
+                )}
+
+                <p className="text-[11px] text-neutral-400 italic mt-2">{t.autoCheckNotice}</p>
               </div>
-
-              <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
-                <img
-                  src={order.qrisUrl}
-                  alt="QRIS Barcode"
-                  className="w-56 h-56 mx-auto rounded-xl"
-                />
+            ) : (
+              <div className="text-center p-6 bg-sky-50 border border-sky-200 rounded-3xl space-y-2 mb-6" role="status">
+                <p className="text-xs font-bold text-sky-800 uppercase tracking-wide">{t.statusWaiting}</p>
+                <p className="text-xs text-sky-950 leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
               </div>
-
-              <div className="flex flex-col sm:flex-row justify-center gap-2 max-w-sm mx-auto">
-                <button
-                  disabled={downloading}
-                  onClick={downloadQrisImage}
-                  className="flex-1 py-2 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  {downloading ? t.btnProcessing : t.btnDownloadQris}
-                </button>
-                <button
-                  disabled={!order.qrisCode}
-                  onClick={handleCopyString}
-                  className="flex-1 py-2 px-3 bg-white border border-pink-300 text-pink-600 font-bold rounded-xl text-xs hover:bg-pink-50 transition active:scale-95 cursor-pointer"
-                >
-                  {copiedString ? t.copiedNotice : t.btnCopyCode}
-                </button>
-              </div>
-
-              {downloadError && (
-                <p className="text-xs text-rose-500 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>
-              )}
-
-              <p className="text-[11px] text-neutral-400 italic mt-2">{t.autoCheckNotice}</p>
-            </div>
+            )
           )}
 
           {/* PAID: Akun Diserahkan */}
@@ -378,7 +384,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </div>
           )}
 
-          {notice && <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">{notice === 'paymentPending' ? t.paymentNeedsHelp : t.invoiceStatus[notice]}</p>}
+          {notice && notice !== 'paymentPending' && <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">{t.invoiceStatus[notice]}</p>}
 
           {/* EXPIRED atau CANCELLED */}
           {(order.status === 'EXPIRED' || order.status === 'CANCELLED') && (

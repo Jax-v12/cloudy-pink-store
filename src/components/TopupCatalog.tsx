@@ -5,27 +5,26 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from './StoreShell';
 import DetectedLocation from './DetectedLocation';
-import RegionalPaymentSummary from './RegionalPaymentSummary';
 import { useRegionalQuote } from './useRegionalQuote';
 import { formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
 import type { PaymentMethod } from '@/lib/paymentProvider';
 import GamepassCheckout from './GamepassCheckout';
 import RobloxCheckoutWizard from './RobloxCheckoutWizard';
 import RobloxServiceCards from './RobloxServiceCards';
-import RobloxFields from './RobloxFields';
+import LoginFlow from './LoginFlow';
 import type { RobloxMethodKey } from '@/lib/roblox';
 
 type Variant = { regionalPrices?: RegionalPrice[]; id: number; name: string; price: number | null; units: number; maxUnits: number | null; unitStep: number; method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN' | null; gamepassPrice: number | null; requiresZone: boolean };
 type Product = { id: number; name: string; slug: string; variants: Variant[]; checkoutEnabled: boolean };
 
-export default function TopupCatalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'; slug?: string; initialMethod?: RobloxMethodKey | null }) {
+function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'; slug?: string; initialMethod?: RobloxMethodKey | null }) {
   const { t, language } = useLanguage(); const c = t.commerce; const r = t.roblox; const f = t.robloxFlow;
   const router = useRouter();
   const [refresh, setRefresh] = useState(0);
   const refreshLocation = () => setRefresh(n => n + 1);
   const [region, setRegion] = useState<Region | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [methodId, setMethodId] = useState('');
+  const [methodId] = useState('');
   const selectedPayment = methods.find(m => m.id === methodId) ?? methods[0];
   const submitting = useRef(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -152,81 +151,6 @@ export default function TopupCatalog({ type, slug, initialMethod = null }: { typ
       {!slug && cursor && <button onClick={more} disabled={loading} className="my-6 p-3 rounded-xl bg-white border border-pink-200">{t.loadMore}</button>}
       {product && region && type === 'ROBLOX' && method === 'GAMEPASS' && <GamepassCheckout key={product.id} productId={product.id} variants={available} region={region} methods={methods} enabled={product.checkoutEnabled} onRegionRefresh={refreshLocation} onBusyChange={setBusy} />}
       {product && region && type === 'ROBLOX' && method === 'GIFT_USERNAME' && <RobloxCheckoutWizard key={product.id + '-username'} method="GIFT_USERNAME" productId={product.id} variants={available} region={region} methods={methods} enabled={product.checkoutEnabled} onRegionRefresh={refreshLocation} onBusyChange={setBusy} />}
-      {product && region && type === 'ROBLOX' && method === 'LOGIN' && (
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          <div className="min-w-0 bg-white/95 backdrop-blur-md rounded-3xl border-2 border-pink-200 shadow-xl shadow-pink-900/10 p-6 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-black text-neutral-800 mb-6">{r.loginPackages}</h2>
-            {available.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-pink-200 bg-pink-50/50 p-8 text-center">
-                <p className="text-neutral-600 font-medium mb-4">{r.noPackages}</p>
-                <Link href="/roblox" className="inline-flex items-center gap-2 px-4 py-2 bg-pink-100 border border-pink-300 text-pink-700 font-semibold rounded-xl hover:bg-pink-200 transition">
-                  {c.backToCatalog}
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                {available.map(v => (
-                  <label key={v.id} className={`relative min-w-0 cursor-pointer rounded-2xl border-2 p-3 sm:p-4 transition-all focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-pink-800 ${variantId === String(v.id) ? 'border-pink-800 bg-pink-100/80 ring-2 ring-pink-800 shadow-md shadow-pink-200' : 'border-pink-700 bg-pink-50/60 hover:bg-pink-100/50 hover:shadow-sm'}`}>
-                    <input type="radio" className="sr-only" name="package" required disabled={busy} value={v.id} checked={variantId === String(v.id)} onChange={() => { setVariantId(String(v.id)); setError(''); }} />
-                    <div className="flex flex-col gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="inline-flex items-center gap-1.5 mb-2">
-                          <svg aria-hidden="true" className="h-5 w-5 text-pink-800 shrink-0" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" strokeWidth="1" /><text x="10" y="12" textAnchor="middle" fontSize="8" fontWeight="bold" fill="currentColor">R</text></svg>
-                          <span className="text-lg font-black text-neutral-900">{v.units}</span>
-                        </div>
-                        {v.name && <p className="text-xs text-neutral-600 font-medium break-words">{v.name}</p>}
-                      </div>
-                      <span className="text-sm font-black text-pink-800 break-words">{variantPrice(v)}</span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          {variant && available.length > 0 && (
-            <aside className="bg-white/95 backdrop-blur-md border-2 border-pink-200 shadow-xl shadow-pink-900/10 rounded-3xl p-6 sm:p-7 space-y-6 lg:sticky lg:top-8">
-              <h2 className="text-xl font-black text-pink-900 border-b border-pink-100 pb-4">{r.summary}</h2>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-500">{c.method}</span>
-                <strong className="px-3 py-1 bg-pink-50 text-pink-700 rounded-full">{r.LOGIN}</strong>
-              </div>
-              <dl className="space-y-4 text-sm">
-                <div className="flex justify-between gap-3 text-neutral-600"><dt>{c.package}</dt><dd className="font-bold text-neutral-800 text-right">{variant.name || `${variant.units} Robux`}</dd></div>
-                <div className="flex justify-between gap-3 text-neutral-600"><dt>{r.netRobux}</dt><dd className="font-bold text-neutral-800">{variant.units}</dd></div>
-                <div className="border-t border-pink-100 pt-5 mt-2">
-                  <dt className="text-neutral-500 font-semibold mb-1">{t.regional.subtotal}</dt>
-                  <dd className="text-3xl font-black text-pink-600 drop-shadow-sm">{variantPrice(variant)}</dd>
-                </div>
-              </dl>
-              <RegionalPaymentSummary region={region} quote={server.quote} subtotal={variant.price} />
-              {server.loading && <p role="status" className="text-sm text-neutral-500 animate-pulse">{t.regional.quoteLoading}</p>}
-              {server.error && <p role="alert" className="text-sm text-rose-600 font-medium">{errors[server.error] || t.regional.quoteError} <button type="button" onClick={() => { server.retry(); refreshLocation(); }} className="underline ml-1 font-bold">{t.regional.retry}</button></p>}
-              {methods.length ? (
-                <label className="block">
-                  <span className="block text-sm font-semibold text-neutral-600 mb-2">{t.regional.paymentMethod}</span>
-                  <select className="w-full bg-neutral-50 border-2 border-pink-200 rounded-xl px-4 py-2.5 text-sm font-bold text-neutral-800 focus:outline-none focus:border-pink-500 transition-colors" value={selectedPayment?.id ?? ''} onChange={e => setMethodId(e.target.value)} disabled={busy}>
-                    {methods.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                  </select>
-                </label>
-              ) : <p role="status" className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-sm text-rose-700 font-medium">{t.regional.paymentUnavailable}</p>}
-              {!product.checkoutEnabled && <p role="status" className="text-sm font-bold text-rose-600 bg-rose-50 rounded-xl p-4 text-center border border-rose-100">{c.unavailable}</p>}
-              <form onSubmit={checkout} className="space-y-4">
-                <fieldset disabled={busy} className="space-y-4">
-                  <RobloxFields method="LOGIN" units={variant.units} />
-                  <label className="block">
-                    <span className="block font-bold text-sm text-neutral-700 mb-1.5">{c.email}</span>
-                    <input className="w-full bg-neutral-50 border-2 border-pink-200 rounded-xl px-4 py-3 text-neutral-800 focus:outline-none focus:border-pink-500 transition-colors" type="email" name="email" maxLength={150} autoComplete="email" required />
-                    <span className="block text-xs text-neutral-500 mt-1.5">{c.emailHint}</span>
-                  </label>
-                </fieldset>
-                <button type="submit" disabled={!variant || !product.checkoutEnabled || busy || !server.quote} className="w-full bg-pink-500 hover:bg-pink-600 hover:shadow-lg hover:shadow-pink-200 transition-all active:scale-95 text-white rounded-2xl py-4 font-black shadow-md disabled:opacity-50 disabled:pointer-events-none text-lg">
-                  {busy ? t.btnProcessing : t.btnPayNow}
-                </button>
-              </form>
-            </aside>
-          )}
-        </div>
-      )}
       {product && type === 'GAME' && <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
         <fieldset disabled={busy} className="min-w-0 bg-white/95 backdrop-blur-md rounded-3xl border-2 border-pink-200 shadow-xl shadow-pink-900/10 p-6 sm:p-8 space-y-8">
           <div>
@@ -294,4 +218,9 @@ export default function TopupCatalog({ type, slug, initialMethod = null }: { typ
       </form>}
     </div>
   </StoreShell>;
+}
+
+export default function TopupCatalog(props: Parameters<typeof Catalog>[0]) {
+  if (props.type === 'ROBLOX' && props.slug && props.initialMethod === 'LOGIN') return <LoginFlow slug={props.slug} stage="packages" />;
+  return <Catalog {...props} />;
 }

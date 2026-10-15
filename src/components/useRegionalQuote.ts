@@ -5,10 +5,10 @@ import type { PaymentQuote } from './RegionalPaymentSummary';
 type ConfirmedQuote = PaymentQuote & { quoteToken: string; pricingRegion: Region };
 
 /** Quote requests never create an order. The request key also hides stale region/quantity responses. */
-export function useRegionalQuote(productId: number | undefined, variantId: number | undefined, region: Region | null, method: string, quantity?: number) {
+export function useRegionalQuote(productId: number | undefined, variantId: number | undefined, region: Region | null, method: string, quantity?: number, revision = 0) {
   const [retry, setRetry] = useState(0);
   const payload = JSON.stringify({ productId, variantId, paymentMethod: method, ...(quantity !== undefined ? { quantity } : {}) });
-  const key = `${region}:${payload}:${retry}`;
+  const key = `${region}:${payload}:${retry}:${revision}`;
   const [result, setResult] = useState<{ key: string; quote: ConfirmedQuote | null; error: string } | null>(null);
   const active = Boolean(productId && variantId && region && method);
   useEffect(() => {

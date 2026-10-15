@@ -37,7 +37,7 @@ test('Gamepass calculator rounds up without floating-point overcharging', () => 
 });
 
 test('assisted Login accepts only non-secret account information', () => {
-  const details = { username: 'customer' };
+  const details = { username: 'customer', whatsappE164: '+12133734253' };
   const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, details);
   assert.equal(parsed.roblox.username, 'customer'); assert.equal('secret' in parsed, false);
   for (const field of ['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie']) {

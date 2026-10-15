@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createCheckout } from '@/lib/checkout';
+import { createLegacyCheckout } from '@/lib/checkout';
 import { CommerceError } from '@/lib/commerce';
-import { prisma } from '@/lib/prisma';
 import { InputError, readJson, positiveInt, privateHeaders, logFailure } from '@/lib/http';
 import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
-import { paymentAdapter } from '@/lib/paymentProvider';
+import { initializeCheckoutPayment } from '@/lib/checkoutPayment';
 import { resolveRequestRegion } from '@/lib/requestRegion';
 
 export const dynamic = 'force-dynamic';
@@ -21,25 +20,11 @@ export async function POST(req: Request) {
         !(await consumeRateLimit('checkout-email', email, 5, 60 * 60_000))) {
       return NextResponse.json({ errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
     }
-    const { order, created } = await createCheckout(body, req.headers.get('idempotency-key') || crypto.randomUUID(), resolveRequestRegion(req).region);
+    const { order, created } = await createLegacyCheckout(body, req.headers.get('idempotency-key') || crypto.randomUUID(), resolveRequestRegion(req).region);
     if (!created) return NextResponse.json({ success: true, data: {
       invoice: order.invoice, accessToken: order.accessToken, qrisUrl: order.qrisUrl,
     } }, { status: order.qrisUrl ? 200 : 202, headers: privateHeaders });
-    let qr: string | null = null;
-    try {
-      const payment = await paymentAdapter(order).create(order, email);
-      await prisma.$transaction(async tx => {
-        await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${order.id} FOR UPDATE`;
-        const current = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
-        if (current.paymentReference && current.paymentReference !== payment.reference) throw new Error('PAYMENT_REFERENCE_MISMATCH');
-        await tx.order.update({ where: { id: order.id }, data: { paymentReference: payment.reference, ...(current.status === 'PENDING' ? { qrisUrl: payment.qr } : {}) } });
-      });
-      qr = payment.qr;
-    } catch (error) {
-      logFailure('Charge requires reconciliation', error);
-      // Keep the reservation and return its access token, so a timeout never
-      // strands the buyer or encourages a second charge for a new invoice.
-    }
+    const qr = await initializeCheckoutPayment(order, email);
     return NextResponse.json({ success: true, data: {
       invoice: order.invoice, accessToken: order.accessToken, qrisUrl: qr,
     } }, { status: qr ? 200 : 202, headers: privateHeaders });

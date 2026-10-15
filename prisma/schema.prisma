@@ -99,6 +99,7 @@ model Order {
   secret             OrderSecret?
   job                FulfillmentJob?
   audits             AdminAudit[]
+  checkoutAttempt    CheckoutAttempt?
 
   @@index([type, fulfillmentStatus, id])
   @@index([archivedAt, id])
@@ -107,6 +108,53 @@ model Order {
   @@index([type, removedFromAdminAt, id])
   @@index([status, expiresAt])
   @@index([status, createdAt])
+}
+
+enum CheckoutAttemptState {
+  READY
+  PROCESSING
+  COMMITTED
+  CANCELLED
+  EXPIRED
+}
+
+model CheckoutSession {
+  id        String    @id @default(uuid()) @db.Char(36)
+  tokenHash String    @unique @db.Char(64)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  attempts  CheckoutAttempt[]
+
+  @@index([expiresAt])
+}
+
+model CheckoutAttempt {
+  id          String @id @default(uuid()) @db.Char(36)
+  sessionId   String @db.Char(36)
+  flowId      String @db.Char(36)
+  checkoutKey String @unique @db.VarChar(128)
+  session     CheckoutSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  // Catalog identities are snapshots; availability is revalidated under the Product lock.
+  productId Int
+  variantId Int
+  state     CheckoutAttemptState @default(READY)
+  version   Int                  @default(0)
+  // Keyed digest, pricing and non-sensitive payment dispatch metadata. Never customer contacts.
+  requestHash   String? @db.Char(64)
+  quoteSnapshot Json?
+  leaseUntil    DateTime?
+  expiresAt     DateTime
+  orderId       Int? @unique
+  order         Order? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sessionId, flowId])
+  @@index([sessionId, productId, state])
+  @@index([state, leaseUntil])
+  @@index([expiresAt])
 }
 
 model AdminSession {
@@ -201,6 +249,8 @@ model RobloxOrderDetail {
   order              Order        @relation(fields: [orderId], references: [id])
   method             RobloxMethod
   username           String
+  // AES-GCM encrypted canonical E.164. Never serialize this field in a DTO.
+  whatsappE164       String?      @db.VarChar(255)
   // Public identity resolved from users.roblox.com at checkout (null if the lookup was unavailable).
   robloxUserId       String?      @db.VarChar(32)
   displayName        String?      @db.VarChar(64)

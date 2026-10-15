@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { databaseTlsUrl } from './databaseTls';
+import { createHash } from 'node:crypto';
 
 export function assertSafeDatabaseUrl(urlStr?: string): void {
   if (!urlStr || typeof urlStr !== 'string' || !urlStr.trim()) {
@@ -86,16 +88,27 @@ if (process.env.DATABASE_URL !== undefined || process.env.NODE_ENV === 'producti
   assertSafeDatabaseUrl(process.env.DATABASE_URL);
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient; prismaConfigHash?: string };
+const configHash = createHash('sha256').update([
+  process.env.DATABASE_URL, process.env.DATABASE_CA_CERT_BASE64, process.env.DATABASE_CA_CERT_PATH,
+].join('\0')).digest('hex');
+// Hot reload must never silently retain a client created before TLS/config changed.
+if (globalForPrisma.prisma && '$connect' in globalForPrisma.prisma && globalForPrisma.prismaConfigHash !== configHash) {
+  throw new Error('DATABASE_CONFIG_RESTART_REQUIRED');
+}
 
 export const prisma =
   globalForPrisma.prisma ||
   (() => {
     assertSafeDatabaseUrl(process.env.DATABASE_URL);
     return new PrismaClient({
+      datasources: { db: { url: databaseTlsUrl(process.env.DATABASE_URL!) } },
       // Route-level logging emits safe error codes, never Prisma query arguments.
       log: [],
     });
   })();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaConfigHash = configHash;
+}

@@ -21,8 +21,15 @@ export async function POST(req: Request) {
     if (Number(body.gross_amount) !== order.totalAmount) return NextResponse.json({ message: 'Amount mismatch' }, { status: 400 });
     const status = await paymentAdapter(order).status(order);
     if (!status) throw new Error('GATEWAY_STATUS_UNAVAILABLE');
-    if (body.transaction_id !== undefined && body.transaction_id !== status.reference) throw new Error('PAYMENT_REFERENCE_MISMATCH');
-    await applyPaymentStatus(order.id, status);
+    if (body.transaction_id !== undefined && body.transaction_id !== status.reference) return NextResponse.json({ message: 'Transaction mismatch' }, { status: 400 });
+    try {
+      await applyPaymentStatus(order.id, status);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'PAYMENT_MISMATCH') {
+        return NextResponse.json({ message: 'Transaction mismatch' }, { status: 400 });
+      }
+      throw err;
+    }
     return NextResponse.json({ message: 'Processed successfully' });
   } catch (error) {
     if (error instanceof InputError) return NextResponse.json({ message: 'Invalid payload' }, { status: error.status });

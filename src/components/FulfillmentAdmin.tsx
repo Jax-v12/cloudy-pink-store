@@ -6,7 +6,7 @@ import AdminDialog from './AdminDialog';
 
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
-  totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null;
+  totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null; contactWhatsapp: string | null;
   paymentMethod?: string;
   archivedAt: string | null; canArchive: boolean; archiveReasonCodes: string[]; canRemove: boolean; removeReasonCodes: string[]; removedFromAdminAt: string | null;
   robloxDetail: { method: string; username: string; gamepassUrl: string | null; gamepassPrice: number | null; robloxUserId: string | null; gamepassVerifiedAt: string | null } | null;
@@ -243,6 +243,7 @@ export default function FulfillmentAdmin() {
               </div>
             )}
 
+            {row.contactWhatsapp && <div><p className="text-xs font-bold text-neutral-500">{t.loginFlow.whatsapp}</p><p className="mt-1 break-all font-semibold text-neutral-800">{row.contactWhatsapp}</p><p className="mt-1 text-sm text-neutral-600">{t.loginFlow.contactPurpose}</p></div>}
             {row.archivedAt ? (
               <div className="bg-neutral-50 rounded-xl p-3 border border-neutral-100">
                 <p className="text-sm font-medium text-neutral-600">{c.archivedOn}: <span className="font-bold">{new Date(row.archivedAt).toLocaleString()}</span></p>

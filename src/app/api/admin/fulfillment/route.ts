@@ -5,6 +5,7 @@ import { adminAccess } from '@/lib/adminAccess';
 import { apiError } from '@/lib/apiError';
 import { InputError, pagination, pageResult, privateHeaders } from '@/lib/http';
 import { archiveEligibility, removeEligibility } from '@/lib/orderArchive';
+import { loginContactDto } from '@/lib/loginContactDto';
 
 export async function GET(req: Request) {
   try {
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
       archivedAt: true, removedFromAdminAt: true, secret: { select: { orderId: true } }, accountStock: { select: { status: true } },
       customerEmail: true, totalAmount: true, currency: true, pricingRegion: true, productName: true, variantName: true, units: true, createdAt: true,
       paymentMethod: true,
-      robloxDetail: true, gameDetail: true,
+      robloxDetail: { select: { method: true, username: true, robloxUserId: true, displayName: true, gamepassUrl: true, gamepassId: true, gamepassPrice: true, gamepassVerifiedAt: true, whatsappE164: true } }, gameDetail: true,
       job: { select: { completedAt: true, leaseToken: true, leaseUntil: true, ownerSessionId: true, evidence: true, attempts: { take: 10, orderBy: { id: 'desc' }, select: { id: true, operation: true, outcome: true, createdAt: true } } } },
       audits: { take: 10, orderBy: { id: 'desc' }, select: { id: true, action: true, createdAt: true } },
     } });
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
       prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
       prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }] } }),
     ]);
-    return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, ...row }) => ({ ...row, ...archiveEligibility({ ...row, secret, accountStock }), ...removeEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,
+    return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, robloxDetail, ...row }) => ({ ...row, ...loginContactDto(robloxDetail, row.status === 'PAID' && row.job?.ownerSessionId === session.id), ...archiveEligibility({ ...row, secret, accountStock }), ...removeEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,
       job: row.job ? { evidence: row.job.evidence, attempts: row.job.attempts } : null })),
       monitoring: { lastRun: heartbeat?.succeededAt ?? null, overdue: !heartbeat || Date.now() - heartbeat.succeededAt.getTime() > 180_000, reviewCount, pendingCount },
     }, { headers: privateHeaders });

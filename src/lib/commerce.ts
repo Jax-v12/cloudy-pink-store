@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { isRegion } from './regionalPricing';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
+import { normalizeWhatsapp } from './loginContact';
 import {
   ROBLOX_MAX_GAMEPASS_UNITS,
   ROBLOX_USERNAME_PATTERN, robloxGamepassPrice,
@@ -27,6 +28,13 @@ export function checkoutInput(body: Record<string, unknown>) {
   const details = body.details ?? {};
   if (!details || typeof details !== 'object' || Array.isArray(details)) throw new InputError();
   if (['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie'].some(key => key in details)) throw new InputError();
+  const suppliedDetails = details as Record<string, unknown>;
+  const normalizedDetails = { ...suppliedDetails };
+  if ('whatsappE164' in suppliedDetails) {
+    const phone = normalizeWhatsapp(suppliedDetails.whatsappE164);
+    if (!phone) throw new CommerceError('INVALID_WHATSAPP', 400);
+    normalizedDetails.whatsappE164 = phone;
+  }
   if (body.pricingRegion !== undefined && !isRegion(body.pricingRegion)) throw new InputError();
   if (body.paymentMethod !== undefined && (typeof body.paymentMethod !== 'string' || !/^[A-Z0-9_]{1,40}$/.test(body.paymentMethod))) throw new InputError();
   if (body.quoteToken !== undefined && (typeof body.quoteToken !== 'string' || !/^[a-f0-9]{64}$/.test(body.quoteToken))) throw new InputError();
@@ -36,7 +44,7 @@ export function checkoutInput(body: Record<string, unknown>) {
     ...(body.pricingRegion !== undefined ? { pricingRegion: body.pricingRegion as 'ID' | 'MY' | 'PH' } : {}),
     ...(body.paymentMethod !== undefined ? { paymentMethod: body.paymentMethod as string } : {}),
     ...(body.quoteToken !== undefined ? { quoteToken: body.quoteToken as string } : {}),
-    details: details as Record<string, unknown> };
+    details: normalizedDetails };
 }
 
 function canonical(value: unknown): string {
@@ -55,7 +63,7 @@ export function requestDigest(value: unknown) {
 
 export function parseDetails(type: ProductType, variant: ProductVariant | null, details: Record<string, unknown>) {
   const allowed = type === 'GAME' ? ['userId', 'zoneId'] : type === 'ROBLOX'
-    ? variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : ['username'] : [];
+    ? variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : variant?.method === 'LOGIN' ? ['username', 'whatsappE164'] : ['username'] : [];
   if (Object.keys(details).some(k => !allowed.includes(k))) throw new InputError();
   if (type === 'APPS') return {};
   if (!variant) throw new InputError();
@@ -83,5 +91,12 @@ export function parseDetails(type: ProductType, variant: ProductVariant | null, 
     if (!Number.isInteger(variant.units) || variant.units < 1 || variant.units > ROBLOX_MAX_GAMEPASS_UNITS) throw new CommerceError('PRODUCT_UNAVAILABLE');
     gamepassPrice = robloxGamepassPrice(variant.units);
   }
-  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice } };
+  let loginContact: { whatsappE164: string } | undefined;
+  if (variant.method === 'LOGIN') {
+    if (!details.whatsappE164) throw new CommerceError('WHATSAPP_REQUIRED', 400);
+    const phone = normalizeWhatsapp(details.whatsappE164);
+    if (!phone) throw new CommerceError('INVALID_WHATSAPP', 400);
+    loginContact = { whatsappE164: phone };
+  }
+  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice }, loginContact };
 }

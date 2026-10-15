@@ -4,17 +4,18 @@ import { decryptData, decryptLegacyField } from '@/lib/crypto';
 import { logFailure, privateHeaders } from '@/lib/http';
 import QRCode from 'qrcode';
 import { isValidOrderQrUrl } from '@/lib/midtrans';
+import { invoiceAccessWhere } from '@/lib/invoiceAccess';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = req.headers.get('x-order-token');
-    if (!token || token.length > 128 || id.length > 191) {
+    const where = await invoiceAccessWhere(req, id);
+    if (!where) {
       return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
     }
     // Authorize in the query, before reading the associated credentials.
     const order = await prisma.order.findFirst({
-      where: { invoice: id, accessToken: token },
+      where,
       include: { product: { select: { name: true } }, accountStock: true, robloxDetail: { select: { method: true, username: true, gamepassPrice: true } }, gameDetail: { select: { userId: true, zoneId: true } } },
     });
     if (!order) return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
