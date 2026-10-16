@@ -48,7 +48,10 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     if (state === 'paid' && order.type !== 'APPS') {
       await tx.fulfillmentJob.upsert({ where: { orderId: id }, create: { orderId: id }, update: {} });
     }
-    if (state === 'failed') await tx.orderSecret.deleteMany({ where: { orderId: id } });
+    if (state === 'failed') {
+      await tx.orderSecret.deleteMany({ where: { orderId: id } });
+      await tx.robloxOrderDetail.updateMany({ where: { orderId: id, method: 'LOGIN', whatsappE164: { not: null } }, data: { whatsappE164: null } });
+    }
     return { action: state === 'paid' ? 'paid' as const : 'released' as const, order };
   });
   if (result.action === 'paid') {

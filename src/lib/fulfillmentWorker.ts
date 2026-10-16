@@ -3,13 +3,20 @@ import { prisma } from './prisma';
 import { getGameProvider, type ProviderResult } from './gameProvider';
 
 export async function purgeExpiredSecrets() {
-  const rows = await prisma.orderSecret.findMany({ where: { expiresAt: { lte: new Date() } }, select: { orderId: true }, take: 100, orderBy: { expiresAt: 'asc' } });
-  for (const row of rows) await prisma.$transaction(async tx => {
+  const now = new Date();
+  const rows = await prisma.orderSecret.findMany({ where: { expiresAt: { lte: now } }, select: { orderId: true }, take: 100, orderBy: { expiresAt: 'asc' } });
+  let purged = 0;
+  for (const row of rows) purged += await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${row.orderId} FOR UPDATE`;
-    const removed = await tx.orderSecret.deleteMany({ where: { orderId: row.orderId, expiresAt: { lte: new Date() } } });
-    if (removed.count) await tx.order.updateMany({ where: { id: row.orderId, fulfillmentStatus: { not: 'COMPLETED' } }, data: { fulfillmentStatus: 'REQUIRES_REVIEW' } });
+    const removed = await tx.orderSecret.deleteMany({ where: { orderId: row.orderId, expiresAt: { lte: now } } });
+    if (removed.count) {
+      await tx.order.updateMany({ where: { id: row.orderId, status: 'PAID', refundStatus: 'NONE', archivedAt: null, removedFromAdminAt: null,
+        fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }, data: { fulfillmentStatus: 'REQUIRES_REVIEW' } });
+      await tx.adminAudit.create({ data: { orderId: row.orderId, sessionId: 'system-cleanup', action: 'login-access-expired' } });
+    }
+    return removed.count;
   });
-  return rows.length;
+  return purged;
 }
 
 export async function runFulfillment() {

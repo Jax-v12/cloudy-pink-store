@@ -140,7 +140,9 @@ Wizard **informasi → detail akun → payment method → konfirmasi → payment
 
 Active variants admin, grid nominal responsif, quantity/harga regional, selected/disabled/focus, username/kontak non-rahasia. Empty/unavailable tanpa summary kosong/checkout aktif. Jangan klaim redesign baru sudah ada.
 
-**Jangan request/collect/display/store/transmit rahasia Roblox, termasuk encrypted storage**: password, OTP, cookie/session token, recovery/backup/2FA code atau screenshot security code. Berlaku juga Username. Assisted Login manual sesuai workflow disetujui; perubahan account-access perlu desain keamanan/izin terpisah, bukan field password/reveal.
+**Rahasia Roblox dilarang, kecuali LOGIN yang disetujui pemilik 16 Oktober 2026:** hanya password+lima backup code untuk top-up pesanan itu. OTP/cookie/session token/kode 2FA lain/screenshot tetap dilarang; GAMEPASS/GIFT_USERNAME menolak secret.
+
+Pengecualian wajib mengikuti `docs/plans/roblox-login-account-access.md`: consent, enkripsi, TTL 24 jam/penghapusan, owner+reauth+audit, private/no-store, tampilan 60 detik, tanpa browser storage/log/provider. Purge dan backup/restore wajib diverifikasi sebelum rilis. P2-3 selesai; bukan izin deploy/DB.
 
 ### Admin/fulfillment
 

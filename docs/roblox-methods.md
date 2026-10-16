@@ -1,5 +1,7 @@
 # Roblox: tiga metode
 
+Status kebijakan akun, 16 Oktober 2026: **P2-3 RESOLVED** oleh persetujuan eksplisit pemilik atas pengecualian Via Login dalam percakapan ini. `AGENTS.md` §10 mengizinkan hanya password dan lima backup code pada LOGIN, dengan [kontrol wajib account-access](plans/roblox-login-account-access.md). OTP/cookie/session token tetap dilarang; GAMEPASS/GIFT_USERNAME menolak secret. Implementasi collection/reveal dan kontrol akses tidak diubah. Persetujuan kebijakan bukan izin rilis; backup/restore, finite retention dan jadwal purge tetap perlu bukti operasional.
+
 Halaman `/roblox` menampilkan tiga kartu layanan. Alur Gamepass pada `/roblox/[slug]`: pengantar tarif → username, slider nominal dan email → buat Gamepass serta kirim link → pilih QRIS → konfirmasi order. Invoice/pembayaran baru dibuat pada konfirmasi terakhir. Data tetap tersedia ketika kembali ke langkah sebelumnya selama halaman belum ditutup. Tab mendukung tombol panah, Home, dan End. Metode pada kartu katalog dibawa ke halaman paket melalui `?method=`. Teks tersedia dalam ID, EN, dan MY melalui LanguageContext.
 
 ## Katalog dan pengiriman
@@ -8,7 +10,7 @@ Halaman `/roblox` menampilkan tiga kartu layanan. Alur Gamepass pada `/roblox/[s
 - Admin mengisi tarif dasar rupiah/Robux, batas maksimum, dan kelipatan slider. Total rupiah = ceil(harga dasar × nominal pilihan / Robux dasar), dihitung ulang server. Contoh tarif ilustrasi Rp7.000/50 Robux: pilihan 100 Robux menjadi Rp14.000. Tarif toko tetap berasal dari konfigurasi admin. Harga Gamepass dihitung oleh server dengan `ceil(units × 100 / 70)`; 100 Robux menghasilkan 143 Robux. Harga lama pada snapshot pesanan tidak diubah.
 - Gamepass meminta username dan tautan Roblox. Panduan ilustrasi menjelaskan Creator Hub, pembuatan pass, Item for Sale, harga, dan tautan publik. Estimasi pending sekitar lima hari dimulai setelah pembelian pass, bukan sejak pembayaran QRIS.
 - Username meminta username tanpa password. Pengiriman tetap manual melalui mekanisme gift/transfer yang dioperasikan admin; tidak ada bot atau Group Payout otomatis baru. Pemeriksaan kapasitas Roblox Plus tetap berlaku. Jangan menjanjikan pengiriman instan sebelum kelayakan penerima dipastikan.
-- Login hanya meminta username dan email kontak. Admin mengoordinasikan pemenuhan berbantu setelah pembayaran. Aplikasi tidak meminta atau menyimpan password Roblox, kode backup, OTP, maupun cookie sesi; tidak ada tombol buka kredensial.
+- Via Login menerima username, password, lima kode backup berbeda, WhatsApp dengan kode/bendera negara, serta email notifikasi sesuai pengecualian yang disetujui. Password/kode disimpan terenkripsi dalam OrderSecret hanya pada konfirmasi akhir yang menjelaskan tujuan/consent; akses berakhir setelah 24 jam. Hanya admin pemilik tugas berbayar yang dapat membuka data setelah autentikasi ulang, dengan audit dan tampilan maksimal 60 detik. Penyelesaian, pembatalan/kegagalan pembayaran, serta pembersihan kedaluwarsa menghapus rahasia. OTP dan cookie sesi tetap tidak diminta; Username/Gamepass tidak menerima password/kode backup. Seluruh kontrol autentikasi/otorisasi wajib dipertahankan.
 - Tombol cek username menampilkan identitas publik dan avatar jika tersedia. Checkout memeriksa ulang username serta pemilik/harga/status penjualan Gamepass. Hasil negatif menolak checkout. Gangguan Roblox menghasilkan metadata belum terverifikasi untuk pemeriksaan manual admin; bukan bukti akun valid.
 - Admin mengambil pesanan berbayar secara atomik sebelum memproses dan menyertakan referensi sebelum penyelesaian. Gunakan Menunggu data pelanggan jika pelanggan perlu berpartisipasi, lalu Lanjutkan setelah siap.
 
@@ -45,6 +47,8 @@ Halaman awal kini memakai tiga kartu metode. Gamepass memakai wizard lima langka
 Migrasi slider diterapkan ke database aplikasi setelah backup privat berhasil dipulihkan dan diuji pada MySQL terisolasi. Typecheck, lint, validasi Prisma, build Next.js, dan seluruh 24 tes lulus. Tes meliputi tarif proporsional, pembulatan IDR, penolakan nominal di luar batas, snapshot pesanan dan idempotensi. Pengujian visual browser masih belum tersedia karena alat browser gagal memulai.
 
 ## Pemenuhan berbantu — 4 Oktober 2026
+
+Catatan historis: bagian ini mendeskripsikan implementasi/migrasi pada 4 Oktober, bukan runtime lokal Login 16 Oktober. Klaim checkout tidak menulis rahasia dan instruksi deploy di bawah bukan izin eksekusi saat ini; status kebijakan terbaru ada di awal dokumen.
 
 Ruang pengiriman kini menyediakan filter metode Roblox, pembayaran, dan status pemenuhan; pencarian invoice, username, atau email; pagination; serta ringkasan sesuai filter. Diagnostik worker berada di bagian sekunder. Semua teks baru tersedia dalam ID/EN/MY.
 

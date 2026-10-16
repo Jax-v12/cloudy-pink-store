@@ -1,9 +1,10 @@
-import { X509Certificate } from 'node:crypto';
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash, X509Certificate } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 type TrustEnvironment = NodeJS.ProcessEnv;
+const globalForDatabaseTls = globalThis as typeof globalThis & { databaseTlsCaDirectory?: string };
 
 // Prisma 6 MySQL consumes sslaccept/sslcert; ssl-mode does not enable TLS.
 export function databaseTlsUrl(databaseUrl: string, env: TrustEnvironment = process.env): string {
@@ -25,10 +26,15 @@ export function databaseTlsUrl(databaseUrl: string, env: TrustEnvironment = proc
     const ca = new X509Certificate(pem);
     if (!ca.ca || Date.parse(ca.validFrom) > Date.now() || Date.parse(ca.validTo) <= Date.now()) throw new Error();
   } catch { throw new Error('DATABASE_CA_INVALID'); }
-  // A per-process private temp copy works with Vercel's read-only application bundle.
-  const directory = mkdtempSync(path.join(tmpdir(), 'cloudy-db-ca-'));
-  const filename = path.join(directory, 'ca.pem');
-  writeFileSync(filename, pem, { mode: 0o600, flag: 'wx' });
+  // Retain immutable CA files for existing clients, including across development hot reloads.
+  let filename: string;
+  try {
+    const directory = globalForDatabaseTls.databaseTlsCaDirectory ??= mkdtempSync(path.join(tmpdir(), 'cloudy-db-ca-'));
+    filename = path.join(directory, `${createHash('sha256').update(pem).digest('hex')}.pem`);
+    // These private temp files are created at runtime, so they are not deployment assets to trace.
+    if (!existsSync(/* turbopackIgnore: true */ filename)) writeFileSync(filename, pem, { mode: 0o600, flag: 'wx' });
+    else if (readFileSync(/* turbopackIgnore: true */ filename, 'utf8') !== pem) throw new Error();
+  } catch { throw new Error('DATABASE_CA_INVALID'); }
   url.searchParams.delete('ssl-mode');
   url.searchParams.set('sslaccept', 'strict');
   url.searchParams.set('sslcert', filename);

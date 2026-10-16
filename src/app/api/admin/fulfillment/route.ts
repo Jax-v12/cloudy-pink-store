@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     const page = pageResult(rows, limit);
     const [heartbeat, reviewCount, pendingCount] = await Promise.all([
       prisma.workerHeartbeat.findUnique({ where: { name: 'fulfillment' } }),
-      prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
+      prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, status: 'PAID', refundStatus: { not: 'COMPLETED' }, fulfillmentStatus: 'REQUIRES_REVIEW' }] } }),
       prisma.order.count({ where: { AND: [filters, { archivedAt: null, removedFromAdminAt: null, fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }] } }),
     ]);
     return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, robloxDetail, ...row }) => ({ ...row, ...loginContactDto(robloxDetail, row.status === 'PAID' && row.job?.ownerSessionId === session.id), ...archiveEligibility({ ...row, secret, accountStock }), ...removeEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,

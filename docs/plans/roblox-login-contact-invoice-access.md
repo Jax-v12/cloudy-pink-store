@@ -2,6 +2,8 @@
 
 Tanggal: 14 Oktober 2026. **Status: WhatsApp/tiga halaman disetujui dan diimplementasikan lokal; revisi invoice masih proposal.**
 
+Anotasi terbaru 16 Oktober 2026 — dokumen ini mempertahankan desain dan snapshot source 14 Oktober, bukan kontrak runtime terkini. Pemilik kini secara eksplisit menyetujui pengecualian Via Login; **P2-3 RESOLVED** sebagai keputusan kebijakan. `AGENTS.md` §10 dan [dokumen account-access](roblox-login-account-access.md) menetapkan purpose/consent, enkripsi, TTL/penghapusan, owner/reauth/audit, batas reveal serta backup/restore. Collection/reveal dan kontrolnya tidak diubah; GAMEPASS/GIFT_USERNAME/LOGIN dipertahankan. Pernyataan tanpa-secret di bawah adalah desain historis, bukan larangan terkini atas pengecualian LOGIN. Proposal invoice/cookie/recovery dan persetujuan kebijakan bukan izin implementasi/rilis baru.
+
 Baseline kode: `main`, HEAD `8e5548d721a84a4da18447d41ea1fe5fa8328b02`. Pemeriksaan awal source/schema/dokumentasi dilanjutkan implementasi lokal WhatsApp/tiga halaman setelah approval. Tidak membaca `.env`, mengakses database, menjalankan migration/seed, membuat order/pembayaran nyata, commit, push atau deploy. Perubahan lokal pemilik tetap dipertahankan; penghapusan dokumen lama tidak diaudit/dipulihkan.
 
 ## 1. Keputusan dan batas scope
@@ -18,7 +20,7 @@ Pengguna menyetujui **penyusunan desain**, bukan implementasi kontrak/schema/aut
 
 Perubahan kode, dependency, schema, migration dan invoice auth di bawah **baru boleh dikerjakan setelah review/persetujuan desain**. Migration remote tetap memerlukan persetujuan rollout terpisah dan verifikasi target; `defaultdb` selalu dilarang.
 
-## 2. Temuan implementasi aktual
+## 2. Temuan implementasi pada snapshot 14 Oktober 2026
 
 | Area | Fakta source saat diperiksa |
 | --- | --- |
