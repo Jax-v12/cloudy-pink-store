@@ -1,4 +1,13 @@
 const en = {
+  checkUsername: 'Check Roblox username',
+  usernameChecking: 'Checking username…',
+  robloxUserId: 'User ID',
+  usernameMissing: 'Username was not found.',
+  usernameRateLimit: 'Too many checks. Please try again later.',
+  usernameTimeout: 'Username check timed out. Try again.',
+  usernameUnavailable: 'Username check is temporarily unavailable. Try again.',
+  aseanCountries: 'ASEAN countries',
+  otherCountries: 'Other countries',
   reviewReady: 'No order was committed. Review the latest quote and confirm explicitly to continue.',
   checking: 'Checking checkout session and previous orders…', sessionBlocked: 'Checkout is paused because this browser session could not be verified. Retry here without clearing browser data. Contact support if access is lost.',
   buyAgain: 'Buy again', attemptEnded: 'This checkout attempt has ended. Start a new purchase explicitly; the old request cannot run again.',
@@ -17,6 +26,15 @@ const en = {
 };
 type Copy = typeof en;
 const id: Copy = {
+  checkUsername: 'Cek Username Roblox',
+  usernameChecking: 'Memeriksa username…',
+  robloxUserId: 'User ID',
+  usernameMissing: 'Username tidak ditemukan.',
+  usernameRateLimit: 'Terlalu banyak pemeriksaan. Coba lagi nanti.',
+  usernameTimeout: 'Pemeriksaan username kehabisan waktu. Coba lagi.',
+  usernameUnavailable: 'Pemeriksaan username sedang tidak tersedia. Coba lagi.',
+  aseanCountries: 'Negara ASEAN',
+  otherCountries: 'Negara lainnya',
   reviewReady: 'Belum ada pesanan yang dibuat. Periksa quote terbaru dan konfirmasikan secara eksplisit untuk melanjutkan.',
   checking: 'Memeriksa sesi checkout dan pesanan sebelumnya…', sessionBlocked: 'Checkout dihentikan sementara karena sesi browser belum dapat diverifikasi. Coba lagi di sini tanpa menghapus data browser. Hubungi bantuan jika akses hilang.',
   buyAgain: 'Beli lagi', attemptEnded: 'Upaya checkout ini sudah berakhir. Mulai pembelian baru secara eksplisit; permintaan lama tidak akan dijalankan kembali.',
@@ -34,6 +52,15 @@ const id: Copy = {
   unavailable: 'Tidak tersedia', contactPurpose: 'Informasi kontak hanya digunakan untuk komunikasi terkait pesanan ini.',
 };
 const my: Copy = {
+  checkUsername: 'Semak nama pengguna Roblox',
+  usernameChecking: 'Menyemak nama pengguna…',
+  robloxUserId: 'ID pengguna',
+  usernameMissing: 'Nama pengguna tidak ditemui.',
+  usernameRateLimit: 'Terlalu banyak semakan. Cuba lagi kemudian.',
+  usernameTimeout: 'Semakan nama pengguna tamat masa. Cuba lagi.',
+  usernameUnavailable: 'Semakan nama pengguna tidak tersedia buat sementara. Cuba lagi.',
+  aseanCountries: 'Negara ASEAN',
+  otherCountries: 'Negara lain',
   reviewReady: 'Tiada pesanan telah dibuat. Semak sebut harga terkini dan sahkan secara nyata untuk meneruskan.',
   checking: 'Menyemak sesi pembayaran dan pesanan terdahulu…', sessionBlocked: 'Pembayaran dihentikan sementara kerana sesi pelayar belum dapat disahkan. Cuba lagi di sini tanpa memadam data pelayar. Hubungi bantuan jika akses hilang.',
   buyAgain: 'Beli lagi', attemptEnded: 'Percubaan pembayaran ini telah tamat. Mulakan pembelian baharu secara nyata; permintaan lama tidak akan dijalankan semula.',

@@ -1,21 +1,23 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { useLoginDraft } from '@/context/LoginDraftContext';
-import { getCountries, getCountryCallingCode, normalizeWhatsapp, validateLoginAccount, type CountryCode } from '@/lib/loginContact';
+import { ASEAN_PHONE_COUNTRIES, getCountries, getCountryCallingCode, normalizeWhatsapp, validateLoginAccount, type CountryCode } from '@/lib/loginContact';
 import { formatMoney, REGION_CURRENCY, type Region } from '@/lib/regionalPricing';
 import type { PaymentMethod } from '@/lib/paymentProvider';
 import StoreShell from './StoreShell';
 import DetectedLocation from './DetectedLocation';
 import RegionalPaymentSummary from './RegionalPaymentSummary';
 import { useRegionalQuote } from './useRegionalQuote';
+import LoginUsernameField from './LoginUsernameField';
 
 type Variant = { id: number; method: string; units: number; price: number | null; name: string };
 type Catalog = { data: { id: number; slug: string; variants: Variant[]; checkoutEnabled: boolean }[]; location: { region: Region | null }; paymentMethods: PaymentMethod[] };
 const panel = 'rounded-3xl border-2 border-pink-200 bg-white/95 p-5 sm:p-8 shadow-xl';
-const input = 'mt-2 w-full min-w-0 rounded-xl border-2 border-pink-200 bg-pink-50/40 p-3 text-neutral-900 focus:outline-2 focus:outline-pink-800';
+const input = 'mt-2 w-full min-w-0 rounded-full border border-pink-500 bg-pink-50/40 p-3 text-neutral-900 focus:outline-2 focus:outline-pink-800';
 const button = 'rounded-xl bg-pink-800 px-6 py-3 font-bold text-white hover:bg-pink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-800 disabled:opacity-50';
 const driftCodes = ['PRICE_CHANGED', 'REGION_CHANGED', 'REGION_UNVERIFIED', 'PRODUCT_UNAVAILABLE', 'REGIONAL_PRICE_UNAVAILABLE', 'PAYMENT_REGION_UNAVAILABLE'];
 
@@ -73,6 +75,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
 
   const emptyDraft = stage !== 'packages' && (!draft.variantId || (stage === 'summary' && !validAccount));
   const names = new Intl.DisplayNames([language === 'MY' ? 'ms' : language === 'ID' ? 'id' : 'en'], { type: 'region' });
+  const hasPhoneFlag = account.country !== '' && ASEAN_PHONE_COUNTRIES.includes(account.country);
   return <StoreShell><div className="mx-auto max-w-4xl space-y-6">
     <Link href="/roblox" aria-disabled={busy} onClick={event => { if (busy) event.preventDefault(); }} className="inline-block rounded-xl bg-white p-3 font-semibold text-pink-900">{t.commerce.backToCatalog}</Link>
     <header className={panel}><p className="font-bold text-pink-800">{t.roblox.LOGIN}</p><h1 className="mt-2 text-3xl font-black text-pink-900">{l[stage]}</h1><p className="mt-3 text-neutral-700">{l.intro}</p></header>
@@ -91,12 +94,29 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
       {!product?.checkoutEnabled && <p role="status" className="mt-4 text-rose-800">{l.paymentUnavailable}</p>}
     </section> : !variant || variant.price === null || !region ? <div className={panel}><p role="status">{t.regional.unavailable}</p><Link href={base + '?method=LOGIN'} className={`${button} mt-4 inline-block`}>{l.back}</Link></div> : stage === 'account' ? <form className={`${panel} space-y-5`} onSubmit={nextAccount} noValidate>
       <p className="rounded-2xl border border-pink-300 bg-pink-50 p-4 text-pink-900">{l.privacy}</p>
-      <label className="block font-semibold text-neutral-800">{l.username}<input name="username" className={input} value={account.username} onChange={e => updateAccount('username', e.target.value)} maxLength={20} autoComplete="off" autoCapitalize="none" aria-invalid={fieldErrors.username} aria-describedby="login-username-error" /></label>
-      {fieldErrors.username && <p id="login-username-error" role="alert" className="text-rose-800">{l.invalidUsername}</p>}
-      <div className="grid gap-4 sm:grid-cols-2"><label className="block min-w-0 font-semibold text-neutral-800">{l.country}<select name="phoneCountry" className={input} value={account.country} onChange={e => updateAccount('country', e.target.value as CountryCode)} aria-invalid={fieldErrors.whatsapp}><option value="">{l.chooseCountry}</option>{getCountries().map(country => <option key={country} value={country}>{names.of(country)} (+{getCountryCallingCode(country)})</option>)}</select></label>
-      <label className="block min-w-0 font-semibold text-neutral-800">{l.whatsapp}<input name="whatsapp" className={input} type="tel" inputMode="tel" autoComplete="tel" maxLength={64} value={account.whatsapp} onChange={e => updateAccount('whatsapp', e.target.value)} aria-invalid={fieldErrors.whatsapp} aria-describedby="login-phone-help login-phone-error" /></label></div>
+      <LoginUsernameField value={account.username} onChange={value => updateAccount('username', value)} invalid={fieldErrors.username} className={input} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="min-w-0"><label htmlFor="login-whatsapp" className="block font-semibold text-neutral-800">{l.whatsapp}</label>
+          <div className="mt-2 flex rounded-full border border-pink-500 bg-pink-50/40 focus-within:outline-2 focus-within:outline-pink-800">
+            <div className="relative flex w-28 shrink-0 items-center justify-center border-r border-pink-300">
+              <span aria-hidden="true" className="pointer-events-none flex min-w-0 items-center gap-2 px-2 text-sm font-semibold text-neutral-800">
+                {hasPhoneFlag && <Image data-phone-flag src={`/flags/${account.country.toLowerCase()}.svg`} alt="" width={24} height={18} unoptimized className="shrink-0 rounded-sm ring-1 ring-black/10" />}
+                <span className="truncate">{account.country ? `+${getCountryCallingCode(account.country)}` : l.chooseCountry}</span>
+                <svg className="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg>
+              </span>
+              <label htmlFor="login-phone-country" className="sr-only">{l.country}</label>
+              <select id="login-phone-country" name="phoneCountry" className="absolute inset-0 h-full w-full cursor-pointer rounded-l-full opacity-0" value={account.country} onChange={e => updateAccount('country', e.target.value as CountryCode)} aria-invalid={fieldErrors.whatsapp} aria-describedby="login-phone-help login-phone-error">
+                <option value="">{l.chooseCountry}</option>
+                <optgroup label={l.aseanCountries}>{ASEAN_PHONE_COUNTRIES.map(country => <option key={country} value={country}>{names.of(country)} (+{getCountryCallingCode(country)})</option>)}</optgroup>
+                <optgroup label={l.otherCountries}>{getCountries().filter(country => !ASEAN_PHONE_COUNTRIES.includes(country)).map(country => <option key={country} value={country}>{names.of(country)} (+{getCountryCallingCode(country)})</option>)}</optgroup>
+              </select>
+            </div>
+            <input id="login-whatsapp" name="whatsapp" className="min-w-0 flex-1 rounded-r-full bg-transparent px-3 py-3 text-neutral-900 outline-none" type="tel" inputMode="tel" autoComplete="tel" maxLength={64} value={account.whatsapp} onChange={e => updateAccount('whatsapp', e.target.value)} aria-invalid={fieldErrors.whatsapp} aria-describedby="login-phone-help login-phone-error" />
+          </div>
+        </div>
+        <div className="min-w-0"><label className="block font-semibold text-neutral-800">{l.email}<input name="email" className={input} type="email" autoComplete="email" maxLength={150} value={account.email} onChange={e => updateAccount('email', e.target.value)} aria-invalid={fieldErrors.email} aria-describedby="login-email-error" /></label>{fieldErrors.email && <p id="login-email-error" role="alert" className="text-rose-800">{l.invalidEmail}</p>}</div>
+      </div>
       <p id="login-phone-help" className="text-sm text-neutral-700">{l.phoneHelp}</p>{fieldErrors.whatsapp && <p id="login-phone-error" role="alert" className="text-rose-800">{l.invalidWhatsapp}</p>}
-      <label className="block font-semibold text-neutral-800">{l.email}<input name="email" className={input} type="email" autoComplete="email" maxLength={150} value={account.email} onChange={e => updateAccount('email', e.target.value)} aria-invalid={fieldErrors.email} aria-describedby="login-email-error" /></label>{fieldErrors.email && <p id="login-email-error" role="alert" className="text-rose-800">{l.invalidEmail}</p>}
       <p className="text-sm text-neutral-600">{l.contactPurpose}</p><div className="flex flex-wrap gap-3"><Link href={base + '?method=LOGIN'} className="rounded-xl border-2 border-pink-300 px-6 py-3 font-bold text-pink-900">{l.back}</Link><button type="submit" className={button} disabled={!eligible}>{l.continue}</button></div>
     </form> : <section className={`${panel} space-y-5`}>
       <dl className="space-y-3 text-neutral-700">{[[l.method, t.roblox.LOGIN], [l.amount, `${variant.units} Robux`], [l.username, account.username], [l.whatsapp, normalizeWhatsapp(account.whatsapp, account.country || undefined)], [l.email, account.email]].map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt>{label}</dt><dd className="break-all text-right font-bold text-neutral-900">{value}</dd></div>)}</dl>

@@ -1,5 +1,6 @@
 // Actual browser/IndexedDB/UI, isolated API/provider fixtures. No database/payment.
 import assert from 'node:assert/strict';
+import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -44,7 +45,8 @@ async function fixture({ viewport = viewports[0], mode = 'normal', region = 'ID'
     const req = route.request(), url = new URL(req.url());
     if (url.origin !== base) { state.network++; return route.abort(); }
     if (url.pathname.startsWith('/order/') && mode === 'delay-invoice' && !req.headers()['rsc']) { state.delay = true; await new Promise(resolve => setTimeout(resolve, 1000)); }
-    if (!url.pathname.startsWith('/api/')) return route.fulfill({ response: await route.fetch({ url: server + url.pathname + url.search, maxRedirects: 0 }) });
+    if (!url.pathname.startsWith('/api/')) return fulfillFixtureRead(route, server);
+    if (url.pathname === '/api/roblox/user') return json(route, { success: true, data: { id: 42, name: 'FixtureUser', displayName: 'Fixture Public Name', avatarUrl: null } });
     const headers = await req.allHeaders();
     const credential = (headers.cookie ?? '').split(';').map(value => value.trim()).find(value => value.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
     const owner = [...sessions.entries()].find(([, value]) => value === credential)?.[0];
@@ -132,6 +134,76 @@ async function fixture({ viewport = viewports[0], mode = 'normal', region = 'ID'
   return { context, close, handler, state, page, picker, start, account, fill, ready, summary, button, clean };
 }
 try {
+  await run('Indonesia default and public username lookup states', async () => {
+    const f = await fixture(); const p = await f.page();
+    try {
+      await f.account(p);
+      assert.equal(await p.locator('[name=phoneCountry]').inputValue(), 'ID');
+      assert.equal(await p.locator('[data-phone-flag]').getAttribute('src'), '/flags/id.svg');
+      let mode = 'success', release;
+      await f.context.route('https://avatar.rbxcdn.com/synthetic-avatar.png', route => route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64') }));
+      await f.context.route('**/api/roblox/user?**', async route => {
+        if (mode === 'network') return route.abort();
+        if (mode === 'slow') await new Promise(resolve => { release = resolve; });
+        if (mode === 'missing') return route.fulfill({ status: 404, json: { success: false, errorCode: 'ROBLOX_USER_NOT_FOUND' } });
+        if (mode === 'rate') return route.fulfill({ status: 429, json: { success: false, errorCode: 'RATE_LIMIT_EXCEEDED' } });
+        if (mode === 'failure') return route.fulfill({ status: 503, json: { success: false, errorCode: 'LOOKUP_UNAVAILABLE' } });
+        return route.fulfill({ json: { success: true, data: { id: 42, name: 'FixtureUser', displayName: 'Fixture Display', avatarUrl: 'https://avatar.rbxcdn.com/synthetic-avatar.png' } } });
+      });
+      const check = () => f.button(p, 'Check Roblox username').click();
+      const status = p.locator('#login-username-lookup');
+      await p.locator('[name=username]').fill('FixtureUser'); await check(); await status.getByText('Fixture Display').waitFor();
+      assert.ok((await status.innerText()).includes('@FixtureUser')); assert.ok((await status.innerText()).includes('42'));
+      assert.equal(await status.locator('img').getAttribute('src'), 'https://avatar.rbxcdn.com/synthetic-avatar.png');
+      await status.locator('img').evaluate(image => image.decode());
+      await p.locator('[name=username]').fill('ChangedUser'); assert.equal(await status.getByText('Fixture Display').count(), 0);
+      for (const [next, message] of [['missing', 'Username was not found.'], ['rate', 'Too many checks. Please try again later.'], ['failure', 'Username check is temporarily unavailable. Try again.'], ['network', 'Username check is temporarily unavailable. Try again.']]) {
+        mode = next; await check(); await status.getByText(message, { exact: true }).waitFor();
+      }
+      mode = 'slow'; await check(); await status.getByText('Checking username…').waitFor();
+      await p.locator('[name=username]').fill('OtherUser');
+      release(); await p.waitForTimeout(100); assert.equal(await status.getByText('Fixture Display').count(), 0);
+      await p.clock.install(); mode = 'slow'; await check(); await p.waitForTimeout(50); await p.clock.fastForward(10_001);
+      await status.getByText('Username check timed out. Try again.', { exact: true }).waitFor(); release();
+      assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0);
+    } finally { await f.close(); }
+  });
+  for (const viewport of viewports) for (const locale of ['ID', 'EN', 'MY']) await run(`${viewport.width} ${locale} ASEAN phone flags and international compatibility`, async () => {
+    const f = await fixture({ viewport, locale }); const p = await f.page(); try {
+      await f.start(p); await p.locator('input[value="1"]').check({ force: true });
+      await f.button(p, { ID: 'Lanjut', EN: 'Continue', MY: 'Teruskan' }[locale]).click(); await p.waitForURL('**/login/account');
+      const select = p.locator('[name=phoneCountry]');
+      assert.equal(await select.inputValue(), 'ID');
+      const asean = ['ID', 'MY', 'PH', 'SG', 'TH', 'VN', 'BN', 'KH', 'LA', 'MM', 'TL'];
+      assert.deepEqual(await select.locator('optgroup').first().locator('option').evaluateAll(options => options.map(option => option.value)), asean);
+      assert.equal(await select.locator('optgroup').first().getAttribute('label'), { ID: 'Negara ASEAN', EN: 'ASEAN countries', MY: 'Negara ASEAN' }[locale]);
+      const countries = await select.locator('option').evaluateAll(options => options.map(option => option.value).filter(Boolean));
+      assert.ok(countries.length > 200); assert.equal(new Set(countries).size, countries.length);
+      for (const country of asean) {
+        await select.selectOption(country);
+        const flag = p.locator('[data-phone-flag]');
+        assert.equal(await flag.getAttribute('src'), `/flags/${country.toLowerCase()}.svg`);
+        await flag.evaluate(image => image.decode());
+      }
+      await select.selectOption('ID'); await select.focus(); await p.keyboard.press('ArrowDown'); assert.equal(await select.inputValue(), 'MY');
+      assert.equal(await select.evaluate(element => element === document.activeElement), true);
+      await select.selectOption('US'); assert.equal(await p.locator('[data-phone-flag]').count(), 0);
+      await select.selectOption('ID'); await p.locator('[name=username]').fill('FixtureUser');
+      const lookupButton = f.button(p, { ID: 'Cek Username Roblox', EN: 'Check Roblox username', MY: 'Semak nama pengguna Roblox' }[locale]);
+      await lookupButton.focus(); await p.keyboard.press('Enter');
+      await p.locator('#login-username-lookup').getByText('Fixture Public Name', { exact: true }).waitFor();
+      assert.ok((await p.locator('#login-username-lookup').innerText()).includes('42'));
+      await p.locator('[name=whatsapp]').fill('081234567890'); await p.locator('[name=email]').fill('fixture@example.invalid');
+      assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+      await p.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map(image => image.decode())); });
+      await p.screenshot({ path: path.join(output, `${viewport.width}-${locale}-asean-account.png`), fullPage: true });
+      await f.button(p, { ID: 'Lanjut', EN: 'Continue', MY: 'Teruskan' }[locale]).click(); await p.waitForURL('**/login/summary');
+      await p.getByText('+6281234567890', { exact: true }).waitFor();
+      assert.equal(await p.locator('[name=robloxPassword], [name^=backupCode]').count(), 0);
+      assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0); await f.clean(p);
+    } finally { await f.close(); }
+  });
   for (const viewport of viewports) await run(`${viewport.width} three pages, validation, back, double submit and delayed invoice`, async () => {
     const f = await fixture({ viewport, mode: 'delay-invoice' }); const p = await f.page(); try {
       await f.account(p); await f.button(p, 'Continue').click(); assert.equal(await p.locator('form [role=alert]').count(), 3);

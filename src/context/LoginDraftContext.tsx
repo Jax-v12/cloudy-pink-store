@@ -4,7 +4,7 @@ import type { LoginAccount } from '@/lib/loginContact';
 import { ensureCheckoutSession, invoiceId, loginAttempt, loginRequest, storedFlow, type LoginAttempt } from '@/lib/checkoutBrowser';
 
 type Draft = { variantId: number | null; account: LoginAccount; paymentMethod: string };
-const emptyDraft = (): Draft => ({ variantId: null, account: { username: '', email: '', whatsapp: '', country: '' }, paymentMethod: '' });
+const emptyDraft = (): Draft => ({ variantId: null, account: { username: '', email: '', whatsapp: '', country: 'ID' }, paymentMethod: '' });
 type Checkout = { phase: 'CHECKING' | 'READY' | 'UNKNOWN' | 'BLOCKED'; attempt: LoginAttempt | null; error: string; revision: number };
 const blocked = (code: string) => ['CHECKOUT_SESSION_REQUIRED', 'CHECKOUT_LOCATOR_CONFLICT', 'CHECKOUT_STORAGE_UNAVAILABLE', 'CSRF_REJECTED', 'CHECKOUT_BOOTSTRAP_PENDING'].includes(code);
 const Context = createContext<{ draft: Draft; setDraft: Dispatch<SetStateAction<Draft>>; checkout: Checkout; busy: boolean;

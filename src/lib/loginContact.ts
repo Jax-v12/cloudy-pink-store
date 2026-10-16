@@ -3,6 +3,8 @@ import { ROBLOX_USERNAME_PATTERN } from './roblox';
 
 export { getCountries, getCountryCallingCode, type CountryCode };
 
+export const ASEAN_PHONE_COUNTRIES: readonly CountryCode[] = ['ID', 'MY', 'PH', 'SG', 'TH', 'VN', 'BN', 'KH', 'LA', 'MM', 'TL'];
+
 /** Numbering-plan validation does not verify ownership or WhatsApp activation. */
 export function normalizeWhatsapp(value: unknown, country?: CountryCode): string | null {
   if (typeof value !== 'string' || value.length > 64 || !/^[+\d\s().-]+$/.test(value) || (!country && !value.trim().startsWith('+'))) return null;
