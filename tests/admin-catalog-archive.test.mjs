@@ -5,6 +5,7 @@ import { archiveEligibility } from '../src/lib/orderArchive.ts';
 import { deletionEligibility } from '../src/lib/catalogLifecycle.ts';
 import { adminMutation, adminMutationError, expectedTimestamp } from '../src/lib/adminMutation.ts';
 import { commerceTranslations } from '../src/lib/commerceTranslations.ts';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
 
 test('archive policy fails closed for each obligation and unsupported type', () => {
   const final = { type: 'ROBLOX', status: 'PAID', fulfillmentStatus: 'COMPLETED', refundStatus: 'NONE', archivedAt: null,
@@ -184,12 +185,38 @@ test('catalog and archive MySQL transactions, audit, races and rollback', { skip
     await t.test('checkout and deletion contend on the same product lock', async () => {
       for (let i = 0; i < 5; i++) {
         const p = await product();
-        const body = { productId: p.id, variantId: p.variants[0].id, customerEmail: 'race@example.test', details: { username: 'customer' } };
-        const results = await Promise.allSettled([checkout(body, crypto.randomUUID()), deleteCatalogProduct(p.id, session.id, p.name, p.updatedAt)]);
+        const variant = await prisma.productVariant.findUnique({ where: { id: p.variants[0].id }, include: { regionalPrices: true } });
+        const quoteToken = checkoutQuoteToken(p.id, variant.id, checkoutPricing('ROBLOX', p.price, variant, 'ID', 'QRIS'));
+        const body = { productId: p.id, variantId: variant.id, quoteToken, customerEmail: 'race@example.test', details: { username: 'customer', whatsappE164: '+12133734253', ...loginCredentialsFixture() } };
+        let lockAttempts = 0; let bothAtLock; let barrierTimeout;
+        const barrier = new Promise((resolve, reject) => {
+          bothAtLock = resolve;
+          barrierTimeout = setTimeout(() => reject(new Error('BOTH_OPERATIONS_MUST_REACH_PRODUCT_LOCK')), 3000);
+        });
+        const original = prisma.$transaction.bind(prisma);
+        // Hold both real SQL statements until validation has reached the shared lock.
+        prisma.$transaction = (work, options) => original(tx => work(new Proxy(tx, {
+          get(target, name) {
+            if (name !== '$queryRaw') return target[name];
+            return async (strings, ...values) => {
+              if (/Product.*FOR UPDATE/s.test(strings.join('')) && values[0] === p.id) {
+                if (++lockAttempts === 2) bothAtLock();
+                await barrier;
+              }
+              return target.$queryRaw(strings, ...values);
+            };
+          },
+        })), options);
+        let results;
+        try {
+          results = await Promise.allSettled([checkout(body, crypto.randomUUID()), deleteCatalogProduct(p.id, session.id, p.name, p.updatedAt)]);
+        } finally { prisma.$transaction = original; clearTimeout(barrierTimeout); }
+        assert.equal(lockAttempts, 2, 'Both operations must pass validation and request the product lock');
+        assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
         const remaining = await prisma.product.findUnique({ where: { id: p.id } });
         const orders = await prisma.order.count({ where: { productId: p.id } });
-        if (!remaining) { assert.equal(orders, 0); assert.equal(results[0].status, 'rejected'); }
-        else { assert.equal(orders, 1); assert.equal(results[1].status, 'rejected'); }
+        if (!remaining) { assert.equal(orders, 0); assert.equal(results[0].status, 'rejected'); assert.equal(results[0].reason.code, 'PRODUCT_UNAVAILABLE'); }
+        else { assert.equal(orders, 1); assert.equal(results[1].status, 'rejected'); assert.equal(results[1].reason.code, 'PRODUCT_HAS_ORDERS'); }
       }
     });
     await t.test('audit failure rolls back deletion and archive; expired session fails after lock', async () => {

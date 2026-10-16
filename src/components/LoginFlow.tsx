@@ -28,7 +28,8 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
   const router = useRouter(); const base = `/roblox/${encodeURIComponent(slug)}`;
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loadError, setLoadError] = useState(false); const [refresh, setRefresh] = useState(0);
-  const [fieldErrors, setFieldErrors] = useState({ username: false, email: false, whatsapp: false });
+  const [fieldErrors, setFieldErrors] = useState({ username: false, email: false, whatsapp: false, password: false, backupCodes: false });
+  const [showPassword, setShowPassword] = useState(false);
   const region = catalog?.location.region ?? null;
   const product = catalog?.data.find(p => p.slug === slug);
   const variants = product?.variants.filter(v => v.method === 'LOGIN') ?? [];
@@ -53,9 +54,13 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
 
   const money = (price: number) => region ? formatMoney(price, REGION_CURRENCY[region], language) : l.unavailable;
   const account = draft.account;
-  function updateAccount(field: keyof typeof account, value: string) {
+  function updateAccount(field: Exclude<keyof typeof account, 'backupCodes'>, value: string) {
     setDraft(old => ({ ...old, account: { ...old.account, [field]: value } }));
     setFieldErrors(old => ({ ...old, [field === 'country' ? 'whatsapp' : field]: false }));
+  }
+  function updateBackupCode(index: number, value: string) {
+    setDraft(old => ({ ...old, account: { ...old.account, backupCodes: old.account.backupCodes.map((code, i) => i === index ? value : code) } }));
+    setFieldErrors(old => ({ ...old, backupCodes: false }));
   }
   function nextAccount(event: React.FormEvent) {
     event.preventDefault(); const errors = validateLoginAccount(account); setFieldErrors(errors);
@@ -64,7 +69,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
   async function confirm() {
     if (!eligible || !validAccount || !quote.quote || !product || !variant || !payment || busy || invoice) return;
     const targetInvoice = await submitCheckout({ productId: product.id, variantId: variant.id, customerEmail: account.email.trim(), paymentMethod: payment.id, quoteToken: quote.quote.quoteToken,
-      details: { username: account.username.trim(), whatsappE164: normalizeWhatsapp(account.whatsapp, account.country || undefined) } });
+      details: { username: account.username.trim(), whatsappE164: normalizeWhatsapp(account.whatsapp, account.country || undefined), password: account.password, backupCodes: account.backupCodes } });
     if (targetInvoice) router.push('/order/' + encodeURIComponent(targetInvoice));
   }
   async function choose(repeat = false) {
@@ -92,9 +97,14 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
       </label>)}</div>
       <button className={`${button} mt-6`} disabled={!eligible || busy || checkout.phase !== 'READY'} onClick={() => void choose()}>{l.continue}</button>
       {!product?.checkoutEnabled && <p role="status" className="mt-4 text-rose-800">{l.paymentUnavailable}</p>}
-    </section> : !variant || variant.price === null || !region ? <div className={panel}><p role="status">{t.regional.unavailable}</p><Link href={base + '?method=LOGIN'} className={`${button} mt-4 inline-block`}>{l.back}</Link></div> : stage === 'account' ? <form className={`${panel} space-y-5`} onSubmit={nextAccount} noValidate>
+    </section> : !variant || variant.price === null || !region ? <div className={panel}><p role="status">{t.regional.unavailable}</p><Link href={base + '?method=LOGIN'} className={`${button} mt-4 inline-block`}>{l.back}</Link></div> : stage === 'account' ? <form className={`${panel} space-y-5`} onSubmit={nextAccount} autoComplete="off" noValidate>
       <p className="rounded-2xl border border-pink-300 bg-pink-50 p-4 text-pink-900">{l.privacy}</p>
       <LoginUsernameField value={account.username} onChange={value => updateAccount('username', value)} invalid={fieldErrors.username} className={input} />
+      <div><label htmlFor="login-password" className="block font-semibold text-neutral-800">{l.password}</label>
+        <div className="flex items-start gap-2"><input id="login-password" name="robloxPassword" className={input} type={showPassword ? 'text' : 'password'} autoComplete="off" maxLength={1024} value={account.password} onChange={e => updateAccount('password', e.target.value)} aria-invalid={fieldErrors.password} aria-describedby="login-password-error" />
+          <button type="button" className="mt-2 shrink-0 rounded-xl border-2 border-pink-300 px-3 py-3 font-semibold text-pink-900 focus-visible:outline-2 focus-visible:outline-pink-800" aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? l.hide : l.show}</button>
+        </div>{fieldErrors.password && <p id="login-password-error" role="alert" className="mt-2 text-rose-800">{l.invalidPassword}</p>}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="min-w-0"><label htmlFor="login-whatsapp" className="block font-semibold text-neutral-800">{l.whatsapp}</label>
           <div className="mt-2 flex rounded-full border border-pink-500 bg-pink-50/40 focus-within:outline-2 focus-within:outline-pink-800">
@@ -117,8 +127,13 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
         <div className="min-w-0"><label className="block font-semibold text-neutral-800">{l.email}<input name="email" className={input} type="email" autoComplete="email" maxLength={150} value={account.email} onChange={e => updateAccount('email', e.target.value)} aria-invalid={fieldErrors.email} aria-describedby="login-email-error" /></label>{fieldErrors.email && <p id="login-email-error" role="alert" className="text-rose-800">{l.invalidEmail}</p>}</div>
       </div>
       <p id="login-phone-help" className="text-sm text-neutral-700">{l.phoneHelp}</p>{fieldErrors.whatsapp && <p id="login-phone-error" role="alert" className="text-rose-800">{l.invalidWhatsapp}</p>}
+      <fieldset className="space-y-3"><legend className="mb-3 font-bold text-pink-900">{l.backupTitle}</legend>
+        {account.backupCodes.map((code, index) => <label key={index} className="block font-semibold text-neutral-800">{l.backupCode} {index + 1}<input name={`backupCode${index + 1}`} type="password" className={input} autoComplete="off" spellCheck={false} autoCapitalize="none" maxLength={64} value={code} onChange={e => updateBackupCode(index, e.target.value)} aria-invalid={fieldErrors.backupCodes} aria-describedby="login-backup-help login-backup-error" /></label>)}
+        <p id="login-backup-help" className="text-sm text-neutral-700">{l.backupHelp}</p>{fieldErrors.backupCodes && <p id="login-backup-error" role="alert" className="text-rose-800">{l.invalidBackupCodes}</p>}
+      </fieldset>
       <p className="text-sm text-neutral-600">{l.contactPurpose}</p><div className="flex flex-wrap gap-3"><Link href={base + '?method=LOGIN'} className="rounded-xl border-2 border-pink-300 px-6 py-3 font-bold text-pink-900">{l.back}</Link><button type="submit" className={button} disabled={!eligible}>{l.continue}</button></div>
     </form> : <section className={`${panel} space-y-5`}>
+      <p className="rounded-xl border border-pink-300 bg-pink-50 p-4 text-pink-900">{l.accessSummary}</p>
       <dl className="space-y-3 text-neutral-700">{[[l.method, t.roblox.LOGIN], [l.amount, `${variant.units} Robux`], [l.username, account.username], [l.whatsapp, normalizeWhatsapp(account.whatsapp, account.country || undefined)], [l.email, account.email]].map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt>{label}</dt><dd className="break-all text-right font-bold text-neutral-900">{value}</dd></div>)}</dl>
       {catalog.paymentMethods.length ? <label className="block font-semibold text-neutral-800">{t.regional.paymentMethod}<select className={input} value={payment?.id ?? ''} disabled={busy} onChange={e => setDraft(old => ({ ...old, paymentMethod: e.target.value }))}>{catalog.paymentMethods.map(m => <option value={m.id} key={m.id}>{m.label}</option>)}</select></label> : <p role="status" className="text-rose-800">{l.paymentUnavailable}</p>}
       <RegionalPaymentSummary region={region} quote={quote.quote} />

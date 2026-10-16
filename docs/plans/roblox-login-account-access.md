@@ -8,6 +8,8 @@ documented owner decision, not a conclusion inferred from passing tests.
 GAMEPASS, GIFT_USERNAME and LOGIN remain separate supported methods. Username,
 Gamepass, Apps and Game still reject these Roblox account-access fields.
 
+Owner update, 17 October 2026: new orders use a 72-hour account-access lifetime. Existing stored expiries are never extended or renewed. Preview and Production use the existing contents of cloudy_staging; defaultdb remains prohibited.
+
 The exception is limited to the controls below; implementation and authorization
 gates are unchanged by the policy update:
 
@@ -29,7 +31,7 @@ gates are unchanged by the policy update:
   initial masking, visibility/ownership cleanup and a maximum 60-second display
   deadline remain mandatory. Archived, removed, refunded or completed work is
   denied; neither expiry nor a restore may renew authorization.
-- Absolute operational access expires 24 hours after creation. Completion,
+- Absolute operational access expires 72 hours after creation for new orders. Completion,
   cancellation/payment failure and expiry cleanup delete the envelope. Expired
   access is denied even before physical purge; financial Order history survives.
 - Backups containing sensitive envelopes must be encrypted, access-restricted and
@@ -90,7 +92,7 @@ distinct nonempty values are validated. The operator performs login manually.
    verified username and is nested in the same Order/detail/attempt transaction.
    No plaintext/ciphertext enters CheckoutAttempt JSON, provider requests or public
    invoice DTOs. Missing encryption configuration fails creation without fallback.
-5. Absolute access expiry is 24 hours after order creation, with
+5. Absolute access expiry is 72 hours after order creation for new orders, with
    no renewal on retries or reads. Delete it on completion, cancellation or failed
    payment. Check expiry on every access even if the worker has not run. Expired
    PAID orders still awaiting fulfillment may require review; unpaid and terminal
@@ -100,7 +102,7 @@ distinct nonempty values are validated. The operator performs login manually.
    Physical expiry cleanup uses the existing fulfillment worker/cron; its deployed
    schedule is not verified by local tests. An authorized expired-access request
    also deletes the secret and records review/audit atomically before returning an
-   unavailable response. No UI promises immediate physical deletion at hour 24.
+   unavailable response. No UI promises immediate physical deletion at hour 72.
 6. The existing admin fulfillment POST `action: reveal` is now a gated action,
    never fields in the fulfillment list. It requires the existing admin session,
    same-origin/CSRF check, recent reauthentication

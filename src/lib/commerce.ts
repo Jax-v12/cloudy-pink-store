@@ -3,6 +3,7 @@ import { isRegion } from './regionalPricing';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
 import { normalizeWhatsapp } from './loginContact';
+import { normalizeLoginBackupCodes, validLoginPassword, type LoginCredentials } from './loginCredentials';
 import {
   ROBLOX_MAX_GAMEPASS_UNITS,
   ROBLOX_USERNAME_PATTERN, robloxGamepassPrice,
@@ -27,9 +28,14 @@ export function checkoutInput(body: Record<string, unknown>) {
   if (body.quantity !== undefined && !positiveInt(body.quantity)) throw new InputError();
   const details = body.details ?? {};
   if (!details || typeof details !== 'object' || Array.isArray(details)) throw new InputError();
-  if (['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie'].some(key => key in details)) throw new InputError();
+  if (['robloxPassword', 'note', 'otp', 'sessionCookie', 'sessionToken', 'recoveryCode'].some(key => key in details)) throw new InputError();
   const suppliedDetails = details as Record<string, unknown>;
   const normalizedDetails = { ...suppliedDetails };
+  if ('password' in suppliedDetails || 'backupCodes' in suppliedDetails) {
+    const codes = normalizeLoginBackupCodes(suppliedDetails.backupCodes);
+    if (!validLoginPassword(suppliedDetails.password) || !codes) throw new InputError();
+    normalizedDetails.backupCodes = codes;
+  }
   if ('whatsappE164' in suppliedDetails) {
     const phone = normalizeWhatsapp(suppliedDetails.whatsappE164);
     if (!phone) throw new CommerceError('INVALID_WHATSAPP', 400);
@@ -63,7 +69,7 @@ export function requestDigest(value: unknown) {
 
 export function parseDetails(type: ProductType, variant: ProductVariant | null, details: Record<string, unknown>) {
   const allowed = type === 'GAME' ? ['userId', 'zoneId'] : type === 'ROBLOX'
-    ? variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : variant?.method === 'LOGIN' ? ['username', 'whatsappE164'] : ['username'] : [];
+    ? variant?.method === 'GAMEPASS' ? ['username', 'gamepassUrl'] : variant?.method === 'LOGIN' ? ['username', 'whatsappE164', 'password', 'backupCodes'] : ['username'] : [];
   if (Object.keys(details).some(k => !allowed.includes(k))) throw new InputError();
   if (type === 'APPS') return {};
   if (!variant) throw new InputError();
@@ -92,11 +98,16 @@ export function parseDetails(type: ProductType, variant: ProductVariant | null, 
     gamepassPrice = robloxGamepassPrice(variant.units);
   }
   let loginContact: { whatsappE164: string } | undefined;
+  let loginCredentials: LoginCredentials | undefined;
   if (variant.method === 'LOGIN') {
     if (!details.whatsappE164) throw new CommerceError('WHATSAPP_REQUIRED', 400);
     const phone = normalizeWhatsapp(details.whatsappE164);
     if (!phone) throw new CommerceError('INVALID_WHATSAPP', 400);
     loginContact = { whatsappE164: phone };
+    if (details.password === undefined || details.backupCodes === undefined) throw new CommerceError('LOGIN_ACCESS_REQUIRED', 400);
+    const codes = normalizeLoginBackupCodes(details.backupCodes);
+    if (!validLoginPassword(details.password) || !codes) throw new InputError();
+    loginCredentials = { password: details.password, backupCodes: codes };
   }
-  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice }, loginContact };
+  return { roblox: { method: variant.method, username, gamepassUrl, gamepassPrice }, loginContact, loginCredentials };
 }

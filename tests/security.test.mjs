@@ -117,77 +117,23 @@ test('fail-closed database guard strictly validates protocol, host, and database
   assert.throws(() => assertSafeDatabaseUrl('mysql://root@unauthorized-host.com:3306/cloudy_staging'), /FATAL: Unauthorized database host: unauthorized-host.com/);
 });
 
-test('assertSafeDatabaseUrl enforces environment-specific database target and fail-closed isolation', () => {
-  const aivenDefault = 'mysql://avnadmin:pass@mysql-store.aivencloud.com:22077/defaultdb?ssl-mode=REQUIRED';
-  const aivenStaging = 'mysql://avnadmin:pass@mysql-store.aivencloud.com:22077/cloudy_staging?ssl-mode=REQUIRED';
-  const aivenInvalid = 'mysql://avnadmin:pass@mysql-store.aivencloud.com:22077/cloudy_prod?ssl-mode=REQUIRED';
-  const localDefault = 'mysql://root@127.0.0.1:3306/defaultdb';
-  const localTest = 'mysql://root@127.0.0.1:3306/cloudy_test_preview';
-
-  // 1. Vercel Production + defaultdb: ALLOWED
-  assert.doesNotThrow(() => assertSafeDatabaseUrl(aivenDefault, { VERCEL: '1', VERCEL_ENV: 'production' }));
-
-  // 2. Vercel Production + database tidak sesuai: BLOCKED
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenStaging, { VERCEL: '1', VERCEL_ENV: 'production' }),
-    /FATAL: Only defaultdb is permitted on Aiven in production/
-  );
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenInvalid, { VERCEL: '1', VERCEL_ENV: 'production' }),
-    /FATAL: Only defaultdb is permitted on Aiven in production/
-  );
-  assert.throws(
-    () => assertSafeDatabaseUrl(localDefault, { VERCEL: '1', VERCEL_ENV: 'production' }),
-    /FATAL: Production database must be hosted on Aiven/
-  );
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenDefault + '&database=cloudy_staging', { VERCEL: '1', VERCEL_ENV: 'production' }),
-    /FATAL: Database query parameter mismatch/
-  );
-
-  // 3. Vercel Preview + cloudy_staging: ALLOWED
-  assert.doesNotThrow(() => assertSafeDatabaseUrl(aivenStaging, { VERCEL: '1', VERCEL_ENV: 'preview' }));
-
-  // 4. Vercel Preview + defaultdb: BLOCKED
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenDefault, { VERCEL: '1', VERCEL_ENV: 'preview' }),
-    /FATAL: Connection to defaultdb is strictly blocked outside of verified production/
-  );
-
-  // 5. Local + cloudy_staging: ALLOWED sesuai kebijakan existing
-  assert.doesNotThrow(() => assertSafeDatabaseUrl(aivenStaging, {}));
-  assert.doesNotThrow(() => assertSafeDatabaseUrl(localTest, {}));
-
-  // 6. Local + defaultdb: BLOCKED
-  assert.throws(
-    () => assertSafeDatabaseUrl(localDefault, {}),
-    /FATAL: Connection to defaultdb is strictly blocked outside of verified production/
-  );
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenDefault, {}),
-    /FATAL: Connection to defaultdb is strictly blocked outside of verified production/
-  );
-
-  // 7. NODE_ENV=production tetapi VERCEL_ENV=preview + defaultdb: BLOCKED
-  assert.throws(
-    () => assertSafeDatabaseUrl(aivenDefault, { NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'preview' }),
-    /FATAL: Connection to defaultdb is strictly blocked outside of verified production/
-  );
-
-  // 8. Environment ambigu + defaultdb: BLOCKED
-  for (const env of [
-    { NODE_ENV: 'production' },
-    { NODE_ENV: 'production', VERCEL: '1' }, // Missing VERCEL_ENV
-    { VERCEL_ENV: 'production' }, // Missing VERCEL: '1'
-    { VERCEL: '1', VERCEL_ENV: 'staging' }, // Unknown VERCEL_ENV
-    { VERCEL: '1', VERCEL_ENV: 'development' },
-    { VERCEL: '0', VERCEL_ENV: 'production' },
-  ]) {
-    assert.throws(
-      () => assertSafeDatabaseUrl(aivenDefault, env),
-      /FATAL: Connection to defaultdb is strictly blocked outside of verified production/
-    );
+test('Preview and Production use cloudy_staging and reject defaultdb in every environment', () => {
+  const staging = 'mysql://synthetic:synthetic@mysql-store.aivencloud.com:22077/cloudy_staging';
+  const environments = [{}, { NODE_ENV: 'production' },
+    { VERCEL: '1', VERCEL_ENV: 'production' }, { VERCEL: '1', VERCEL_ENV: 'preview' },
+    { VERCEL: '1', VERCEL_ENV: 'development' }, { VERCEL: '1', VERCEL_ENV: 'staging' }];
+  for (const env of environments) {
+    assert.doesNotThrow(() => assertSafeDatabaseUrl(staging, env));
+    for (const target of ['defaultdb', 'DEFAULTDB', 'default%64b', '%2564efaultdb']) {
+      assert.throws(() => assertSafeDatabaseUrl(staging.replace('cloudy_staging', target), env), /Connection to defaultdb is strictly blocked/);
+    }
+    for (const suffix of ['?database=defaultdb', '?database=cloudy_other', '?database=cloudy_staging&database=cloudy_other', '/another']) {
+      assert.throws(() => assertSafeDatabaseUrl(staging + suffix, env), /FATAL:/);
+    }
+    assert.throws(() => assertSafeDatabaseUrl(staging.replace('cloudy_staging', 'cloudy_prod'), env), /Only cloudy_staging is permitted on Aiven/);
   }
+  for (const environment of ['production', 'preview']) assert.throws(() => assertSafeDatabaseUrl('mysql://root@127.0.0.1:3306/cloudy_test_local', { VERCEL: '1', VERCEL_ENV: environment }), /database must be hosted on Aiven/);
+  assert.doesNotThrow(() => assertSafeDatabaseUrl(staging + '?database=cloudy_staging', {}));
 });
 
 test('clientKey adheres to Vercel boundary, handles IPv4/IPv6, prevents spoofing, and fails closed to shared', () => {

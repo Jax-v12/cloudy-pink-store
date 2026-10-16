@@ -36,11 +36,13 @@ test('Gamepass calculator rounds up without floating-point overcharging', () => 
   for (const value of [0, -1, 1.5, Infinity, NaN]) assert.throws(() => robloxGamepassPrice(value));
 });
 
-test('assisted Login accepts only non-secret account information', () => {
-  const details = { username: 'customer', whatsappE164: '+12133734253' };
+test('Login keeps validated credentials separate from public recipient information', () => {
+  const details = { username: 'customer', whatsappE164: '+12133734253', password: 'fixture-password-only', backupCodes: ['fixture-01','fixture-02','fixture-03','fixture-04','fixture-05'] };
   const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, details);
   assert.equal(parsed.roblox.username, 'customer'); assert.equal('secret' in parsed, false);
-  for (const field of ['password', 'robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie']) {
+  assert.equal('password' in parsed.roblox, false); assert.equal('backupCodes' in parsed.roblox, false);
+  assert.equal(parsed.loginCredentials.password, details.password);
+  for (const field of ['robloxPassword', 'backupCodes', 'note', 'otp', 'sessionCookie']) {
     const unsafe = { ...details, [field]: 'not-accepted' };
     assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, unsafe));
     assert.throws(() => checkoutInput({ productId: 1, customerEmail: 'buyer@example.test', details: unsafe }));

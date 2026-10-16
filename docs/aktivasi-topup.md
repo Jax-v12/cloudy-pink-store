@@ -10,7 +10,7 @@
 6. Untuk Username, isi Robux dasar/minimum dan harga rupiahnya. Kosongkan maksimum untuk paket tetap; isi maksimum dan kelipatan untuk slider. Checkout mengikuti empat langkah hingga konfirmasi akhir. Cek langganan Roblox Plus, saldo, batas transfer, dan antrean pesanan. Centang konfirmasi kapasitas ketika mengaktifkan paket. Konfirmasi perlu diperbarui maksimal setiap 24 jam. Nonaktifkan paket jika kapasitas habis.
 7. Pelanggan dapat memesan di `/roblox`. Setelah pembayaran, buka tab **Ruang pengiriman**, klik **Ambil pesanan**, lakukan pengiriman, isi referensi, lalu **Konfirmasi pengiriman** setelah berhasil.
 
-Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan cukup memasukkan username dan email kontak. Admin mengambil pesanan berbayar dan mengoordinasikan pemenuhan berbantu; aplikasi tidak meminta, menyimpan, atau membuka password Roblox maupun kode backup. Filter metode/status dan pencarian invoice/username/email tersedia di Ruang pengiriman. Ikuti urutan migrasi versi baru di [roblox-methods.md](roblox-methods.md).
+Untuk transfer Username yang belum diterima, pilih **Tunggu pelanggan**. Untuk Login, pelanggan mengisi username, password, lima kode backup berbeda, WhatsApp, dan email notifikasi. Data akses disimpan terenkripsi; hanya admin pemilik pesanan berbayar dengan autentikasi ulang terbaru yang dapat membukanya, maksimal 60 detik per tampilan. Order baru memiliki masa akses maksimal 72 jam sejak dibuat; expiry order lama tidak diperpanjang. Data dihapus saat selesai/dibatalkan/gagal atau melalui pembersihan expiry. OTP dan cookie sesi tetap dilarang. Filter metode/status dan pencarian invoice/username/email tersedia di Ruang pengiriman. Ikuti urutan migrasi versi baru di [roblox-methods.md](roblox-methods.md).
 
 ## Games
 
@@ -28,12 +28,12 @@ Untuk penjualan nyata, pilih provider, sediakan dokumentasi/sandbox, implementas
 
 ## Cron dan pembayaran
 
-Pastikan environment Midtrans dan URL webhook `/api/webhook/payment` benar. Pada scheduler hosting, panggil kedua endpoint berikut setiap menit menggunakan header `Authorization: Bearer <CRON_SECRET>`:
+Pastikan environment Midtrans dan URL webhook `/api/webhook/payment` benar. Sementara ini gunakan workflow GitHub `Store cleanup and fulfillment` setiap lima menit untuk kedua endpoint berikut; saat pindah ke VPS/Vercel, scheduler per menit dapat digunakan. Panggilan memakai HTTPS menggunakan header `Authorization: Bearer <CRON_SECRET>`:
 
 - `/api/cron/cleanup`: memeriksa pembayaran kedaluwarsa dan melepaskan stok Apps yang sesuai.
 - `/api/cron/fulfillment`: menjalankan pekerjaan Games dan menghapus kredensial yang melewati masa simpan.
 
-Scheduler belum otomatis dibuat oleh kode ini. Periksa indikator worker di ruang pengiriman setelah scheduler aktif.
+Workflow tersedia di `.github/workflows/store-cron.yml`, tetapi jadwal baru aktif setelah file tersedia di default branch dan environment GitHub `store-operations` dikonfigurasi. Jangan menganggap file YAML sebagai bukti cron sudah berjalan. Ikuti [prosedur rilis](plans/roblox-login-release.md), lalu periksa indikator worker di ruang pengiriman (peringatan setelah 15 menit).
 
 ## Login admin
 

@@ -4,9 +4,10 @@ import { getCountries, normalizeWhatsapp, validateLoginAccount } from '../src/li
 import { checkoutInput, parseDetails, requestDigest } from '../src/lib/commerce.ts';
 import { loginContactDto } from '../src/lib/loginContactDto.ts';
 import { encryptData, decryptData } from '../src/lib/crypto.ts';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
 
 const phone = '+12133734253';
-const account = { username: 'FixtureUser', email: 'fixture@example.invalid', country: 'US', whatsapp: '2133734253' };
+const account = { username: 'FixtureUser', email: 'fixture@example.invalid', country: 'US', whatsapp: '2133734253', ...loginCredentialsFixture() };
 test('max metadata validates international countries independently of pricing', () => {
   assert.ok(getCountries().length > 200);
   assert.equal(normalizeWhatsapp(account.whatsapp, 'US'), phone);
@@ -14,8 +15,8 @@ test('max metadata validates international countries independently of pricing', 
   for (const value of ['', '123', '+999123456789', '+1213', '+12133734253 ext 123', 'Call +12133734253', {}, '+000000000000000']) assert.equal(normalizeWhatsapp(value), null);
 });
 test('account validation reports each field and accepts international phone', () => {
-  assert.deepEqual(validateLoginAccount(account), { username: false, email: false, whatsapp: false });
-  assert.deepEqual(validateLoginAccount({ username: '!', email: 'invalid', country: '', whatsapp: '123' }), { username: true, email: true, whatsapp: true });
+  assert.deepEqual(validateLoginAccount(account), { username: false, email: false, whatsapp: false, password: false, backupCodes: false });
+  assert.deepEqual(validateLoginAccount({ username: '!', email: 'invalid', country: '', whatsapp: '123', password: '', backupCodes: [] }), { username: true, email: true, whatsapp: true, password: true, backupCodes: true });
 });
 test('canonical phone enters checkout hash; missing legacy field stays absent', () => {
   process.env.CHECKOUT_HASH_KEY = 'synthetic-test-hash-key';
@@ -26,9 +27,9 @@ test('canonical phone enters checkout hash; missing legacy field stays absent', 
   assert.equal(first.details.whatsappE164, phone); assert.equal(requestDigest(first), requestDigest(second));
   assert.notEqual(requestDigest(first), requestDigest(legacy));
 });
-test('new Login requires WhatsApp without changing other methods or collecting secrets', () => {
+test('new Login requires contact and bounded account access without changing other methods', () => {
   assert.throws(() => parseDetails('ROBLOX', { method: 'LOGIN' }, { username: 'FixtureUser' }), /WHATSAPP_REQUIRED/);
-  const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, { username: 'FixtureUser', whatsappE164: phone });
+  const parsed = parseDetails('ROBLOX', { method: 'LOGIN' }, { username: 'FixtureUser', whatsappE164: phone, ...loginCredentialsFixture() });
   assert.deepEqual(parsed.loginContact, { whatsappE164: phone }); assert.equal('whatsappE164' in parsed.roblox, false);
   assert.throws(() => parseDetails('ROBLOX', { method: 'GIFT_USERNAME' }, { username: 'FixtureUser', whatsappE164: phone }));
   assert.equal(parseDetails('ROBLOX', { method: 'GIFT_USERNAME' }, { username: 'FixtureUser' }).roblox.method, 'GIFT_USERNAME');
@@ -59,9 +60,14 @@ test('mocked checkout persists encrypted phone atomically; legacy replay never c
   t.after(() => { delete globalThis.prisma; });
   try {
     const quoted = checkoutPricing('ROBLOX', 0, variant, 'ID', 'QRIS');
-    const body = { productId: 1, variantId: 2, customerEmail: account.email, paymentMethod: 'QRIS', quoteToken: checkoutQuoteToken(1,2,quoted), details: { username: account.username, whatsappE164: phone } };
+    const body = { productId: 1, variantId: 2, customerEmail: account.email, paymentMethod: 'QRIS', quoteToken: checkoutQuoteToken(1,2,quoted), details: { username: account.username, whatsappE164: phone, ...loginCredentialsFixture() } };
     const result = await createCheckout(body, 'a'.repeat(32), 'ID'); assert.equal(result.created, true); assert.equal(transactions, 1);
     assert.equal(decryptData(created.robloxDetail.create.whatsappE164), phone); assert.notEqual(created.robloxDetail.create.whatsappE164, phone);
+    const storedAccess = JSON.parse(decryptData(created.secret.create.ciphertext));
+    assert.equal(storedAccess.invoice, created.invoice); assert.equal(storedAccess.password, account.password); assert.deepEqual(storedAccess.backupCodes, account.backupCodes);
+    assert.ok(created.secret.create.expiresAt.getTime() > Date.now() + 259_199_000);
+    assert.ok(created.secret.create.expiresAt.getTime() <= Date.now() + 259_200_000);
+    assert.equal(JSON.stringify(created).includes(account.password), false);
     const snapshot = created;
     await assert.rejects(createCheckout({ ...body, details: { username: account.username } }, 'c'.repeat(32), 'ID'), /WHATSAPP_REQUIRED/);
     assert.equal(created, snapshot); assert.equal(transactions, 1);
@@ -97,7 +103,7 @@ test('committed Login replay precedes quote/region drift; absent commit rejects 
   const { createCheckout } = await import('../src/lib/checkout.ts');
   const quote = checkoutPricing('ROBLOX', 0, variant, 'ID', 'QRIS');
   const original = { productId: 1, variantId: 2, customerEmail: account.email, paymentMethod: 'QRIS', quoteToken: checkoutQuoteToken(1, 2, quote),
-    details: { username: account.username, whatsappE164: phone } };
+    details: { username: account.username, whatsappE164: phone, ...loginCredentialsFixture() } };
   const key = 'replay-original-identity-000000000001';
   const first = await createCheckout(original, key, 'ID'); assert.equal(first.created, true); assert.equal(creates, 1);
   variant.price = 9000;

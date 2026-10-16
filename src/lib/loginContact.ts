@@ -1,5 +1,6 @@
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js/max';
 import { ROBLOX_USERNAME_PATTERN } from './roblox';
+import { normalizeLoginBackupCodes, validLoginPassword, type LoginCredentials } from './loginCredentials';
 
 export { getCountries, getCountryCallingCode, type CountryCode };
 
@@ -12,11 +13,13 @@ export function normalizeWhatsapp(value: unknown, country?: CountryCode): string
   return phone && !phone.ext && phone.isValid() ? phone.number : null;
 }
 
-export type LoginAccount = { username: string; email: string; whatsapp: string; country: CountryCode | '' };
+export type LoginAccount = LoginCredentials & { username: string; email: string; whatsapp: string; country: CountryCode | '' };
 export function validateLoginAccount(account: LoginAccount) {
   return {
     username: !ROBLOX_USERNAME_PATTERN.test(account.username.trim()),
     email: account.email.trim().length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.email.trim()),
     whatsapp: !account.country || !normalizeWhatsapp(account.whatsapp, account.country || undefined),
+    password: !validLoginPassword(account.password),
+    backupCodes: !normalizeLoginBackupCodes(account.backupCodes),
   };
 }

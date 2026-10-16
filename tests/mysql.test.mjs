@@ -1,6 +1,7 @@
 import { quotedCheckout } from './checkout-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { mockRoblox } from './roblox-fixture.mjs';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -24,7 +25,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
   const suffix = crypto.randomUUID();
   const paid = order => ({ provider: 'MIDTRANS', invoice: order.invoice, amount: order.totalAmount, currency: 'IDR', region: 'ID', reference: 'tx-' + order.invoice, state: 'paid', cancelled: false, qr: null });
   const key = () => crypto.randomUUID();
-  const loginDetails = { username: 'customer', whatsappE164: '+12133734253' };
+  const loginDetails = { username: 'customer', whatsappE164: '+12133734253', ...loginCredentialsFixture() };
   try {
     const apps = await prisma.product.create({ data: { name: 'Apps', slug: `apps-${suffix}`, price: 1000 } });
     await prisma.accountStock.create({ data: { productId: apps.id, emailAccount: encryptData('account@example.test'), passwordAccount: encryptData('stock-password') } });
@@ -200,7 +201,9 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       assert.equal(results[0].order.id, results[1].order.id);
       await assert.rejects(createCheckout({ ...rb(), customerEmail: 'other@example.test' }, idempotencyKey), /IDEMPOTENCY_CONFLICT/);
       const secret = await prisma.orderSecret.findUnique({ where: { orderId: results[0].order.id } });
-      assert.equal(secret, null);
+      assert.ok(secret); assert.ok(secret.expiresAt > new Date());
+      for (const value of [loginDetails.password, ...loginDetails.backupCodes]) assert.ok(!secret.ciphertext.includes(value));
+      assert.equal(await prisma.orderSecret.count({ where: { orderId: results[0].order.id } }), 1);
       // Existing orders must remain accessible when new sales or upstream lookups are unavailable.
       process.env.ROBLOX_CHECKOUT_ENABLED = 'false';
       try { assert.equal((await createCheckout(rb(), idempotencyKey)).order.id, results[0].order.id); }
@@ -241,7 +244,11 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       for (const order of [active, completed]) await applyPaymentStatus(order.id, paid(order));
       await manualAction(completed.id, 'migration-admin', 'claim');
       await manualAction(completed.id, 'migration-admin', 'complete', 'migration-delivery');
-      for (const order of [pending, active, completed]) await prisma.orderSecret.create({ data: { orderId: order.id, ciphertext: encryptData('legacy-fixture'), expiresAt: new Date(Date.now() + 86400000) } });
+      // Recreate historical envelopes: current Login checkout already created the pending/active rows.
+      for (const order of [pending, active, completed]) {
+        const legacy = { ciphertext: encryptData('legacy-fixture'), expiresAt: new Date(Date.now() + 86400000) };
+        await prisma.orderSecret.upsert({ where: { orderId: order.id }, create: { orderId: order.id, ...legacy }, update: legacy });
+      }
       const statements = readFileSync(new URL('../prisma/migrations/202610040001_assisted_login/migration.sql', import.meta.url), 'utf8').replace(/--[^\n]*/g, '').split(';').map(s => s.trim()).filter(s => s && s !== 'START TRANSACTION' && s !== 'COMMIT');
       await prisma.$transaction(async tx => { for (const sql of statements) await tx.$executeRawUnsafe(sql); });
       const activeAfter = await prisma.order.findUnique({ where: { id: active.id }, include: { job: true } });
@@ -255,8 +262,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
     });
     await t.test('retention removes secrets and refund completion cannot be reopened by payment replay', async () => {
       const { order } = await createCheckout(rb(), key()); await applyPaymentStatus(order.id, paid(order));
-      // Legacy-only fixture: new checkouts never create secrets.
-      await prisma.orderSecret.create({ data: { orderId: order.id, ciphertext: encryptData('legacy-test-only'), expiresAt: new Date(Date.now()-1000) } });
+      await prisma.orderSecret.update({ where: { orderId: order.id }, data: { expiresAt: new Date(Date.now()-1000) } });
       await purgeExpiredSecrets(); assert.equal(await prisma.orderSecret.count({ where: { orderId: order.id } }), 0);
       await manualAction(order.id, 'test-admin', 'refund-required'); await manualAction(order.id, 'test-admin', 'refund-completed', 'refund-reference');
       await applyPaymentStatus(order.id, paid(order));

@@ -46,7 +46,7 @@ export async function GET(req: Request) {
     ]);
     return NextResponse.json({ success: true, ...page, data: page.data.map(({ customerEmail, secret, accountStock, robloxDetail, ...row }) => ({ ...row, ...loginContactDto(robloxDetail, row.status === 'PAID' && row.job?.ownerSessionId === session.id), ...archiveEligibility({ ...row, secret, accountStock }), ...removeEligibility({ ...row, secret, accountStock }), contactEmail: row.status === 'PAID' && row.job?.ownerSessionId === session.id ? customerEmail : null, owned: row.job?.ownerSessionId === session.id,
       job: row.job ? { evidence: row.job.evidence, attempts: row.job.attempts } : null })),
-      monitoring: { lastRun: heartbeat?.succeededAt ?? null, overdue: !heartbeat || Date.now() - heartbeat.succeededAt.getTime() > 180_000, reviewCount, pendingCount },
+      monitoring: { lastRun: heartbeat?.succeededAt ?? null, overdue: !heartbeat || Date.now() - heartbeat.succeededAt.getTime() > 15 * 60_000, reviewCount, pendingCount },
     }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }
 }

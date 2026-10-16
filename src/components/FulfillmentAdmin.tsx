@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import AdminDialog from './AdminDialog';
+import LoginAccessPanel from './LoginAccessPanel';
 
 type Row = {
   id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
@@ -16,7 +17,7 @@ type Row = {
 };
 export default function FulfillmentAdmin() {
   const { t, language } = useLanguage(); const c = t.commerce; const ops = t.robloxOps;
-  const label = (value: string) => value === 'QUEUED' ? ops.ready : value === 'WAITING_CUSTOMER' ? ops.waiting : value === 'assisted-login-required' ? ops.assistedAudit : c[value as keyof typeof c] || value;
+  const label = (value: string) => value === 'login-access-reveal' ? t.loginFlow.accessAudit : value === 'login-access-expired' ? t.loginFlow.accessExpiredAudit : value === 'QUEUED' ? ops.ready : value === 'WAITING_CUSTOMER' ? ops.waiting : value === 'assisted-login-required' ? ops.assistedAudit : c[value as keyof typeof c] || value;
   const [rows, setRows] = useState<Row[]>([]); const [type, setType] = useState('ROBLOX'); const [status, setStatus] = useState('');
   const [method, setMethod] = useState(''); const [payment, setPayment] = useState('');
   const [archive, setArchive] = useState('active');
@@ -274,6 +275,7 @@ export default function FulfillmentAdmin() {
                   <p className="text-sm"><span className="font-bold text-neutral-500">{c.username}:</span> <span className="font-black text-neutral-900">{row.robloxDetail.username}</span></p>
 
                   {row.robloxDetail.method === 'LOGIN' && <p className="rounded-xl bg-pink-100 text-pink-800 p-3 text-sm font-medium mt-2">{ops.loginNext}</p>}
+                  {row.robloxDetail.method === 'LOGIN' && row.owned && row.status === 'PAID' && row.refundStatus === 'NONE' && !row.archivedAt && !row.removedFromAdminAt && ['PROCESSING', 'WAITING_CUSTOMER'].includes(row.fulfillmentStatus) && <LoginAccessPanel orderId={row.id} invoice={row.invoice} username={row.robloxDetail.username} />}
 
                   {row.robloxDetail.gamepassUrl && (
                     <div className="mt-2">

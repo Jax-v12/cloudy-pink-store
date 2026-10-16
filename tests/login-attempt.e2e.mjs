@@ -1,10 +1,11 @@
 // Actual browser/IndexedDB/UI, isolated API/provider fixtures. No database/payment.
 import assert from 'node:assert/strict';
-import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
+import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.argv[2] || 'playwright');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -95,6 +96,8 @@ async function fixture({ viewport = viewports[0], mode = 'normal', region = 'ID'
         row.locked = true; row.version++;
         assert.equal(body.reconfirm, true); assert.equal(body.checkout.quoteToken, state.token); assert.equal('pricingRegion' in body.checkout, false);
         assert.equal(body.checkout.details.whatsappE164, '+12133734253');
+        assert.equal(body.checkout.details.password, loginCredentialsFixture().password);
+        assert.deepEqual(body.checkout.details.backupCodes, loginCredentialsFixture().backupCodes);
         if ((mode === 'unknown' || mode === 'requote') && state.confirmations === 1) { row.outcome = 'UNKNOWN'; return fail(route, 'CHECKOUT_UNKNOWN', 503); }
         row.outcome = 'COMMITTED'; row.invoice = `INV-FIXTURE-${++state.orders}`;
         if (mode === 'lost' && state.confirmations === 1) return route.abort('failed');
@@ -118,7 +121,8 @@ async function fixture({ viewport = viewports[0], mode = 'normal', region = 'ID'
   const button = (page, name) => page.getByRole('button', { name, exact: true });
   async function start(page) { await page.goto(picker); await page.locator('input[value="1"]').waitFor({ state: 'attached' }); }
   async function account(page) { await start(page); await page.locator('input[value="1"]').check({ force: true }); await button(page, 'Continue').click(); await page.waitForURL('**/login/account'); }
-  async function fill(page) { await page.locator('[name=username]').fill('FixtureUser'); await page.locator('[name=phoneCountry]').selectOption('US'); await page.locator('[name=whatsapp]').fill('2133734253'); await page.locator('[name=email]').fill('fixture@example.invalid'); }
+  async function fillSecrets(page) { const access = loginCredentialsFixture(); await page.locator('[name=robloxPassword]').fill(access.password); for (const [index, code] of access.backupCodes.entries()) await page.locator(`[name=backupCode${index + 1}]`).fill(code); }
+  async function fill(page) { await page.locator('[name=username]').fill('FixtureUser'); await page.locator('[name=phoneCountry]').selectOption('US'); await page.locator('[name=whatsapp]').fill('2133734253'); await page.locator('[name=email]').fill('fixture@example.invalid'); await fillSecrets(page); }
   async function ready(page) { await page.waitForFunction(() => [...document.querySelectorAll('button')].some(value => value.textContent === 'Confirm order' && !value.disabled)); }
   async function summary(page) { await account(page); await fill(page); await button(page, 'Continue').click(); await page.waitForURL('**/login/summary'); await ready(page); }
   async function clean(page) {
@@ -127,11 +131,11 @@ async function fixture({ viewport = viewports[0], mode = 'normal', region = 'ID'
       const locator = await new Promise((resolve, reject) => { const tx = db.transaction('coordination'); const req = tx.objectStore('coordination').getAll(); req.onsuccess = () => resolve(req.result); req.onerror = reject; }); db.close();
       return JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage }, indexed: locator, visibleCookie: document.cookie });
     });
-    for (const denied of ['FixtureUser', 'fixture@example.invalid', '+12133734253', 'quoteToken', 'checkoutKey', 'accessToken', ...sessions.values()]) assert.equal(values.includes(denied), false);
+    for (const denied of ['FixtureUser', 'fixture@example.invalid', '+12133734253', '081234567890', '+6281234567890', loginCredentialsFixture().password, ...loginCredentialsFixture().backupCodes, 'quoteToken', 'checkoutKey', 'accessToken', ...sessions.values()]) assert.equal(values.includes(denied), false);
     assert.equal(state.errors, 0); assert.equal(state.network, 0); assert.equal(state.legacy, 0);
   }
   async function close() { const errors = state.errors; state.closing = true; await context.close(); assert.equal(errors, 0); }
-  return { context, close, handler, state, page, picker, start, account, fill, ready, summary, button, clean };
+  return { context, close, handler, state, page, picker, start, account, fill, fillSecrets, ready, summary, button, clean };
 }
 try {
   await run('Indonesia default and public username lookup states', async () => {
@@ -194,19 +198,42 @@ try {
       await p.locator('#login-username-lookup').getByText('Fixture Public Name', { exact: true }).waitFor();
       assert.ok((await p.locator('#login-username-lookup').innerText()).includes('42'));
       await p.locator('[name=whatsapp]').fill('081234567890'); await p.locator('[name=email]').fill('fixture@example.invalid');
+      await f.fillSecrets(p);
       assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0);
       assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
       await p.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map(image => image.decode())); });
       await p.screenshot({ path: path.join(output, `${viewport.width}-${locale}-asean-account.png`), fullPage: true });
       await f.button(p, { ID: 'Lanjut', EN: 'Continue', MY: 'Teruskan' }[locale]).click(); await p.waitForURL('**/login/summary');
       await p.getByText('+6281234567890', { exact: true }).waitFor();
-      assert.equal(await p.locator('[name=robloxPassword], [name^=backupCode]').count(), 0);
+      const summary = await p.locator('main').innerHTML();
+      for (const value of [loginCredentialsFixture().password, ...loginCredentialsFixture().backupCodes]) assert.equal(summary.includes(value), false);
       assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0); await f.clean(p);
+    } finally { await f.close(); }
+  });
+  for (const viewport of viewports) await run(`${viewport.width} credentials validate, mask, survive back and clear on reload`, async () => {
+    const f = await fixture({ viewport }); const p = await f.page(); try {
+      await f.account(p); await f.fill(p);
+      assert.equal(await p.locator('input[type=password]').count(), 6);
+      await f.button(p, 'Show').click(); assert.equal(await p.locator('[name=robloxPassword]').getAttribute('type'), 'text');
+      await f.button(p, 'Hide').click(); assert.equal(await p.locator('[name=robloxPassword]').getAttribute('type'), 'password');
+      await p.locator('[name=backupCode5]').fill(loginCredentialsFixture().backupCodes[0]);
+      await f.button(p, 'Continue').click(); await p.locator('#login-backup-error').waitFor();
+      assert.equal(new URL(p.url()).pathname.endsWith('/login/account'), true); assert.equal(f.state.confirmations, 0);
+      await p.locator('[name=backupCode5]').fill(loginCredentialsFixture().backupCodes[4]); await f.button(p, 'Continue').click(); await f.ready(p);
+      const html = await p.locator('main').innerHTML(); for (const value of [loginCredentialsFixture().password, ...loginCredentialsFixture().backupCodes]) assert.equal(html.includes(value), false);
+      await f.button(p, 'Back').click(); await p.locator('[name=robloxPassword]').waitFor();
+      assert.equal(await p.locator('[name=robloxPassword]').inputValue(), loginCredentialsFixture().password);
+      assert.equal(await p.locator('[name=backupCode5]').inputValue(), loginCredentialsFixture().backupCodes[4]);
+      await f.button(p, 'Continue').click(); await f.ready(p); await f.clean(p);
+      await p.reload(); await p.waitForURL('**?method=LOGIN'); await f.button(p, 'Continue').click(); await p.waitForURL('**/login/account');
+      assert.equal(await p.locator('[name=robloxPassword]').inputValue(), '');
+      for (let index = 1; index <= 5; index++) assert.equal(await p.locator(`[name=backupCode${index}]`).inputValue(), '');
+      assert.equal(f.state.orders, 0); await f.clean(p);
     } finally { await f.close(); }
   });
   for (const viewport of viewports) await run(`${viewport.width} three pages, validation, back, double submit and delayed invoice`, async () => {
     const f = await fixture({ viewport, mode: 'delay-invoice' }); const p = await f.page(); try {
-      await f.account(p); await f.button(p, 'Continue').click(); assert.equal(await p.locator('form [role=alert]').count(), 3);
+      await f.account(p); await f.button(p, 'Continue').click(); assert.equal(await p.locator('form [role=alert]').count(), 5);
       await f.fill(p); await f.button(p, 'Continue').click(); await p.waitForURL('**/login/summary'); await f.ready(p);
       assert.equal(f.state.confirmations, 0); await f.button(p, 'Back').click(); await p.locator('[name=email]').waitFor(); assert.equal(await p.locator('[name=email]').inputValue(), 'fixture@example.invalid');
       await f.button(p, 'Continue').click(); await f.ready(p);
@@ -311,6 +338,8 @@ try {
       await p.goto(f.picker); await f.button(p, 'Buy again').waitFor(); assert.equal(f.state.orders, 1);
       await f.button(p, 'Buy again').click(); await p.locator('input[value="1"]').waitFor({ state: 'attached' });
       await f.button(p, 'Continue').click(); await p.waitForURL('**/login/account'); assert.equal(await p.locator('[name=email]').inputValue(), '');
+      assert.equal(await p.locator('[name=robloxPassword]').inputValue(), '');
+      for (let index = 1; index <= 5; index++) assert.equal(await p.locator(`[name=backupCode${index}]`).inputValue(), '');
       await f.fill(p); await f.button(p, 'Continue').click(); await f.ready(p); await f.button(p, 'Confirm order').click(); await p.waitForURL('**/order/INV-FIXTURE-2');
       assert.equal(f.state.attempts.size, 2); assert.equal(f.state.orders, 2); await f.clean(p);
     } finally { await f.close(); }

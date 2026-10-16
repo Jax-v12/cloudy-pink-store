@@ -1,10 +1,11 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { LoginAccount } from '@/lib/loginContact';
+import { LOGIN_BACKUP_CODE_COUNT } from '@/lib/loginCredentials';
 import { ensureCheckoutSession, invoiceId, loginAttempt, loginRequest, storedFlow, type LoginAttempt } from '@/lib/checkoutBrowser';
 
 type Draft = { variantId: number | null; account: LoginAccount; paymentMethod: string };
-const emptyDraft = (): Draft => ({ variantId: null, account: { username: '', email: '', whatsapp: '', country: 'ID' }, paymentMethod: '' });
+const emptyDraft = (): Draft => ({ variantId: null, account: { username: '', email: '', whatsapp: '', country: 'ID', password: '', backupCodes: Array.from({ length: LOGIN_BACKUP_CODE_COUNT }, () => '') }, paymentMethod: '' });
 type Checkout = { phase: 'CHECKING' | 'READY' | 'UNKNOWN' | 'BLOCKED'; attempt: LoginAttempt | null; error: string; revision: number };
 const blocked = (code: string) => ['CHECKOUT_SESSION_REQUIRED', 'CHECKOUT_LOCATOR_CONFLICT', 'CHECKOUT_STORAGE_UNAVAILABLE', 'CSRF_REJECTED', 'CHECKOUT_BOOTSTRAP_PENDING'].includes(code);
 const Context = createContext<{ draft: Draft; setDraft: Dispatch<SetStateAction<Draft>>; checkout: Checkout; busy: boolean;
@@ -12,7 +13,7 @@ const Context = createContext<{ draft: Draft; setDraft: Dispatch<SetStateAction<
   openPackage: (productId: number, variantId: number, repeat?: boolean) => Promise<LoginAttempt | null>;
   recover: () => Promise<void>; confirm: (body: Record<string, unknown>) => Promise<string | null> } | null>(null);
 
-/** Customer contact stays in memory only; hard reload deliberately discards it. */
+/** Contact and account access stay in memory only; hard reload discards them. */
 export function LoginDraftProvider({ children }: { children: React.ReactNode }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [checkout, setCheckout] = useState<Checkout>({ phase: 'CHECKING', attempt: null, error: '', revision: 0 });
@@ -23,7 +24,8 @@ export function LoginDraftProvider({ children }: { children: React.ReactNode }) 
   const publish = useCallback((value: Checkout) => { if (alive.current) { current.current = value; setCheckout(value); } }, []);
   const adopt = useCallback((row: LoginAttempt) => {
     storedFlow(row.productId, row.flowId); flow.current = row.flowId;
-    if (alive.current) setDraft(old => ({ ...old, variantId: row.variantId }));
+    if (alive.current) setDraft(old => ({ ...old, variantId: row.variantId,
+      account: ['COMMITTED', 'EXPIRED', 'CANCELLED'].includes(row.outcome) ? { ...old.account, password: '', backupCodes: emptyDraft().account.backupCodes } : old.account }));
     publish({ ...current.current, attempt: row, phase: row.outcome === 'UNKNOWN' ? 'UNKNOWN' : 'READY',
       error: row.outcome === 'COMMITTED' ? '' : row.outcome === 'NOT_COMMITTED' ? (current.current.phase === 'UNKNOWN' ? 'CHECKOUT_READY' : '') : current.current.error,
       revision: current.current.revision + (row.outcome === 'NOT_COMMITTED' ? 1 : 0) });
@@ -114,7 +116,7 @@ export function LoginDraftProvider({ children }: { children: React.ReactNode }) 
     const timer = setTimeout(() => { void recoverInternal(true); }, delays[polls.current++]);
     return () => clearTimeout(timer);
   }, [checkout, busy, recoverInternal]);
-  // Draft contact is never persisted or cleared before invoice navigation.
+  // Contacts remain available for navigation; secrets are cleared on terminal outcomes.
   return <Context.Provider value={{ draft, setDraft, checkout, busy, initialize, openPackage, confirm, recover: recoverInternal }}>{children}</Context.Provider>;
 }
 export function useLoginDraft() {

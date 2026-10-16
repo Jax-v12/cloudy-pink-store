@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { mockRoblox } from './roblox-fixture.mjs';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
 
 // No PrismaClient, database, provider or real recipient is used in this fixture.
 process.env.ENCRYPTION_KEY = 'synthetic-attempt-encryption';
@@ -104,7 +105,7 @@ test.beforeEach(() => {
 });
 const input = () => ({ productId: 1, variantId: 2, customerEmail: 'fixture@example.invalid', paymentMethod: 'QRIS',
   quoteToken: checkoutQuoteToken(1, 2, checkoutPricing('ROBLOX', 0, variant, 'ID', 'QRIS')),
-  details: { username: 'FixtureUser', whatsappE164: '+12133734253' } });
+  details: { username: 'FixtureUser', whatsappE164: '+12133734253', ...loginCredentialsFixture() } });
 const start = (flowId = crypto.randomUUID(), previousFlowId) => attempt.openLoginAttempt(sessionId, { productId: 1, variantId: 2, flowId, previousFlowId });
 
 test('migration contains only two additive CREATE statements and restrictive foreign keys', () => {
@@ -144,6 +145,11 @@ test('commit + lost response + refresh resolves the same invoice without request
   assert.equal(decryptData(data.orders[0].robloxDetail.create.whatsappE164), '+12133734253');
   assert.equal(JSON.stringify(data.attempts).includes('fixture@example.invalid'), false);
   assert.equal(JSON.stringify(data.attempts).includes('+12133734253'), false);
+  for (const value of [loginCredentialsFixture().password, ...loginCredentialsFixture().backupCodes]) {
+    assert.equal(JSON.stringify(data.attempts).includes(value), false);
+    assert.equal(JSON.stringify(data.orders).includes(value), false);
+  }
+  assert.equal(JSON.parse(decryptData(data.orders[0].secret.create.ciphertext)).invoice, data.orders[0].invoice);
 });
 test('lease expiry alone is UNKNOWN; recovery fences the old claimant before NOT_COMMITTED', async () => {
   const first = await start(); const body = input();
@@ -308,7 +314,7 @@ test('invoice detail/payment/QR handlers consistently authorize only the committ
       assert.equal(valid.headers.get('cache-control'), 'private, no-store');
       if (handler === detail) {
         const text = JSON.stringify(await valid.json());
-        for (const denied of [order.accessToken, order.customerEmail, '+12133734253', 'whatsappE164', 'checkoutKey', 'requestHash']) assert.equal(text.includes(denied), false);
+        for (const denied of [order.accessToken, order.customerEmail, '+12133734253', 'whatsappE164', 'checkoutKey', 'requestHash', 'ciphertext', 'backupCodes', loginCredentialsFixture().password, ...loginCredentialsFixture().backupCodes, order.secret.create.ciphertext]) assert.equal(text.includes(denied), false);
       }
       const explicitInvalid = await handler(request({ 'x-order-token': 'invalid-explicit' }), context); assert.equal(explicitInvalid.status, 404);
       const otherInvoice = await handler(request({}), { params: Promise.resolve({ id: 'INV-OTHER-CUSTOMER' }) }); assert.equal(otherInvoice.status, 404);

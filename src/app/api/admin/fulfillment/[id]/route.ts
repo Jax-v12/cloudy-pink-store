@@ -4,6 +4,8 @@ import { apiError } from '@/lib/apiError';
 import { InputError, positiveInt, readJson, textField, privateHeaders } from '@/lib/http';
 import { CommerceError } from '@/lib/commerce';
 import { manualAction } from '@/lib/manualFulfillment';
+import { revealLoginAccess } from '@/lib/loginAccess';
+import { consumeRateLimit } from '@/lib/rateLimit';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,8 +13,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!positiveInt(id)) throw new InputError();
     const body = await readJson(req, 4096);
     const action = textField(body.action, 32)!;
-    const session = await adminAccess(req, true);
-    if (action === 'reveal') throw new CommerceError('CREDENTIAL_ACCESS_REMOVED', 410);
+    const session = await adminAccess(req, true, action === 'reveal');
+    if (action === 'reveal') {
+      if (Object.keys(body).some(key => key !== 'action')) throw new InputError();
+      if (!await consumeRateLimit('login-access-reveal', session.id, 10, 60_000)) throw new CommerceError('RATE_LIMIT_EXCEEDED', 429);
+      return NextResponse.json({ success: true, data: await revealLoginAccess(id, session.id) }, { headers: privateHeaders });
+    }
     await manualAction(id, session.id, action, textField(body.evidence, 1000, true) || undefined);
     return NextResponse.json({ success: true }, { headers: privateHeaders });
   } catch (e) {

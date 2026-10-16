@@ -8,6 +8,7 @@ import { verifyRobloxDetails, type RobloxVerification } from './robloxVerificati
 import { checkoutPricing, checkoutQuoteToken } from './checkoutPricing';
 import type { Region } from './regionalPricing';
 import { encryptData } from './crypto';
+import { LOGIN_ACCESS_TTL_MS } from './loginCredentials';
 import { attemptTransaction, prepareAttemptCommit, type AttemptCommit } from './checkoutAttempt';
 
 function quoteVariant(type: string, variant: { method: string | null; units: number; price: number; maxUnits: number | null; unitStep: number } | null, quantity?: number) {
@@ -87,8 +88,9 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
         if (locked.count !== 1) throw new CommerceError('RACE_CONDITION');
         stockId = stock.id;
       }
+      const invoice = `INV-${crypto.randomUUID()}`;
       const order = await tx.order.create({ data: {
-        invoice: `INV-${crypto.randomUUID()}`, productId: product.id, type: product.type,
+        invoice, productId: product.id, type: product.type,
         productName: product.name, variantName: variant?.name, units: quote.units,
         totalAmount: quote.totalAmount, currency: quote.currency, pricingRegion: quote.pricingRegion,
         productSubtotal: quote.productSubtotal, paymentFee: quote.paymentFee, discount: quote.discount,
@@ -96,6 +98,10 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
         accountStockId: stockId, checkoutKey: key, requestHash: hash,
         expiresAt: new Date(Date.now() + 86_400_000),
         ...(details.game ? { gameDetail: { create: details.game } } : {}),
+        ...(details.loginCredentials && verified ? { secret: { create: {
+          ciphertext: encryptData(JSON.stringify({ version: 1, invoice, username: verified.username, ...details.loginCredentials })),
+          expiresAt: new Date(Date.now() + LOGIN_ACCESS_TTL_MS),
+        } } } : {}),
         ...(details.roblox && verified ? { robloxDetail: { create: {
           ...details.roblox, username: verified.username, robloxUserId: verified.robloxUserId, displayName: verified.displayName,
           ...(details.loginContact ? { whatsappE164: encryptData(details.loginContact.whatsappE164) } : {}),

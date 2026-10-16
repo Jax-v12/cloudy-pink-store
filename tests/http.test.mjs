@@ -1,6 +1,7 @@
 import { geoHeaders } from './geo-fixture.mjs';
 import { quotedCheckout } from './checkout-fixture.mjs';
 import { mockRoblox } from './roblox-fixture.mjs';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -21,8 +22,10 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
   try {
     await prisma.rateLimit.deleteMany({});
     const p = await prisma.product.create({ data: { name: 'HTTP Roblox', slug: `http-${crypto.randomUUID()}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
-    const secret = { password: 'HTTP-private-password', backupCodes: ['code111','code222','code333','code444','code555'], note: 'HTTP confidential note' };
-    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest', whatsappE164: '+12133734253' } }, crypto.randomUUID());
+    const secret = loginCredentialsFixture();
+    const loginDetails = { username: 'httptest', whatsappE164: '+12133734253', ...secret };
+    const { order } = await createCheckout({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: loginDetails }, crypto.randomUUID());
+    assert.equal(await prisma.orderSecret.count({ where: { orderId: order.id } }), 1);
     await applyPaymentStatus(order.id, { provider: 'MIDTRANS', invoice: order.invoice, amount: order.totalAmount, currency: 'IDR', region: 'ID', reference: 'tx-' + order.invoice, state: 'paid', cancelled: false, qr: null });
     const request = (path, init = {}, country = 'ID') => { const url = new URL(path, base); return fetch(url, { ...init, headers: { ...geoHeaders(url, country, init.method || 'GET'), ...init.headers } }); };
     // The HTTP harness mocks Roblox and blocks external providers.
@@ -37,12 +40,17 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const catalogPage = await request('/roblox');
     assert.equal(catalogPage.status, 200); assert.ok((await catalogPage.text()).includes('Top-up Robux, diproses dengan teliti'));
     const methodPage = await request(`/roblox/${p.slug}?method=LOGIN`);
-    assert.equal(methodPage.status, 200); assert.ok((await methodPage.text()).includes('id="roblox-method-LOGIN"'));
+    assert.equal(methodPage.status, 200);
+    const loginPage = await methodPage.text();
+    assert.match(loginPage, /<h1\b[^>]*>Pilih nominal Robux<\/h1>/);
+    assert.ok(loginPage.includes('Pilih paket yang tersedia, isi informasi kontak, lalu periksa pesananmu.'));
     assert.equal((await request('/api/admin/fulfillment')).status, 401);
+    assert.equal((await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reveal' }) })).status, 401);
     assert.equal((await request(`/api/orders/${order.invoice}`, { headers: { 'x-order-token': 'wrong' } })).status, 404);
     const customer = await request(`/api/orders/${order.invoice}`, { headers: { 'x-order-token': order.accessToken } });
     assert.equal(customer.status, 200); assert.ok(customer.headers.get('cache-control').includes('no-store'));
-    const text = await customer.text(); assert.ok(!text.includes(secret.password)); assert.ok(!text.includes('ciphertext')); assert.ok(!text.includes(secret.note)); assert.ok(!text.includes(secret.backupCodes[0]));
+    const text = await customer.text(); assert.ok(!text.includes('ciphertext'));
+    for (const value of [secret.password, ...secret.backupCodes]) assert.ok(!text.includes(value));
     const login = await request('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: endpoint.origin }, body: JSON.stringify({ password: 'isolated-http-test-password' }) });
     assert.equal(login.status, 200);
     const cookie = login.headers.getSetCookie().find(c => c.startsWith('admin_session_token=')).split(';')[0];
@@ -138,10 +146,25 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const csrf = await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: { ...headers, Origin: 'https://evil.example' }, body: JSON.stringify({ action: 'claim' }) });
     assert.equal(csrf.status, 403);
     assert.equal((await action({ action: 'claim' })).status, 200);
-    const beforeReauth = await action({ action: 'reveal' }); assert.equal(beforeReauth.status, 410); assert.equal((await beforeReauth.json()).errorCode, 'CREDENTIAL_ACCESS_REMOVED');
+    const beforeReauth = await action({ action: 'reveal' }); assert.equal(beforeReauth.status, 403); assert.equal((await beforeReauth.json()).errorCode, 'REAUTH_REQUIRED');
     const reauth = await request('/api/admin/reauth', { method: 'POST', headers, body: JSON.stringify({ password: 'isolated-http-test-password' }) }); assert.equal(reauth.status, 200);
-    const reveal = await action({ action: 'reveal' }); assert.equal(reveal.status, 410); assert.ok(reveal.headers.get('cache-control').includes('no-store')); assert.equal((await reveal.json()).errorCode, 'CREDENTIAL_ACCESS_REMOVED');
-    const list = await request('/api/admin/fulfillment', { headers }); const listed = await list.text(); assert.ok(!listed.includes(secret.password)); assert.ok(!listed.includes('ciphertext')); assert.ok(!listed.includes(secret.note)); assert.ok(!listed.includes(secret.backupCodes[0]));
+    const reveal = await action({ action: 'reveal' }); assert.equal(reveal.status, 200); assert.ok(reveal.headers.get('cache-control').includes('no-store'));
+    const revealed = (await reveal.json()).data;
+    assert.equal(revealed.username, loginDetails.username); assert.ok(revealed.password === secret.password);
+    assert.ok(JSON.stringify(revealed.backupCodes) === JSON.stringify(secret.backupCodes));
+    assert.ok(Date.parse(revealed.displayUntil) <= Date.now() + 60_000);
+    assert.equal(await prisma.adminAudit.count({ where: { orderId: order.id, action: 'login-access-reveal' } }), 1);
+    const otherLogin = await request('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: endpoint.origin }, body: JSON.stringify({ password: 'isolated-http-test-password' }) });
+    assert.equal(otherLogin.status, 200);
+    const otherCookie = otherLogin.headers.getSetCookie().find(c => c.startsWith('admin_session_token=')).split(';')[0];
+    const otherHeaders = { ...headers, Cookie: otherCookie };
+    assert.equal((await request('/api/admin/reauth', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ password: 'isolated-http-test-password' }) })).status, 200);
+    const unowned = await request(`/api/admin/fulfillment/${order.id}`, { method: 'POST', headers: otherHeaders, body: JSON.stringify({ action: 'reveal' }) });
+    assert.equal(unowned.status, 404); assert.equal((await unowned.json()).errorCode, 'LOGIN_ACCESS_UNAVAILABLE');
+    assert.equal(await prisma.adminAudit.count({ where: { orderId: order.id, action: 'login-access-reveal' } }), 1);
+    await request('/api/admin/auth', { method: 'DELETE', headers: otherHeaders });
+    const list = await request('/api/admin/fulfillment', { headers }); const listed = await list.text(); assert.ok(!listed.includes('ciphertext'));
+    for (const value of [secret.password, ...secret.backupCodes]) assert.ok(!listed.includes(value));
     for (const q of [order.invoice, 'httptest', 'http@example.test']) {
       const response = await request('/api/admin/fulfillment?' + new URLSearchParams({ type: 'ROBLOX', method: 'LOGIN', payment: 'PAID', status: 'PROCESSING', q, limit: '1' }), { headers });
       assert.equal(response.status, 200); const body = await response.json();
@@ -153,11 +176,27 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     for (const query of ['method=INVALID', 'type=APPS&method=LOGIN', 'payment=INVALID', 'q=' + 'x'.repeat(121)]) assert.equal((await request('/api/admin/fulfillment?' + query, { headers })).status, 400);
     const mismatch = await request('/api/admin/fulfillment?method=GAMEPASS&q=' + order.invoice, { headers });
     assert.equal((await mismatch.json()).data.length, 0);
-    const unsafeCheckout = await request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { username: 'httptest', ...secret } }) });
-    assert.equal(unsafeCheckout.status, 400);
+    const unsafeCheckout = await request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ productId: p.id, variantId: p.variants[0].id, customerEmail: 'http@example.test', details: { ...loginDetails, otp: 'synthetic-denied' } }) });
+    assert.equal(unsafeCheckout.status, 400); assert.equal((await unsafeCheckout.json()).errorCode, 'INVALID_INPUT');
     assert.equal((await action({ action: 'complete', evidence: 'http-delivery-reference' })).status, 200);
-    assert.equal((await action({ action: 'reveal' })).status, 410);
+    const completedReveal = await action({ action: 'reveal' }); assert.equal(completedReveal.status, 404); assert.equal((await completedReveal.json()).errorCode, 'LOGIN_ACCESS_UNAVAILABLE');
     assert.equal(await prisma.orderSecret.count({ where: { orderId: order.id } }), 0);
+    const reviewPrefix = 'REVIEW-FIXTURE-' + crypto.randomUUID();
+    const reviewCases = [
+      ...['PENDING', 'EXPIRED', 'CANCELLED'].map(status => ({ status, refundStatus: 'NONE' })),
+      ...['NONE', 'REQUIRED', 'COMPLETED'].map(refundStatus => ({ status: 'PAID', refundStatus })),
+      { status: 'PAID', refundStatus: 'NONE', archivedAt: new Date() },
+      { status: 'PAID', refundStatus: 'NONE', removedFromAdminAt: new Date() },
+    ];
+    await prisma.order.createMany({ data: reviewCases.map((patch, index) => ({ productId: p.id, type: 'ROBLOX', invoice: reviewPrefix + '-' + index,
+      customerEmail: 'review@example.test', totalAmount: 2000, expiresAt: new Date(Date.now() + 60000), fulfillmentStatus: 'REQUIRES_REVIEW', ...patch })) });
+    const reviews = await request('/api/admin/fulfillment?' + new URLSearchParams({ q: reviewPrefix, limit: '20' }), { headers });
+    assert.equal(reviews.status, 200); const reviewBody = await reviews.json();
+    assert.equal(reviewBody.data.length, 6); assert.equal(reviewBody.monitoring.reviewCount, 2);
+    for (const payment of ['PENDING', 'EXPIRED', 'CANCELLED']) {
+      const response = await request('/api/admin/fulfillment?' + new URLSearchParams({ q: reviewPrefix, payment }), { headers });
+      assert.equal(response.status, 200); assert.equal((await response.json()).monitoring.reviewCount, 0);
+    }
     await request('/api/admin/auth', { method: 'DELETE', headers });
   } finally { restoreRoblox(); await prisma.$disconnect(); }
 });

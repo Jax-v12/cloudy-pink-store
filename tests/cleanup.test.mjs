@@ -232,6 +232,15 @@ test('actual fulfillment handler reviewCount excludes unpaid, archived and refun
     assert.equal((await GET(new Request(endpoint))).status, 401);
     const response = await GET(new Request(endpoint, { headers: { Authorization: 'Bearer ' + 'A'.repeat(43) } }));
     assert.equal(response.status, 200); assert.equal((await response.json()).monitoring.reviewCount, 2);
+    const heartbeat = db.workerHeartbeat.findUnique;
+    try {
+      db.workerHeartbeat.findUnique = async () => ({ succeededAt: new Date(Date.now() - 10 * 60_000) });
+      const recent = await GET(new Request(endpoint, { headers: { Authorization: 'Bearer ' + 'A'.repeat(43) } }));
+      assert.equal((await recent.json()).monitoring.overdue, false);
+      db.workerHeartbeat.findUnique = async () => ({ succeededAt: new Date(Date.now() - 16 * 60_000) });
+      const stale = await GET(new Request(endpoint, { headers: { Authorization: 'Bearer ' + 'A'.repeat(43) } }));
+      assert.equal((await stale.json()).monitoring.overdue, true);
+    } finally { db.workerHeartbeat.findUnique = heartbeat; }
     const unpaid = await GET(new Request(endpoint + '?payment=PENDING', { headers: { Authorization: 'Bearer ' + 'A'.repeat(43) } }));
     assert.equal((await unpaid.json()).monitoring.reviewCount, 0);
   } finally { hook.deregister(); }

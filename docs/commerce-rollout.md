@@ -1,5 +1,7 @@
 # Commerce rollout and operations
 
+Owner update, 17 October 2026: Preview and Production now target `cloudy_staging`; never access `defaultdb`. New Login account access lasts at most 72 hours from order creation, bounded by the stored expiry; old expiries are not renewed. The temporary scheduler is GitHub Actions every five minutes; the older one-minute hosting setup below is a future VPS/Vercel option. See [current release instructions](plans/roblox-login-release.md).
+
 ## Implemented boundaries
 
 - Apps retains IDR integer pricing and encrypted stock. Games and Roblox use variants and immutable order snapshots.
@@ -25,7 +27,7 @@ Configure an external scheduler to invoke both endpoints **every minute**, over 
 - `GET /api/cron/cleanup`: existing expired-payment reconciliation; only expired pending reservations can release stock.
 - `GET /api/cron/fulfillment`: processes up to ten game jobs and purges up to 100 expired credential records per invocation. It records a heartbeat only after a successful run. Scale the schedule/batch capacity if the retention backlog grows; credentials cannot be revealed after their expiry even before deletion runs.
 
-No in-process timer is required. The hosting scheduler itself is external configuration and is not provisioned by this repository. The admin workspace shows unfinished work, review counts, last successful run, and a warning after three minutes without a heartbeat. Alert on cron HTTP errors, overdue heartbeats, and growing review/retention queues.
+No in-process timer is required. The hosting scheduler itself is external configuration and is not provisioned by this repository. The admin workspace shows unfinished work, review counts, last successful run, and a warning after fifteen minutes without a heartbeat. Alert on cron HTTP errors, overdue heartbeats, and growing review/retention queues.
 
 ## Delivery and sensitive access
 
