@@ -35,6 +35,7 @@ function matches(row, where) {
   });
 }
 function rows(model) {
+  if (model === 'orderSecret') return store.secrets.map(s => ({ ...s, order: store.orders.find(o => o.id === s.orderId) }));
   if (model === 'checkoutSession') return store.sessions.map(s => ({ ...s, attempts: rows('checkoutAttempt').filter(a => a.sessionId === s.id) }));
   if (model === 'checkoutAttempt') return store.attempts.map(a => ({ ...a, order: store.orders.find(o => o.id === a.orderId) ?? null }));
   if (model === 'robloxOrderDetail') return store.details.map(d => ({ ...d, order: store.orders.find(o => o.id === d.orderId) }));
@@ -91,7 +92,7 @@ test.after(() => { delete globalThis.prisma; });
 test.beforeEach(() => { store = { orders: [], secrets: [], details: [], sessions: [], attempts: [], audits: [] }; beforeLock = null; failAudit = false; });
 const past = () => new Date(Date.now() - 60_000), future = () => new Date(Date.now() + 60_000);
 function order(status = 'PAID', fulfillmentStatus = 'PROCESSING') {
-  const row = { id: store.orders.length + 1, status, fulfillmentStatus, refundStatus: 'NONE', archivedAt: null, removedFromAdminAt: null,
+  const row = { id: store.orders.length + 1, createdAt: new Date(), status, fulfillmentStatus, refundStatus: 'NONE', archivedAt: null, removedFromAdminAt: null,
     type: 'ROBLOX', invoice: 'INV-SYNTHETIC', totalAmount: 1000, currency: 'IDR', pricingRegion: 'ID', paymentProvider: 'MIDTRANS', paymentReference: 'fixture-reference', expiresAt: past(), accountStockId: null };
   store.orders.push(row); return row;
 }
@@ -111,6 +112,31 @@ test('secret cleanup rechecks completion after waiting and rolls back audit fail
   row.fulfillmentStatus = 'PROCESSING'; store.secrets.push({ orderId: row.id, expiresAt: past() }); failAudit = true;
   await assert.rejects(purgeExpiredSecrets(), /AUDIT_UNAVAILABLE/);
   assert.equal(store.secrets.length, 1); assert.equal(store.orders[0].fulfillmentStatus, 'PROCESSING');
+});
+
+test('cron purges absolute 72-hour expiry even when stored expiry is later, with audit rollback', async () => {
+  const expired = order(); expired.createdAt = new Date(Date.now() - 72 * 3600_000 - 1000);
+  const active = order(); active.createdAt = new Date(Date.now() - 25 * 3600_000);
+  store.secrets.push({ orderId: expired.id, expiresAt: future() }, { orderId: active.id, expiresAt: future() });
+  failAudit = true;
+  await assert.rejects(purgeExpiredSecrets(), /AUDIT_UNAVAILABLE/);
+  assert.equal(store.secrets.length, 2); assert.equal(store.orders[0].fulfillmentStatus, 'PROCESSING');
+  failAudit = false;
+  assert.equal(await purgeExpiredSecrets(), 1);
+  assert.deepEqual(store.secrets.map(s => s.orderId), [active.id]);
+  assert.equal(store.orders[0].fulfillmentStatus, 'REQUIRES_REVIEW');
+  assert.equal(store.orders[1].fulfillmentStatus, 'PROCESSING');
+  assert.equal(store.audits[0].action, 'login-access-expired');
+  assert.equal(await purgeExpiredSecrets(), 0);
+  assert.equal(store.audits.length, 1);
+});
+
+test('renewing stored expiry while waiting cannot bypass the absolute retention limit', async () => {
+  const row = order(); row.createdAt = new Date(Date.now() - 72 * 3600_000 - 1000);
+  store.secrets.push({ orderId: row.id, expiresAt: past() });
+  beforeLock = () => { store.secrets[0].expiresAt = future(); };
+  assert.equal(await purgeExpiredSecrets(), 1);
+  assert.equal(store.secrets.length, 0);
 });
 test('renewed secrets and refunded/archived work are not moved into review', async () => {
   const row = order(); store.secrets.push({ orderId: row.id, expiresAt: past() });

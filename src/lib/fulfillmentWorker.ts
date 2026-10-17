@@ -1,14 +1,17 @@
 import crypto from 'node:crypto';
 import { prisma } from './prisma';
 import { getGameProvider, type ProviderResult } from './gameProvider';
+import { LOGIN_ACCESS_TTL_MS } from './loginCredentials';
 
 export async function purgeExpiredSecrets() {
   const now = new Date();
-  const rows = await prisma.orderSecret.findMany({ where: { expiresAt: { lte: now } }, select: { orderId: true }, take: 100, orderBy: { expiresAt: 'asc' } });
+  // Match reveal's earlier-of-stored-expiry-and-order-age limit, including clock drift.
+  const expired = { OR: [{ expiresAt: { lte: now } }, { order: { createdAt: { lte: new Date(now.getTime() - LOGIN_ACCESS_TTL_MS) } } }] };
+  const rows = await prisma.orderSecret.findMany({ where: expired, select: { orderId: true }, take: 100, orderBy: { expiresAt: 'asc' } });
   let purged = 0;
   for (const row of rows) purged += await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${row.orderId} FOR UPDATE`;
-    const removed = await tx.orderSecret.deleteMany({ where: { orderId: row.orderId, expiresAt: { lte: now } } });
+    const removed = await tx.orderSecret.deleteMany({ where: { orderId: row.orderId, ...expired } });
     if (removed.count) {
       await tx.order.updateMany({ where: { id: row.orderId, status: 'PAID', refundStatus: 'NONE', archivedAt: null, removedFromAdminAt: null,
         fulfillmentStatus: { in: ['QUEUED', 'PROCESSING', 'WAITING_CUSTOMER'] } }, data: { fulfillmentStatus: 'REQUIRES_REVIEW' } });

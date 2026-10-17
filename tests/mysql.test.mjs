@@ -268,6 +268,29 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       await applyPaymentStatus(order.id, paid(order));
       assert.equal((await prisma.order.findUnique({ where: { id: order.id } })).refundStatus, 'COMPLETED');
     });
+    await t.test('concurrent cleanup applies absolute Login retention without extending old expiry or deleting active access', async () => {
+      const created = [];
+      for (let i = 0; i < 3; i++) {
+        const { order } = await createCheckout(rb(), key());
+        await applyPaymentStatus(order.id, paid(order)); created.push(order);
+      }
+      const [absolute, legacy, active] = created;
+      await prisma.$transaction(async tx => {
+        await tx.order.update({ where: { id: absolute.id }, data: { createdAt: new Date(Date.now() - 73 * 3600_000) } });
+        await tx.order.update({ where: { id: legacy.id }, data: { createdAt: new Date(Date.now() - 25 * 3600_000) } });
+        await tx.order.update({ where: { id: active.id }, data: { createdAt: new Date(Date.now() - 25 * 3600_000) } });
+        await tx.orderSecret.update({ where: { orderId: legacy.id }, data: { expiresAt: new Date(Date.now() - 3600_000) } });
+      });
+      const originalActiveExpiry = (await prisma.orderSecret.findUnique({ where: { orderId: active.id } })).expiresAt;
+      await Promise.all([purgeExpiredSecrets(), purgeExpiredSecrets()]);
+      for (const row of [absolute, legacy]) {
+        assert.equal(await prisma.orderSecret.count({ where: { orderId: row.id } }), 0);
+        assert.equal((await prisma.order.findUnique({ where: { id: row.id } })).fulfillmentStatus, 'REQUIRES_REVIEW');
+        assert.equal(await prisma.adminAudit.count({ where: { orderId: row.id, action: 'login-access-expired' } }), 1);
+      }
+      assert.equal((await prisma.orderSecret.findUnique({ where: { orderId: active.id } })).expiresAt.getTime(), originalActiveExpiry.getTime());
+      assert.equal(await prisma.order.count({ where: { id: { in: created.map(row => row.id) } } }), 3);
+    });
     await t.test('worker resumes with status after a crash and ambiguous delivery requires review', async () => {
       for (const prefix of ['pending-', 'unknown-']) {
         const { order } = await createCheckout({ productId: game.id, variantId: game.variants[0].id, customerEmail: 'buyer@example.test', details: { userId: '123' } }, key());
