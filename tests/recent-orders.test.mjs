@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getRecentOrders, saveRecentOrder } from '../src/lib/recentOrders.ts';
+import { getRecentOrders, saveRecentOrder, clearRecentOrders } from '../src/lib/recentOrders.ts';
 
 describe('recentOrders', () => {
   let mockStorage = {};
@@ -10,45 +10,42 @@ describe('recentOrders', () => {
     global.window = {
       localStorage: {
         getItem: (key) => mockStorage[key] || null,
-        setItem: (key, val) => { mockStorage[key] = String(val); },
+        setItem: (key, val) => {
+          mockStorage[key] = String(val);
+        },
+        removeItem: (key) => {
+          delete mockStorage[key];
+        },
       },
     };
   });
 
-  it('saves and retrieves recent orders up to 5 items without duplicates', () => {
+  it('stores only { invoice, visitedAt } up to 5 items without duplicates and strips extra fields', () => {
     assert.deepEqual(getRecentOrders(), []);
 
     saveRecentOrder({
       invoice: 'INV-1',
-      productName: 'Netflix',
-      type: 'APPS',
-      status: 'PAID',
-      createdAt: '2026-10-18T10:00:00.000Z',
+      visitedAt: '2026-10-18T10:00:00.000Z',
     });
 
     saveRecentOrder({
       invoice: 'INV-2',
-      productName: 'Spotify',
-      type: 'APPS',
-      status: 'PAID',
-      createdAt: '2026-10-18T10:05:00.000Z',
+      visitedAt: '2026-10-18T10:05:00.000Z',
     });
 
-    let list = getRecentOrders();
+    let list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
     assert.equal(list.length, 2);
-    assert.equal(list[0].invoice, 'INV-2'); // newest first
+    assert.deepEqual(Object.keys(list[0]).sort(), ['invoice', 'visitedAt']);
+    assert.equal(list[0].invoice, 'INV-2');
     assert.equal(list[1].invoice, 'INV-1');
 
-    // Updating existing invoice should move it to top without duplicating
+    // Updating existing invoice moves it to top without duplicating
     saveRecentOrder({
       invoice: 'INV-1',
-      productName: 'Netflix',
-      type: 'APPS',
-      status: 'PAID',
-      createdAt: '2026-10-18T10:10:00.000Z',
+      visitedAt: '2026-10-18T10:09:00.000Z',
     });
 
-    list = getRecentOrders();
+    list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
     assert.equal(list.length, 2);
     assert.equal(list[0].invoice, 'INV-1');
     assert.equal(list[1].invoice, 'INV-2');
@@ -57,15 +54,31 @@ describe('recentOrders', () => {
     for (let i = 3; i <= 8; i++) {
       saveRecentOrder({
         invoice: `INV-${i}`,
-        productName: `App-${i}`,
-        type: 'APPS',
-        status: 'PAID',
-        createdAt: '2026-10-18T10:00:00.000Z',
+        visitedAt: '2026-10-18T10:09:30.000Z',
       });
     }
 
-    list = getRecentOrders();
+    list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
     assert.equal(list.length, 5);
     assert.equal(list[0].invoice, 'INV-8');
+  });
+
+  it('filters out entries older than 30 days, malformed entries, and supports clearRecentOrders', () => {
+    const nowMs = new Date('2026-10-18T12:00:00.000Z').getTime();
+    const expiredIso = new Date(nowMs - 31 * 24 * 60 * 60 * 1000).toISOString();
+    const freshIso = new Date(nowMs - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+    mockStorage['cloudy_recent_orders'] = JSON.stringify([
+      { invoice: 'INV-EXPIRED', visitedAt: expiredIso },
+      { invoice: 'bad space invoice', visitedAt: freshIso },
+      { invoice: 'INV-LEGACY-NO-VISITED', createdAt: freshIso, productName: 'Netflix' },
+      { invoice: 'INV-FRESH', visitedAt: freshIso, productName: 'ShouldBeStripped', status: 'PAID' },
+    ]);
+
+    const list = getRecentOrders(nowMs);
+    assert.deepEqual(list, [{ invoice: 'INV-FRESH', visitedAt: freshIso }]);
+
+    clearRecentOrders();
+    assert.deepEqual(getRecentOrders(nowMs), []);
   });
 });

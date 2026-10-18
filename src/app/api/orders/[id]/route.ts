@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           where: { OR: [{ action: OTP_REQUEST_ACTION }, { action: { startsWith: OTP_REPLY_PREFIX } }] },
           orderBy: { id: 'desc' },
           take: 5,
-          select: { action: true, createdAt: true },
+          select: { id: true, action: true, createdAt: true },
         },
       },
     });
@@ -39,7 +39,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       pin: stock.pin ? decryptLegacyField(stock.pin) : null,
       additionalInfo: stock.additionalInfo ? decryptLegacyField(stock.additionalInfo) : null,
     } : null;
-    const otp = order.type === 'APPS' && order.status === 'PAID' && stock
+    const otp = order.type === 'APPS' && order.status === 'PAID' && order.refundStatus === 'NONE' && stock
       ? resolveAppsOtpState(order.audits, true)
       : null;
     const qrisCode = order.status === 'PENDING' && order.qrisUrl?.startsWith('000201') && order.qrisUrl.length <= 3000 ? order.qrisUrl : null;
@@ -55,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
       variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
-      expiresAt: order.expiresAt, createdAt: order.createdAt.toISOString(), product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
+      expiresAt: order.expiresAt, createdAt: order.createdAt.toISOString(), paidAt: order.paidAt ? order.paidAt.toISOString() : null, product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
     } }, { headers: privateHeaders });
   } catch (error) {
     logFailure('Order retrieval failed', error);

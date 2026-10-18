@@ -1,43 +1,31 @@
 import { NextResponse } from 'next/server';
 import { adminAccess } from '@/lib/adminAccess';
-import { adminMutation, adminMutationError, requireCurrentSession } from '@/lib/adminMutation';
+import { adminMutationError, requireCurrentSession } from '@/lib/adminMutation';
 import { apiError } from '@/lib/apiError';
 import { CommerceError } from '@/lib/commerce';
 import { InputError, positiveInt, privateHeaders, readJson } from '@/lib/http';
-import { encodeOtpReplyAction, OTP_TTL_MS, validateOtpCode } from '@/lib/appsOtp';
+import { validateOtpCode } from '@/lib/appsOtp';
+import { isRejectedOtpReply, replyAppsOtp } from '@/lib/appsOtpServer';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const id = Number((await params).id);
     if (!positiveInt(id)) throw new InputError();
     const body = await readJson(req, 1024);
-    if (Object.keys(body).some(k => k !== 'code')) throw new InputError();
+    if (Object.keys(body).some(k => k !== 'code' && k !== 'requestId')) throw new InputError();
     const code = validateOtpCode(body.code);
-    if (!code) throw new InputError();
+    // Old admin pages without requestId must refresh; never bind a code to "the latest" request implicitly.
+    if (!code || !positiveInt(body.requestId)) throw new InputError();
 
     const session = await adminAccess(req, true);
-    const data = await adminMutation('apps-otp-reply', async tx => {
-      await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${id} FOR UPDATE`;
-      await requireCurrentSession(tx, session.id);
-      const order = await tx.order.findUnique({
-        where: { id },
-        select: { id: true, type: true, status: true, accountStockId: true, removedFromAdminAt: true },
-      });
-      if (!order || order.removedFromAdminAt || order.type !== 'APPS' || order.status !== 'PAID' || order.accountStockId === null) {
-        throw new CommerceError('ORDER_NOT_FOUND', 404);
-      }
-      const audit = await tx.adminAudit.create({
-        data: { orderId: order.id, sessionId: session.id, action: encodeOtpReplyAction(code) },
-      });
-      return {
-        status: 'DELIVERED' as const,
-        code: null,
-        updatedAt: audit.createdAt.toISOString(),
-        expiresAt: new Date(audit.createdAt.getTime() + OTP_TTL_MS).toISOString(),
-      };
+    const result = await replyAppsOtp({
+      orderId: id, requestId: body.requestId, code, sessionId: session.id,
+      beforeWrite: tx => requireCurrentSession(tx, session.id),
     });
+    if (result.outcome === 'REQUEST_NOT_FOUND' || result.outcome === 'ORDER_INELIGIBLE') throw new CommerceError('ORDER_NOT_FOUND', 404);
+    if (isRejectedOtpReply(result.outcome)) throw new CommerceError(`OTP_${result.outcome}`, 409);
 
-    return NextResponse.json({ success: true, data }, { headers: privateHeaders });
+    return NextResponse.json({ success: true, data: { ...result.state, code: null }, outcome: result.outcome }, { headers: privateHeaders });
   } catch (e) {
     return apiError(adminMutationError(e));
   }

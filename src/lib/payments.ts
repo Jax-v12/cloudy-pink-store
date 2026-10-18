@@ -19,7 +19,7 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     if (order.status !== 'PENDING') {
       // A paid notification for a released reservation requires reconciliation.
       if (state === 'paid') {
-        await tx.order.update({ where: { id }, data: { status: 'PAID', fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED' } });
+        await tx.order.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED' } });
         return { action: 'review' as const, order };
       }
       return { action: 'unchanged' as const, order };
@@ -30,7 +30,7 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     const target = state === 'paid' ? 'PAID' : status?.cancelled ? 'CANCELLED' : 'EXPIRED';
     const updated = await tx.order.updateMany({
       where: { id, status: 'PENDING', accountStockId: order.accountStockId, ...(expiresBefore ? { expiresAt: { lt: expiresBefore } } : {}) },
-      data: { status: target, fulfillmentStatus: state === 'paid' ? (order.type === 'APPS' ? 'COMPLETED' : 'QUEUED') : 'NOT_READY', ...(state === 'failed' ? { accountStockId: null } : {}) },
+      data: { status: target, ...(state === 'paid' ? { paidAt: new Date() } : {}), fulfillmentStatus: state === 'paid' ? (order.type === 'APPS' ? 'COMPLETED' : 'QUEUED') : 'NOT_READY', ...(state === 'failed' ? { accountStockId: null } : {}) },
     });
     if (!updated.count) {
       // A concurrent expiry may have released the reservation after our read.

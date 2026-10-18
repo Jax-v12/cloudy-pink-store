@@ -75,6 +75,8 @@ model Order {
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+  // Set once when a verified payment settles the order; null for orders paid before this column.
+  paidAt             DateTime?
   type               ProductType        @default(APPS)
   currency           String             @default("IDR")
   pricingRegion      String             @default("ID") @db.VarChar(2)
@@ -308,6 +310,17 @@ model AdminAudit {
   createdAt DateTime @default(now())
 
   @@index([orderId, id])
+}
+
+// Telegram webhook update ids already handled. Metadata only: never message text or codes.
+model TelegramUpdateReceipt {
+  updateId  BigInt   @id
+  orderId   Int?
+  requestId Int?
+  outcome   String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model WorkerHeartbeat {

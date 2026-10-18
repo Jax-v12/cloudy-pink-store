@@ -29,6 +29,7 @@ interface OrderDetail {
   qrisCode: string | null;
   expiresAt: string;
   createdAt?: string;
+  paidAt?: string | null;
   product: {
     name: string;
   };
@@ -59,10 +60,26 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (order?.status !== 'PENDING' || !order.expiresAt) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [order?.status, order?.expiresAt]);
+    if (!order) return;
+    if (order.status === 'PENDING' && order.expiresAt) {
+      const interval = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(interval);
+    }
+    if (order.status === 'PAID') {
+      const syncNow = () => setNow(Date.now());
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') syncNow();
+      };
+      const interval = setInterval(syncNow, 30_000);
+      window.addEventListener('focus', syncNow);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('focus', syncNow);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      };
+    }
+  }, [order]);
   
   useEffect(() => {
     let cancelled = false;
@@ -86,13 +103,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers, signal: controller.signal }).catch(() => {});
         }
         setOrder(json.data);
-        saveRecentOrder({
-          invoice: json.data.invoice,
-          productName: json.data.product?.name ?? 'Premium',
-          type: json.data.type,
-          status: json.data.status,
-          createdAt: json.data.createdAt ?? new Date().toISOString(),
-        });
+        saveRecentOrder({ invoice: json.data.invoice });
         setError('');
         poll = json.data.status === 'PENDING' ||
           (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED') ||
@@ -227,9 +238,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const wibHours = (nowUtc.getUTCHours() + 7) % 24;
   const isOperational = wibHours >= 8 && wibHours < 21;
 
-  const orderCreatedAt = order?.createdAt ? new Date(order.createdAt).getTime() : now;
-  const warrantyExpiry = orderCreatedAt + 25 * 24 * 60 * 60 * 1000;
-  const warrantyDaysRemaining = Math.max(0, Math.ceil((warrantyExpiry - now) / (24 * 60 * 60 * 1000)));
+  const paidAtMs = order.paidAt ? Date.parse(order.paidAt) : NaN;
+  const hasValidPaidAt = Number.isFinite(paidAtMs);
+  const warrantyExpiryMs = hasValidPaidAt ? paidAtMs + 25 * 24 * 60 * 60 * 1000 : NaN;
+  const isWarrantyActive = hasValidPaidAt && now < warrantyExpiryMs;
+  const warrantyDaysRemaining = isWarrantyActive
+    ? Math.max(1, Math.ceil((warrantyExpiryMs - now) / (24 * 60 * 60 * 1000)))
+    : 0;
+
+  const otpExpiresAtMs = order.otp?.expiresAt ? Date.parse(order.otp.expiresAt) : NaN;
+  const effectiveOtp =
+    order.otp && (!Number.isFinite(otpExpiresAtMs) || now < otpExpiresAtMs)
+      ? order.otp
+      : null;
 
   return (
     <main
@@ -447,11 +468,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   </div>
                 </div>
 
-                {order.otp?.status === 'DELIVERED' && order.otp.code && (
+                {effectiveOtp?.status === 'DELIVERED' && effectiveOtp.code && (
                   <div className="bg-white border-2 border-emerald-300 rounded-xl p-3 flex items-center justify-between gap-3">
                     <div>
                       <span className="text-[10px] font-bold text-emerald-700 block">{t.otpDeliveredLabel}</span>
-                      <span className="text-base font-mono font-black tracking-widest text-neutral-900">{order.otp.code}</span>
+                      <span className="text-base font-mono font-black tracking-widest text-neutral-900">{effectiveOtp.code}</span>
                     </div>
                     <button
                       type="button"
@@ -463,7 +484,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   </div>
                 )}
 
-                {order.otp?.status === 'REQUESTED' && (
+                {effectiveOtp?.status === 'REQUESTED' && (
                   <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded-xl p-3 text-xs font-medium animate-pulse">
                     ⏳ {t.otpWaitingNotice}
                   </div>
@@ -476,13 +497,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <div className="grid sm:grid-cols-2 gap-2">
                   <button
                     type="button"
-                    disabled={requestingOtp || order.otp?.status === 'REQUESTED'}
+                    disabled={requestingOtp || effectiveOtp?.status === 'REQUESTED'}
                     onClick={handleRequestOtp}
                     className="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {requestingOtp
                       ? t.btnProcessing
-                      : order.otp?.status === 'DELIVERED'
+                      : effectiveOtp?.status === 'DELIVERED'
                       ? t.btnRequestOtpAgain
                       : t.btnRequestOtp}
                   </button>
@@ -497,21 +518,50 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 </div>
               </div>
 
-              {/* Garansi 25 Hari */}
-              <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">🛡️</span>
-                    <h4 className="text-xs font-black text-emerald-800">{t.warrantyBadgeTitle}</h4>
+              {/* Garansi 25 Hari berdasarkan paidAt */}
+              {hasValidPaidAt ? (
+                isWarrantyActive ? (
+                  <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm" aria-hidden="true">🛡️</span>
+                        <h4 className="text-xs font-black text-emerald-800">{t.warrantyBadgeTitle}</h4>
+                      </div>
+                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                        {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
+                      </p>
+                    </div>
+                    <span className="bg-emerald-600 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
+                      {t.warrantyDurationLabel}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
-                    {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
+                ) : (
+                  <div className="bg-neutral-100 border-2 border-neutral-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm" aria-hidden="true">🛡️</span>
+                        <h4 className="text-xs font-black text-neutral-700">{t.warrantyExpiredTitle}</h4>
+                      </div>
+                      <p className="text-[11px] text-neutral-600 mt-0.5">
+                        {t.warrantyExpiredBody}
+                      </p>
+                    </div>
+                    <span className="bg-neutral-500 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
+                      {t.warrantyExpiredBadge}
+                    </span>
+                  </div>
+                )
+              ) : (
+                <div className="bg-sky-50/90 border-2 border-sky-200 rounded-2xl p-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm" aria-hidden="true">🛡️</span>
+                    <h4 className="text-xs font-black text-sky-900">{t.warrantyInfoTitle}</h4>
+                  </div>
+                  <p className="text-[11px] text-sky-800 mt-0.5">
+                    {t.warrantyInfoBody}
                   </p>
                 </div>
-                <span className="bg-emerald-600 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
-                  25 Hari
-                </span>
-              </div>
+              )}
 
               {/* FAQ / Panduan Login Accordion */}
               <div className="bg-white/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3">

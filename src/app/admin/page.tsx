@@ -20,6 +20,9 @@ function playAdminChime() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
     osc.connect(gain);
     gain.connect(ctx.destination);
+    osc.onended = () => {
+      void ctx.close().catch(() => {});
+    };
     osc.start();
     osc.stop(ctx.currentTime + 0.4);
   } catch {
@@ -73,6 +76,7 @@ interface OrderItem {
   };
   otp?: {
     status: 'IDLE' | 'REQUESTED' | 'DELIVERED';
+    requestId: number | null;
   } | null;
 }
 
@@ -133,17 +137,33 @@ export default function AdminPage() {
   const [ordersError, setOrdersError] = useState('');
   const [otpInputs, setOtpInputs] = useState<Record<number, string>>({});
   const [otpSendingId, setOtpSendingId] = useState<number | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('cloudy_admin_sound');
-    return saved !== null ? saved === 'true' : true;
-  });
-  const prevOrdersRef = useRef<OrderItem[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const seenOrderIdsRef = useRef<Set<number>>(new Set());
+  const seenOtpRequestIdsRef = useRef<Set<number>>(new Set());
+  const initialOrdersLoadedRef = useRef(false);
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => {
+      try {
+        const saved = localStorage.getItem('cloudy_admin_sound');
+        if (saved !== null) {
+          setSoundEnabled(saved === 'true');
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
 
   const toggleSound = () => {
     setSoundEnabled(prev => {
       const next = !prev;
-      localStorage.setItem('cloudy_admin_sound', String(next));
+      try {
+        localStorage.setItem('cloudy_admin_sound', String(next));
+      } catch {
+        // Ignore storage errors
+      }
       if (next) playAdminChime();
       return next;
     });
@@ -195,19 +215,43 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
       if (Array.isArray(json.data)) {
-        if (!cursor && prevOrdersRef.current.length > 0) {
-          const hasNewRequestedOtp = json.data.some(
-            (o: OrderItem) => o.otp?.status === 'REQUESTED' && !prevOrdersRef.current.some(p => p.id === o.id && p.otp?.status === 'REQUESTED')
-          );
-          const hasNewOrder = json.data.length > prevOrdersRef.current.length;
-          if ((hasNewRequestedOtp || hasNewOrder) && (localStorage.getItem('cloudy_admin_sound') !== 'false')) {
-            playAdminChime();
+        const incoming: OrderItem[] = json.data;
+        if (!cursor) {
+          let hasNewOrder = false;
+          let hasNewRequestedOtp = false;
+          for (const row of incoming) {
+            if (!seenOrderIdsRef.current.has(row.id)) {
+              hasNewOrder = true;
+              seenOrderIdsRef.current.add(row.id);
+            }
+            if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
+              if (!seenOtpRequestIdsRef.current.has(row.otp.requestId)) {
+                hasNewRequestedOtp = true;
+                seenOtpRequestIdsRef.current.add(row.otp.requestId);
+              }
+            }
+          }
+          if (initialOrdersLoadedRef.current && (hasNewOrder || hasNewRequestedOtp)) {
+            let soundAllowed = true;
+            try {
+              soundAllowed = localStorage.getItem('cloudy_admin_sound') !== 'false';
+            } catch {
+              soundAllowed = true;
+            }
+            if (soundAllowed) {
+              playAdminChime();
+            }
+          }
+          initialOrdersLoadedRef.current = true;
+        } else {
+          for (const row of incoming) {
+            seenOrderIdsRef.current.add(row.id);
+            if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
+              seenOtpRequestIdsRef.current.add(row.otp.requestId);
+            }
           }
         }
-        if (!cursor) {
-          prevOrdersRef.current = json.data;
-        }
-        setOrders(previous => cursor ? [...previous, ...json.data] : json.data);
+        setOrders(previous => cursor ? [...previous, ...incoming] : incoming);
         setOrderCursor(json.pagination.nextCursor);
         setOrdersError('');
       }
@@ -226,23 +270,29 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, [isAuthenticated, loadOrders]);
 
-  const handleSendOtp = async (orderId: number) => {
+  const handleSendOtp = async (order: OrderItem) => {
+    const orderId = order.id;
     const code = (otpInputs[orderId] || '').trim();
-    if (!code || otpSendingId !== null) return;
+    const requestId = order.otp?.status === 'REQUESTED' ? order.otp.requestId : null;
+    if (!code || !requestId || otpSendingId !== null) return;
     setOtpSendingId(orderId);
     setOrdersError('');
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, requestId }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
+        if (res.status === 409) {
+          void loadOrders();
+          throw new Error('OTP_REFRESH_REQUIRED');
+        }
         throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
       }
       setOtpInputs(prev => ({ ...prev, [orderId]: '' }));
-      setOrders(prev => prev.map(row => row.id === orderId ? { ...row, otp: { status: 'DELIVERED' } } : row));
+      setOrders(prev => prev.map(row => row.id === orderId ? { ...row, otp: { status: 'DELIVERED', requestId } } : row));
     } catch (err: unknown) {
       setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
     } finally {
@@ -1237,37 +1287,39 @@ export default function AdminPage() {
                             >
                               {order.status}
                             </span>
-                            {(order.type === 'APPS' || !order.type) && order.status === 'PAID' && (
+                            {order.otp && order.status === 'PAID' && (
                               <div className="flex flex-col items-center gap-1 pt-1">
-                                {order.otp?.status === 'REQUESTED' && (
+                                {order.otp.status === 'REQUESTED' && (
                                   <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                                    ⏳ {t.adminOtpRequested}
+                                    ⏳ {t.adminOtpRequested}{order.otp.requestId ? ` #${order.otp.requestId}` : ''}
                                   </span>
                                 )}
-                                {order.otp?.status === 'DELIVERED' && (
+                                {order.otp.status === 'DELIVERED' && (
                                   <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     ✓ {t.adminOtpDelivered}
                                   </span>
                                 )}
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    maxLength={24}
-                                    aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
-                                    placeholder={t.adminOtpPlaceholder}
-                                    value={otpInputs[order.id] || ''}
-                                    onChange={(e) => setOtpInputs(prev => ({ ...prev, [order.id]: e.target.value }))}
-                                    className="w-28 bg-white border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-mono text-neutral-800 focus:outline-none focus:border-pink-500"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={otpSendingId === order.id || !(otpInputs[order.id] || '').trim()}
-                                    onClick={() => handleSendOtp(order.id)}
-                                    className="px-2 py-1 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition active:scale-95 cursor-pointer"
-                                  >
-                                    {t.adminBtnSendOtp}
-                                  </button>
-                                </div>
+                                {order.otp.status === 'REQUESTED' && order.otp.requestId !== null && (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      maxLength={24}
+                                      aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
+                                      placeholder={t.adminOtpPlaceholder}
+                                      value={otpInputs[order.id] || ''}
+                                      onChange={(e) => setOtpInputs(prev => ({ ...prev, [order.id]: e.target.value }))}
+                                      className="w-28 bg-white border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-mono text-neutral-800 focus:outline-none focus:border-pink-500"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={otpSendingId === order.id || !(otpInputs[order.id] || '').trim()}
+                                      onClick={() => handleSendOtp(order)}
+                                      className="px-2 py-1 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition active:scale-95 cursor-pointer"
+                                    >
+                                      {t.adminBtnSendOtp}
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -1281,7 +1333,15 @@ export default function AdminPage() {
           )}
         </div>
 
-        {ordersError && <p role="alert" className="text-rose-700 bg-white p-3">{ordersError === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : t.regional.adminLoadError}</p>}
+        {ordersError && (
+          <p role="alert" className="text-rose-700 bg-white p-3">
+            {ordersError === 'UNAUTHORIZED'
+              ? t.regional.adminSessionExpired
+              : ordersError === 'OTP_REFRESH_REQUIRED'
+              ? t.adminOtpRefreshRequired
+              : t.regional.adminLoadError}
+          </p>
+        )}
         {pageError && <p role="alert" className="text-rose-700 bg-white p-3">{t.errSystem}</p>}
         {/* Card Tabel Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">

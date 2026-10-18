@@ -2,16 +2,83 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
-
-import { useState } from 'react';
-import { getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { clearRecentOrders, getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
 
 export default function StoreShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const { t, language, setLanguage } = useLanguage();
   const c = t.commerce;
   const pathname = usePathname() ?? '';
-  const [recentOrders, setRecentOrders] = useState<RecentOrderItem[]>(() => getRecentOrders());
+  // Initialize as empty array so SSR and initial client hydration render identical markup.
+  const [recentOrders, setRecentOrders] = useState<RecentOrderItem[]>([]);
   const [showRecentModal, setShowRecentModal] = useState(false);
+  const triggerBtnRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const sync = () => setRecentOrders(getRecentOrders());
+    const frame = window.requestAnimationFrame(sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('storage', sync);
+    };
+  }, [pathname]);
+
+  const closeRecentModal = useCallback(() => {
+    setShowRecentModal(false);
+    triggerBtnRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!showRecentModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusFrame = window.requestAnimationFrame(() => {
+      closeBtnRef.current?.focus();
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRecentModal();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const container = dialogRef.current;
+      if (!container) return;
+      const focusables = [
+        ...container.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter(el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden');
+
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !container.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !container.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showRecentModal, closeRecentModal]);
 
   const links = [['/apps', c.APPS], ['/games', c.GAME], ['/roblox', c.ROBLOX]] as const;
   return <main
@@ -36,7 +103,10 @@ export default function StoreShell({ children, wide = false }: { children: React
           </nav>
           <div className="flex items-center gap-2">
             <button
+              ref={triggerBtnRef}
               type="button"
+              aria-haspopup="dialog"
+              aria-expanded={showRecentModal}
               onClick={() => {
                 setRecentOrders(getRecentOrders());
                 setShowRecentModal(true);
@@ -44,7 +114,7 @@ export default function StoreShell({ children, wide = false }: { children: React
               className="inline-flex items-center gap-1.5 rounded-2xl border-2 border-pink-300 bg-white/95 backdrop-blur-sm px-3 py-1.5 text-xs font-bold shadow-md text-pink-700 hover:bg-pink-100 hover:text-pink-800 transition-all active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-500"
               title={t.recentOrdersBtn}
             >
-              <span>📋</span>
+              <span aria-hidden="true">📋</span>
               <span className="hidden sm:inline">{t.recentOrdersBtn}</span>
               {recentOrders.length > 0 && (
                 <span className="bg-pink-500 text-white rounded-full px-1.5 py-0.2 text-[10px] font-black leading-tight">
@@ -92,21 +162,23 @@ export default function StoreShell({ children, wide = false }: { children: React
         aria-modal="true"
         aria-labelledby="recent-orders-heading"
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pink-950/60 backdrop-blur-sm animate-in fade-in duration-150"
-        onClick={() => setShowRecentModal(false)}
+        onClick={closeRecentModal}
       >
         <div
+          ref={dialogRef}
           className="bg-white rounded-3xl border-4 border-pink-300 p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b-2 border-pink-100 pb-3">
             <h3 id="recent-orders-heading" className="text-base font-black text-pink-800 flex items-center gap-2">
-              <span>📋</span> {t.recentOrdersTitle}
+              <span aria-hidden="true">📋</span> {t.recentOrdersTitle}
             </h3>
             <button
+              ref={closeBtnRef}
               type="button"
-              onClick={() => setShowRecentModal(false)}
-              className="text-neutral-400 hover:text-pink-600 font-bold text-lg p-1 transition cursor-pointer"
-              aria-label="Tutup"
+              onClick={closeRecentModal}
+              className="text-neutral-500 hover:text-pink-600 font-bold text-lg p-1.5 rounded-xl transition cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-500"
+              aria-label={t.recentOrdersClose}
             >
               ✕
             </button>
@@ -115,31 +187,43 @@ export default function StoreShell({ children, wide = false }: { children: React
           {recentOrders.length === 0 ? (
             <p className="text-center text-xs text-neutral-500 py-6">{t.recentOrdersEmpty}</p>
           ) : (
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-              {recentOrders.map(item => (
-                <Link
-                  key={item.invoice}
-                  href={`/order/${encodeURIComponent(item.invoice)}`}
-                  onClick={() => setShowRecentModal(false)}
-                  className="flex items-center justify-between p-3 rounded-2xl border-2 border-pink-100 hover:border-pink-300 hover:bg-pink-50/60 transition group cursor-pointer"
-                >
-                  <div className="pr-2 min-w-0">
-                    <p className="text-xs font-black text-neutral-800 group-hover:text-pink-700 truncate">{item.productName}</p>
-                    <p className="text-[10px] font-mono text-neutral-400 truncate">{item.invoice}</p>
-                  </div>
-                  <div className="text-right flex flex-col items-end gap-1 shrink-0">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                      item.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {item.status}
-                    </span>
-                    <span className="text-[10px] text-pink-600 font-bold group-hover:underline">
+            <>
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {recentOrders.map(item => (
+                  <Link
+                    key={item.invoice}
+                    href={`/order/${encodeURIComponent(item.invoice)}`}
+                    onClick={closeRecentModal}
+                    className="flex items-center justify-between p-3 rounded-2xl border-2 border-pink-100 hover:border-pink-300 hover:bg-pink-50/60 transition group cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-500"
+                  >
+                    <div className="pr-2 min-w-0">
+                      <p className="text-xs font-mono font-black text-neutral-800 group-hover:text-pink-700 truncate">
+                        {item.invoice}
+                      </p>
+                      <p className="text-[10px] text-neutral-500 truncate">
+                        {t.recentOrdersVisitedAt} {new Date(item.visitedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-pink-700 font-bold group-hover:underline shrink-0">
                       {t.recentOrdersView} &rarr;
                     </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-pink-100 space-y-2">
+                <p className="text-[11px] text-neutral-500 leading-relaxed">{t.recentOrdersNotice}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearRecentOrders();
+                    setRecentOrders([]);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl border border-pink-200 text-xs font-bold text-pink-700 hover:bg-pink-50 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-500"
+                >
+                  {t.recentOrdersClearBtn}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

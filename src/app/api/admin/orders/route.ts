@@ -14,18 +14,21 @@ export async function GET(req: Request) {
       take: limit + 1, where: { removedFromAdminAt: null, ...(cursor ? { id: { lt: cursor } } : {}) }, orderBy: { id: 'desc' },
       select: {
         id: true, invoice: true, customerEmail: true, totalAmount: true, currency: true, pricingRegion: true,
-        paymentMethod: true, status: true, type: true, createdAt: true, product: { select: { name: true } },
+        paymentMethod: true, status: true, type: true, accountStockId: true, refundStatus: true, createdAt: true, product: { select: { name: true } },
         audits: {
           where: { OR: [{ action: OTP_REQUEST_ACTION }, { action: { startsWith: OTP_REPLY_PREFIX } }] },
           orderBy: { id: 'desc' },
           take: 5,
-          select: { action: true, createdAt: true },
+          select: { id: true, action: true, createdAt: true },
         },
       },
     });
-    const mapped = rows.map(({ audits, ...row }) => ({
+    const mapped = rows.map(({ audits, accountStockId, refundStatus, ...row }) => ({
       ...row,
-      otp: row.type === 'APPS' && row.status === 'PAID' ? resolveAppsOtpState(audits, false) : null,
+      otp:
+        row.type === 'APPS' && row.status === 'PAID' && accountStockId !== null && refundStatus === 'NONE'
+          ? resolveAppsOtpState(audits, false)
+          : null,
     }));
     return NextResponse.json({ success: true, ...pageResult(mapped, limit) }, { headers: privateHeaders });
   } catch (error) {
