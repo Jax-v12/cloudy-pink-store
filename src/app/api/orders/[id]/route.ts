@@ -5,6 +5,7 @@ import { logFailure, privateHeaders } from '@/lib/http';
 import QRCode from 'qrcode';
 import { isValidOrderQrUrl } from '@/lib/midtrans';
 import { invoiceAccessWhere } from '@/lib/invoiceAccess';
+import { OTP_REPLY_PREFIX, OTP_REQUEST_ACTION, resolveAppsOtpState } from '@/lib/appsOtp';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,7 +17,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Authorize in the query, before reading the associated credentials.
     const order = await prisma.order.findFirst({
       where,
-      include: { product: { select: { name: true } }, accountStock: true, robloxDetail: { select: { method: true, username: true, gamepassPrice: true } }, gameDetail: { select: { userId: true, zoneId: true } } },
+      include: {
+        product: { select: { name: true } },
+        accountStock: true,
+        robloxDetail: { select: { method: true, username: true, gamepassPrice: true } },
+        gameDetail: { select: { userId: true, zoneId: true } },
+        audits: {
+          where: { OR: [{ action: OTP_REQUEST_ACTION }, { action: { startsWith: OTP_REPLY_PREFIX } }] },
+          orderBy: { id: 'desc' },
+          take: 5,
+          select: { action: true, createdAt: true },
+        },
+      },
     });
     if (!order) return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
     const stock = order.status === 'PAID' ? order.accountStock : null;
@@ -27,6 +39,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       pin: stock.pin ? decryptLegacyField(stock.pin) : null,
       additionalInfo: stock.additionalInfo ? decryptLegacyField(stock.additionalInfo) : null,
     } : null;
+    const otp = order.type === 'APPS' && order.status === 'PAID' && stock
+      ? resolveAppsOtpState(order.audits, true)
+      : null;
     const qrisCode = order.status === 'PENDING' && order.qrisUrl?.startsWith('000201') && order.qrisUrl.length <= 3000 ? order.qrisUrl : null;
     // Remote QR display uses the same environment-pinned policy as the
     // download proxy: a sandbox QR stays hidden once the store runs in
@@ -40,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
       variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
-      expiresAt: order.expiresAt, product: { name: order.productName || order.product.name }, account, isAuthorized: true,
+      expiresAt: order.expiresAt, product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
     } }, { headers: privateHeaders });
   } catch (error) {
     logFailure('Order retrieval failed', error);

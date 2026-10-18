@@ -8,6 +8,7 @@ import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice, formatQrCountdown, showFulfillmentDetails } from '@/lib/orderNotice';
 import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl } from '@/lib/qrisDownload';
+import { buildAppsOtpWhatsappUrl, type AppsOtpState } from '@/lib/appsOtp';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
@@ -36,6 +37,7 @@ interface OrderDetail {
     pin: string | null;
     additionalInfo: string | null;
   } | null;
+  otp?: AppsOtpState | null;
   isAuthorized: boolean;
 }
 
@@ -47,6 +49,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedAccount, setCopiedAccount] = useState(false);
+  const [copiedOtp, setCopiedOtp] = useState(false);
+  const [requestingOtp, setRequestingOtp] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [now, setNow] = useState(() => Date.now());
@@ -80,7 +85,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         }
         setOrder(json.data);
         setError('');
-        poll = json.data.status === 'PENDING' || (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED');
+        poll = json.data.status === 'PENDING' ||
+          (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED') ||
+          json.data.otp?.status === 'REQUESTED';
       } catch (error) {
         if (!cancelled) setError(error instanceof Error && error.message === 'ORDER_NOT_FOUND' ? 'ORDER_NOT_FOUND' : 'SYSTEM_ERROR');
       } finally {
@@ -92,7 +99,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     }
     void loadOrder();
     return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
-  }, [id]);
+  }, [id, order?.otp?.status]);
 
   const formatRupiah = (amount: number) => formatMoney(amount, order?.currency ?? 'IDR', language);
 
@@ -106,6 +113,35 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     navigator.clipboard.writeText(text);
     setCopiedAccount(true);
     setTimeout(() => setCopiedAccount(false), 2000);
+  };
+
+  const handleRequestOtp = async () => {
+    if (!order || requestingOtp) return;
+    setRequestingOtp(true);
+    setOtpError('');
+    try {
+      const token = localStorage.getItem(`token_${id}`);
+      const res = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/otp`, {
+        method: 'POST',
+        headers: token ? { 'x-order-token': token } : {},
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.errorCode === 'RATE_LIMIT_EXCEEDED' ? t.rateLimited : t.errSystem);
+      }
+      setOrder(prev => prev ? { ...prev, otp: json.data } : prev);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : t.errSystem);
+    } finally {
+      setRequestingOtp(false);
+    }
+  };
+
+  const handleCopyOtp = () => {
+    if (!order?.otp?.code) return;
+    navigator.clipboard.writeText(order.otp.code);
+    setCopiedOtp(true);
+    setTimeout(() => setCopiedOtp(false), 2000);
   };
 
   const downloadQrisImage = async () => {
@@ -382,6 +418,62 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 >
                   {copiedAccount ? t.accountCopied : t.btnCopyAccount}
                 </button>
+              </div>
+
+              <div className="bg-pink-50/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3" aria-live="polite">
+                <div>
+                  <h4 className="text-xs font-black text-pink-800">{t.otpHelpTitle}</h4>
+                  <p className="text-[11px] text-neutral-600 mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
+                </div>
+
+                {order.otp?.status === 'DELIVERED' && order.otp.code && (
+                  <div className="bg-white border-2 border-emerald-300 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-emerald-700 block">{t.otpDeliveredLabel}</span>
+                      <span className="text-base font-mono font-black tracking-widest text-neutral-900">{order.otp.code}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyOtp}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer"
+                    >
+                      {copiedOtp ? t.copiedNotice : t.btnCopyOtp}
+                    </button>
+                  </div>
+                )}
+
+                {order.otp?.status === 'REQUESTED' && (
+                  <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded-xl p-3 text-xs font-medium animate-pulse">
+                    ⏳ {t.otpWaitingNotice}
+                  </div>
+                )}
+
+                {otpError && (
+                  <p role="alert" className="text-xs font-bold text-rose-600">{otpError}</p>
+                )}
+
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={requestingOtp || order.otp?.status === 'REQUESTED'}
+                    onClick={handleRequestOtp}
+                    className="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {requestingOtp
+                      ? t.btnProcessing
+                      : order.otp?.status === 'DELIVERED'
+                      ? t.btnRequestOtpAgain
+                      : t.btnRequestOtp}
+                  </button>
+                  <a
+                    href={buildAppsOtpWhatsappUrl('6287867395872', order.invoice, order.product.name, order.account.profileName, t.otpWhatsappTemplate)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 text-center flex items-center justify-center"
+                  >
+                    💬 {t.btnOtpWhatsapp}
+                  </a>
+                </div>
               </div>
             </div>
           )}
