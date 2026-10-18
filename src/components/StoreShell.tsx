@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentOrders, getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
+import ServiceHelpLinks from './ServiceHelpLinks';
 
 export default function StoreShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const { t, language, setLanguage } = useLanguage();
@@ -143,6 +144,9 @@ export default function StoreShell({ children, wide = false }: { children: React
         )}
       </header>
       {children}
+      {!pathname.startsWith('/admin') && <footer className="mt-8 rounded-2xl border border-pink-200 bg-white px-5 py-5">
+        <ServiceHelpLinks />
+      </footer>}
     </div>
 
     {/* Tombol Hubungi Kami (Kecuali Admin) */}

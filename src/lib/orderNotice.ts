@@ -7,6 +7,29 @@ type InvoiceState = {
   qrisUrl: string | null;
 };
 
+/** Display only server-reported milestones; payment alone never completes a top-up. */
+export function orderProgress(order: Pick<InvoiceState, 'type' | 'status' | 'fulfillmentStatus' | 'refundStatus' | 'account'>): {
+  stage: 'payment' | 'queued' | 'processing' | 'completed' | null;
+  message: 'pending' | 'queued' | 'processing' | 'completed' | 'waitingCustomer' | 'review' | 'preparing' | 'accountReady' | 'expired' | 'cancelled' | 'refundRequired' | 'refundCompleted';
+} {
+  if (order.refundStatus === 'COMPLETED') return { stage: null, message: 'refundCompleted' };
+  if (order.refundStatus === 'REQUIRED') return { stage: null, message: 'refundRequired' };
+  if (order.status === 'EXPIRED') return { stage: null, message: 'expired' };
+  if (order.status === 'CANCELLED') return { stage: null, message: 'cancelled' };
+  if (order.status === 'PENDING') return { stage: 'payment', message: 'pending' };
+  if (order.fulfillmentStatus === 'REQUIRES_REVIEW') return { stage: null, message: 'review' };
+  if (order.type === 'APPS') return order.account
+    ? { stage: 'completed', message: 'accountReady' }
+    : { stage: 'processing', message: 'preparing' };
+  switch (order.fulfillmentStatus) {
+    case 'QUEUED': return { stage: 'queued', message: 'queued' };
+    case 'PROCESSING': return { stage: 'processing', message: 'processing' };
+    case 'WAITING_CUSTOMER': return { stage: 'processing', message: 'waitingCustomer' };
+    case 'COMPLETED': return { stage: 'completed', message: 'completed' };
+    default: return { stage: null, message: 'review' };
+  }
+}
+
 /** Payment and delivery are independent: top-ups never require an Apps account stock. */
 export function orderNotice(order: InvoiceState) {
   if (order.refundStatus === 'COMPLETED') return 'refundCompleted';

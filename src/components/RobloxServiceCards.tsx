@@ -17,10 +17,15 @@ function ServiceArt({ method }: { method: RobloxMethodKey }) {
 }
 export default function RobloxServiceCards({ products, region }: { products: Product[]; region: Region | null }) {
   const { t, language } = useLanguage(); const f = t.robloxFlow;
+  const comparison = t.serviceHelp.comparison;
   const [selection, setSelection] = useState<Partial<Record<RobloxMethodKey, number>>>({});
-  const features = { GAMEPASS: [f.noPassword, f.taxIncluded, f.pending], LOGIN: [t.robloxOps.noCredentials, f.verification, f.manual], GIFT_USERNAME: [f.gift, f.eligibility, f.accepted] };
   const tag = { GAMEPASS: f.passTag, LOGIN: f.loginTag, GIFT_USERNAME: f.giftTag };
-  return <div className="grid gap-5 lg:grid-cols-3">{(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
+  return <section aria-labelledby="method-comparison-title">
+    <div className="mb-5 rounded-2xl border border-pink-200 bg-white p-5 sm:p-6">
+      <h2 id="method-comparison-title" className="text-xl font-black text-pink-900">{comparison.title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-slate-700">{comparison.intro}</p>
+    </div>
+    <div className="grid gap-5 lg:grid-cols-3">{(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
     const eligible = products.filter(p => p.variants.some(v => v.method === method));
     const product = eligible.find(p => p.id === selection[method]) ?? eligible[0];
     const rate = region ? product?.variants.filter(v => v.method === method).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))[0] : undefined;
@@ -31,13 +36,18 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
       <div className="relative flex items-center justify-between gap-3 bg-gradient-to-br from-pink-50/50 via-rose-50/30 to-transparent px-6 pt-6 pb-2">
         <div className="min-w-0 self-start">
           <span className="inline-block rounded-xl bg-white px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-500 shadow-sm border border-pink-100">{t.roblox[method]}</span>
-          <h2 className="mt-4 text-2xl font-black leading-tight text-pink-600">{f[method]}</h2>
+          <h3 className="mt-4 text-2xl font-black leading-tight text-pink-800">{f[method]}</h3>
           <p className="mt-1 font-bold text-slate-700">{tag[method]}</p>
         </div>
         <div className="-mr-3 transition group-hover:scale-105"><ServiceArt method={method} /></div>
       </div>
       <div className="flex flex-1 flex-col p-6 pt-3">
-        <ul className="space-y-2.5 text-sm text-slate-600">{features[method].map(line => <li key={line} className="flex items-start gap-2.5"><span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-600">✓</span>{line}</li>)}</ul>
+        <dl className="space-y-4 text-sm leading-relaxed text-slate-700">
+          {(['requirements', 'process', 'timing'] as const).map(field => <div key={field}>
+            <dt className="font-bold text-slate-900">{comparison[field]}</dt>
+            <dd className="mt-1">{comparison[method][field]}</dd>
+          </div>)}
+        </dl>
         <div className="mt-auto space-y-3 pt-6">
           {eligible.length > 1 && <label className="block text-xs font-semibold text-slate-500">{t.commerce.product}<select className="mt-1 w-full rounded-xl border border-pink-200 bg-white p-2.5 text-sm" value={product?.id} onChange={e => setSelection(old => ({ ...old, [method]: Number(e.target.value) }))}>{eligible.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
           {rate && <div className="rounded-2xl bg-pink-50/70 px-4 py-3"><p className="text-xs font-semibold uppercase tracking-wide text-pink-500">{t.commerce.startingFrom}</p><p className="mt-0.5 text-lg font-black text-slate-800">{price} <span className="text-sm font-semibold text-slate-500">/ {rate.units} Robux</span></p></div>}
@@ -46,5 +56,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
         </div>
       </div>
     </article>;
-  })}</div>;
+  })}</div>
+    <p className="mt-5 rounded-2xl border border-pink-200 bg-white p-5 text-sm leading-relaxed text-slate-700">{comparison.notice}</p>
+  </section>;
 }

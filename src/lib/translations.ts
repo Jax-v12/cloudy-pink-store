@@ -1,4 +1,5 @@
 import { loginFlowTranslations } from './loginFlowTranslations';
+import { serviceHelpTranslations } from './serviceHelpTranslations';
 import { regionalTranslations } from './regionalTranslations';
 import { invoiceStatusTranslations } from './invoiceStatusTranslations';
 import { usernameFlowTranslations } from './usernameFlowTranslations';
@@ -10,6 +11,7 @@ export type Language = 'ID' | 'EN' | 'MY';
 
 export const translations = {
   ID: {
+    serviceHelp: serviceHelpTranslations.ID,
     loginFlow: loginFlowTranslations.ID,
     loginDatabaseError: "Database belum diperbarui. Jalankan migrasi Prisma sebelum login.",
     loginOriginError: "Alamat website tidak sesuai konfigurasi APP_ORIGIN. Periksa domain dan HTTPS.",
@@ -206,6 +208,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   MY: {
+    serviceHelp: serviceHelpTranslations.MY,
     loginFlow: loginFlowTranslations.MY,
     loginDatabaseError: "Database belum dikemas kini. Jalankan migrasi Prisma sebelum log masuk.",
     loginOriginError: "Alamat laman tidak sepadan dengan APP_ORIGIN. Semak domain dan HTTPS.",
@@ -402,6 +405,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   EN: {
+    serviceHelp: serviceHelpTranslations.EN,
     loginFlow: loginFlowTranslations.EN,
     loginDatabaseError: "The database schema is outdated. Apply Prisma migrations before signing in.",
     loginOriginError: "The website address does not match APP_ORIGIN. Check the domain and HTTPS.",

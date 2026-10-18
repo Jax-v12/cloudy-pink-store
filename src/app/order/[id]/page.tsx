@@ -4,6 +4,7 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
+import OrderProgress from '@/components/OrderProgress';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice, formatQrCountdown, showFulfillmentDetails } from '@/lib/orderNotice';
@@ -349,6 +350,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </div>
             {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
+
+          <OrderProgress order={order} />
 
           {showFulfillmentDetails(order) && (
             <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">

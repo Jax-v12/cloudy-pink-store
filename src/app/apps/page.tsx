@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
+import ServiceHelpLinks from '@/components/ServiceHelpLinks';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -379,15 +380,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="mt-12 w-full max-w-6xl mx-auto pb-6 px-4">
         <div className="bg-white/60 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-pink-100 shadow-sm flex flex-col items-center justify-center text-center">
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-4">
-            <Link href="#" className="text-xs sm:text-sm font-semibold text-pink-600 hover:text-pink-800 transition">
-              {t.footerFAQ || 'FAQ'}
-            </Link>
-            <span className="text-pink-200 hidden sm:inline">•</span>
-            <Link href="#" className="text-xs sm:text-sm font-semibold text-pink-600 hover:text-pink-800 transition">
-              {t.footerTerms || 'Terms & Conditions'}
-            </Link>
-          </div>
+          <div className="mb-4"><ServiceHelpLinks /></div>
           <p className="text-xs text-neutral-500 font-medium mb-2">
             {t.footerCopyright || 'Copyright © 2026 Cloudy Pink Store'}
           </p>
