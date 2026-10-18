@@ -9,6 +9,7 @@ import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice, formatQrCountdown, showFulfillmentDetails } from '@/lib/orderNotice';
 import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl } from '@/lib/qrisDownload';
 import { buildAppsOtpWhatsappUrl, type AppsOtpState } from '@/lib/appsOtp';
+import { saveRecentOrder } from '@/lib/recentOrders';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface OrderDetail {
@@ -27,6 +28,7 @@ interface OrderDetail {
   qrisUrl: string | null;
   qrisCode: string | null;
   expiresAt: string;
+  createdAt?: string;
   product: {
     name: string;
   };
@@ -84,6 +86,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers, signal: controller.signal }).catch(() => {});
         }
         setOrder(json.data);
+        saveRecentOrder({
+          invoice: json.data.invoice,
+          productName: json.data.product?.name ?? 'Premium',
+          type: json.data.type,
+          status: json.data.status,
+          createdAt: json.data.createdAt ?? new Date().toISOString(),
+        });
         setError('');
         poll = json.data.status === 'PENDING' ||
           (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED') ||
@@ -214,6 +223,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   }
 
   const notice = orderNotice(order);
+  const nowUtc = new Date(now);
+  const wibHours = (nowUtc.getUTCHours() + 7) % 24;
+  const isOperational = wibHours >= 9 && wibHours < 23;
+
+  const orderCreatedAt = order?.createdAt ? new Date(order.createdAt).getTime() : now;
+  const warrantyExpiry = orderCreatedAt + 30 * 24 * 60 * 60 * 1000;
+  const warrantyDaysRemaining = Math.max(0, Math.ceil((warrantyExpiry - now) / (24 * 60 * 60 * 1000)));
 
   return (
     <main
@@ -424,6 +440,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <div>
                   <h4 className="text-xs font-black text-pink-800">{t.otpHelpTitle}</h4>
                   <p className="text-[11px] text-neutral-600 mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
+                  <div className="flex items-center gap-1.5 pt-1 text-[10px] font-bold">
+                    <span className={isOperational ? 'text-emerald-700' : 'text-amber-700'}>
+                      {isOperational ? t.adminOnlineStatus : t.adminOfflineStatus}
+                    </span>
+                  </div>
                 </div>
 
                 {order.otp?.status === 'DELIVERED' && order.otp.code && (
@@ -473,6 +494,60 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   >
                     💬 {t.btnOtpWhatsapp}
                   </a>
+                </div>
+              </div>
+
+              {/* Garansi 30 Hari */}
+              <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🛡️</span>
+                    <h4 className="text-xs font-black text-emerald-800">{t.warrantyBadgeTitle}</h4>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                    {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
+                  </p>
+                </div>
+                <span className="bg-emerald-600 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
+                  30 Hari
+                </span>
+              </div>
+
+              {/* FAQ / Panduan Login Accordion */}
+              <div className="bg-white/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3">
+                <h4 className="text-xs font-black text-pink-800 flex items-center gap-1.5">
+                  <span>💡</span> {t.faqTitle}
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
+                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                      <span>📺 {t.faqTvTitle}</span>
+                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                      {t.faqTvBody}
+                    </p>
+                  </details>
+
+                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
+                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                      <span>🏠 {t.faqHouseholdTitle}</span>
+                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                      {t.faqHouseholdBody}
+                    </p>
+                  </details>
+
+                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
+                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                      <span>🔒 {t.faqRulesTitle}</span>
+                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                      {t.faqRulesBody}
+                    </p>
+                  </details>
                 </div>
               </div>
             </div>

@@ -3,10 +3,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 
+import { useState } from 'react';
+import { getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
+
 export default function StoreShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const { t, language, setLanguage } = useLanguage();
   const c = t.commerce;
   const pathname = usePathname() ?? '';
+  const [recentOrders, setRecentOrders] = useState<RecentOrderItem[]>(() => getRecentOrders());
+  const [showRecentModal, setShowRecentModal] = useState(false);
+
   const links = [['/apps', c.APPS], ['/games', c.GAME], ['/roblox', c.ROBLOX]] as const;
   return <main
     className="relative min-h-screen bg-cover bg-center bg-fixed bg-no-repeat overflow-x-clip text-neutral-800 animate-in fade-in duration-500"
@@ -28,9 +34,28 @@ export default function StoreShell({ children, wide = false }: { children: React
                 className={`whitespace-nowrap rounded-xl px-4 py-2 transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-500 ${current ? 'bg-pink-500 text-white shadow-sm' : 'text-neutral-600 hover:bg-pink-100 hover:text-pink-700'}`}>{label}</Link>;
             })}
           </nav>
-          <div role="group" aria-label={c.language} className="inline-flex rounded-2xl border-2 border-pink-300 bg-white/95 backdrop-blur-sm p-1 text-xs font-bold shadow-md">
-            {(['ID', 'EN', 'MY'] as const).map(l => <button key={l} type="button" aria-pressed={language === l} onClick={() => setLanguage(l)}
-              className={`rounded-xl px-3 py-1.5 transition-all active:scale-95 ${language === l ? 'bg-pink-500 text-white shadow-sm' : 'text-neutral-600 hover:text-pink-600'}`}>{l}</button>)}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRecentOrders(getRecentOrders());
+                setShowRecentModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-2xl border-2 border-pink-300 bg-white/95 backdrop-blur-sm px-3 py-1.5 text-xs font-bold shadow-md text-pink-700 hover:bg-pink-100 hover:text-pink-800 transition-all active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-500"
+              title={t.recentOrdersBtn}
+            >
+              <span>📋</span>
+              <span className="hidden sm:inline">{t.recentOrdersBtn}</span>
+              {recentOrders.length > 0 && (
+                <span className="bg-pink-500 text-white rounded-full px-1.5 py-0.2 text-[10px] font-black leading-tight">
+                  {recentOrders.length}
+                </span>
+              )}
+            </button>
+            <div role="group" aria-label={c.language} className="inline-flex rounded-2xl border-2 border-pink-300 bg-white/95 backdrop-blur-sm p-1 text-xs font-bold shadow-md">
+              {(['ID', 'EN', 'MY'] as const).map(l => <button key={l} type="button" aria-pressed={language === l} onClick={() => setLanguage(l)}
+                className={`rounded-xl px-3 py-1.5 transition-all active:scale-95 cursor-pointer ${language === l ? 'bg-pink-500 text-white shadow-sm' : 'text-neutral-600 hover:text-pink-600'}`}>{l}</button>)}
+            </div>
           </div>
         </div>
 
@@ -58,6 +83,66 @@ export default function StoreShell({ children, wide = false }: { children: React
         </svg>
         <span className="text-[11px] sm:text-xs font-bold tracking-wide">{t.contactAdmin}</span>
       </a>
+    )}
+
+    {/* Modal Riwayat Pesanan Saya */}
+    {showRecentModal && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recent-orders-heading"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pink-950/60 backdrop-blur-sm animate-in fade-in duration-150"
+        onClick={() => setShowRecentModal(false)}
+      >
+        <div
+          className="bg-white rounded-3xl border-4 border-pink-300 p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b-2 border-pink-100 pb-3">
+            <h3 id="recent-orders-heading" className="text-base font-black text-pink-800 flex items-center gap-2">
+              <span>📋</span> {t.recentOrdersTitle}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowRecentModal(false)}
+              className="text-neutral-400 hover:text-pink-600 font-bold text-lg p-1 transition cursor-pointer"
+              aria-label="Tutup"
+            >
+              ✕
+            </button>
+          </div>
+
+          {recentOrders.length === 0 ? (
+            <p className="text-center text-xs text-neutral-500 py-6">{t.recentOrdersEmpty}</p>
+          ) : (
+            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              {recentOrders.map(item => (
+                <Link
+                  key={item.invoice}
+                  href={`/order/${encodeURIComponent(item.invoice)}`}
+                  onClick={() => setShowRecentModal(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl border-2 border-pink-100 hover:border-pink-300 hover:bg-pink-50/60 transition group cursor-pointer"
+                >
+                  <div className="pr-2 min-w-0">
+                    <p className="text-xs font-black text-neutral-800 group-hover:text-pink-700 truncate">{item.productName}</p>
+                    <p className="text-[10px] font-mono text-neutral-400 truncate">{item.invoice}</p>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-1 shrink-0">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                      item.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {item.status}
+                    </span>
+                    <span className="text-[10px] text-pink-600 font-bold group-hover:underline">
+                      {t.recentOrdersView} &rarr;
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     )}
   </main>;
 }

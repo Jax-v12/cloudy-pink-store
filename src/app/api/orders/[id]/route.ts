@@ -55,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
       variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
-      expiresAt: order.expiresAt, product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
+      expiresAt: order.expiresAt, createdAt: order.createdAt.toISOString(), product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
     } }, { headers: privateHeaders });
   } catch (error) {
     logFailure('Order retrieval failed', error);

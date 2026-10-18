@@ -2,9 +2,30 @@
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 
 import { useLanguage } from '@/context/LanguageContext';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+function playAdminChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // AudioContext blocked or unavailable
+  }
+}
 
 interface ProductSummary {
   name: string;
@@ -112,6 +133,21 @@ export default function AdminPage() {
   const [ordersError, setOrdersError] = useState('');
   const [otpInputs, setOtpInputs] = useState<Record<number, string>>({});
   const [otpSendingId, setOtpSendingId] = useState<number | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('cloudy_admin_sound');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const prevOrdersRef = useRef<OrderItem[]>([]);
+
+  const toggleSound = () => {
+    setSoundEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('cloudy_admin_sound', String(next));
+      if (next) playAdminChime();
+      return next;
+    });
+  };
 
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [stockCursor, setStockCursor] = useState<number | null>(null);
@@ -159,6 +195,18 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
       if (Array.isArray(json.data)) {
+        if (!cursor && prevOrdersRef.current.length > 0) {
+          const hasNewRequestedOtp = json.data.some(
+            (o: OrderItem) => o.otp?.status === 'REQUESTED' && !prevOrdersRef.current.some(p => p.id === o.id && p.otp?.status === 'REQUESTED')
+          );
+          const hasNewOrder = json.data.length > prevOrdersRef.current.length;
+          if ((hasNewRequestedOtp || hasNewOrder) && (localStorage.getItem('cloudy_admin_sound') !== 'false')) {
+            playAdminChime();
+          }
+        }
+        if (!cursor) {
+          prevOrdersRef.current = json.data;
+        }
         setOrders(previous => cursor ? [...previous, ...json.data] : json.data);
         setOrderCursor(json.pagination.nextCursor);
         setOrdersError('');
@@ -169,6 +217,14 @@ export default function AdminPage() {
       setOrdersLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      void loadOrders();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadOrders]);
 
   const handleSendOtp = async (orderId: number) => {
     const code = (otpInputs[orderId] || '').trim();
@@ -564,6 +620,19 @@ export default function AdminPage() {
               <button onClick={() => setLanguage('MY')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'MY' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>MY</button>
               <button onClick={() => setLanguage('EN')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'EN' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>EN</button>
             </div>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                soundEnabled
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-neutral-100 border-neutral-300 text-neutral-500'
+              }`}
+              title={`${t.adminSoundToggle}: ${soundEnabled ? t.adminSoundOn : t.adminSoundOff}`}
+            >
+              <span>{soundEnabled ? '🔔' : '🔕'}</span>
+              <span className="hidden sm:inline">{soundEnabled ? t.adminSoundOn : t.adminSoundOff}</span>
+            </button>
             <Link
               href="/"
               className="px-3.5 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-xl text-xs transition border border-pink-200"
