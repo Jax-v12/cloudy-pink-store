@@ -225,10 +225,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const notice = orderNotice(order);
   const nowUtc = new Date(now);
   const wibHours = (nowUtc.getUTCHours() + 7) % 24;
-  const isOperational = wibHours >= 9 && wibHours < 23;
+  const isOperational = wibHours >= 8 && wibHours < 21;
 
   const orderCreatedAt = order?.createdAt ? new Date(order.createdAt).getTime() : now;
-  const warrantyExpiry = orderCreatedAt + 30 * 24 * 60 * 60 * 1000;
+  const warrantyExpiry = orderCreatedAt + 25 * 24 * 60 * 60 * 1000;
   const warrantyDaysRemaining = Math.max(0, Math.ceil((warrantyExpiry - now) / (24 * 60 * 60 * 1000)));
 
   return (
@@ -497,7 +497,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 </div>
               </div>
 
-              {/* Garansi 30 Hari */}
+              {/* Garansi 25 Hari */}
               <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5">
@@ -509,7 +509,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   </p>
                 </div>
                 <span className="bg-emerald-600 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
-                  30 Hari
+                  25 Hari
                 </span>
               </div>
 
