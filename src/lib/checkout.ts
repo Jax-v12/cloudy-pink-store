@@ -96,7 +96,7 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
         productSubtotal: quote.productSubtotal, paymentFee: quote.paymentFee, discount: quote.discount,
         paymentProvider: quote.paymentProvider, paymentMethod: quote.paymentMethod, customerEmail: input.customerEmail,
         accountStockId: stockId, checkoutKey: key, requestHash: hash,
-        expiresAt: new Date(Date.now() + 86_400_000),
+        expiresAt: new Date(Date.now() + 7_200_000),
         ...(details.game ? { gameDetail: { create: details.game } } : {}),
         ...(details.loginCredentials && verified ? { secret: { create: {
           ciphertext: encryptData(JSON.stringify({ version: 1, invoice, username: verified.username, ...details.loginCredentials })),

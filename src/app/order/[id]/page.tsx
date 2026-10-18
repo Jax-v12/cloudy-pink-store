@@ -6,7 +6,7 @@ import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
-import { orderNotice } from '@/lib/orderNotice';
+import { orderNotice, formatQrCountdown, showFulfillmentDetails } from '@/lib/orderNotice';
 import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl } from '@/lib/qrisDownload';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -25,6 +25,7 @@ interface OrderDetail {
   paymentMethod: string;
   qrisUrl: string | null;
   qrisCode: string | null;
+  expiresAt: string;
   product: {
     name: string;
   };
@@ -46,9 +47,15 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedAccount, setCopiedAccount] = useState(false);
-  const [copiedString, setCopiedString] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (order?.status !== 'PENDING' || !order.expiresAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [order?.status, order?.expiresAt]);
   
   useEffect(() => {
     let cancelled = false;
@@ -99,13 +106,6 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     navigator.clipboard.writeText(text);
     setCopiedAccount(true);
     setTimeout(() => setCopiedAccount(false), 2000);
-  };
-
-  const handleCopyString = () => {
-    if (!order?.qrisCode) return;
-    navigator.clipboard.writeText(order.qrisCode);
-    setCopiedString(true);
-    setTimeout(() => setCopiedString(false), 2000);
   };
 
   const downloadQrisImage = async () => {
@@ -277,16 +277,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
 
-        <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">
-          <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
-          {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
-          {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
-          {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && order.fulfillmentStatus !== 'COMPLETED' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
-          {order.robloxDetail?.method === 'GAMEPASS' && order.status === 'PAID' && order.fulfillmentStatus === 'COMPLETED' && order.refundStatus === 'NONE' && <p className="text-sm text-slate-600">{t.roblox.pendingNotice}</p>}
-          {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
-          {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
-          {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
-        </section>
+          {showFulfillmentDetails(order) && (
+            <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">
+              <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
+              {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
+              {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
+              {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && order.fulfillmentStatus !== 'COMPLETED' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
+              {order.robloxDetail?.method === 'GAMEPASS' && order.status === 'PAID' && order.fulfillmentStatus === 'COMPLETED' && order.refundStatus === 'NONE' && <p className="text-sm text-slate-600">{t.roblox.pendingNotice}</p>}
+              {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
+              {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
+              {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
+            </section>
+          )}
 
           {/* PENDING QRIS */}
           {order.status === 'PENDING' && (
@@ -294,9 +296,16 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <div className="text-center space-y-4">
                 <div>
                   <h3 className="text-sm font-bold text-neutral-800">{t.scanNoticeTitle}</h3>
-                  <p className="text-[11px] text-neutral-500 max-w-md mx-auto mt-1">
+                  <p className="text-xs text-neutral-500 max-w-md mx-auto mt-1">
                     {t.scanNoticeSubtitle}
                   </p>
+                  {formatQrCountdown(order.expiresAt, now) && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold">
+                        ⏱️ {t.qrActiveTimer}: <span className="font-mono text-pink-700">{formatQrCountdown(order.expiresAt, now)}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
@@ -307,20 +316,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-center gap-2 max-w-sm mx-auto">
+                <div className="flex justify-center max-w-xs mx-auto">
                   <button
                     disabled={downloading}
                     onClick={downloadQrisImage}
-                    className="flex-1 py-2 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-4 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {downloading ? t.btnProcessing : t.btnDownloadQris}
-                  </button>
-                  <button
-                    disabled={!order.qrisCode}
-                    onClick={handleCopyString}
-                    className="flex-1 py-2 px-3 bg-white border border-pink-300 text-pink-600 font-bold rounded-xl text-xs hover:bg-pink-50 transition active:scale-95 cursor-pointer"
-                  >
-                    {copiedString ? t.copiedNotice : t.btnCopyCode}
                   </button>
                 </div>
 
@@ -328,7 +330,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <p className="text-xs text-rose-500 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>
                 )}
 
-                <p className="text-[11px] text-neutral-400 italic mt-2">{t.autoCheckNotice}</p>
+                <p className="text-xs text-neutral-500 italic mt-2">{t.autoCheckNotice}</p>
               </div>
             ) : (
               <div className="text-center p-6 bg-sky-50 border border-sky-200 rounded-3xl space-y-2 mb-6" role="status">

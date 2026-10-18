@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { orderNotice } from '../src/lib/orderNotice.ts';
+import { orderNotice, showFulfillmentDetails, formatQrCountdown } from '../src/lib/orderNotice.ts';
 import { invoiceStatusTranslations } from '../src/lib/invoiceStatusTranslations.ts';
+import { translations } from '../src/lib/translations.ts';
 
 const paid = { type: 'ROBLOX', status: 'PAID', fulfillmentStatus: 'QUEUED', refundStatus: 'NONE', account: null, qrisUrl: null };
 test('paid top-ups never report a payment problem because they have no Apps account', () => {
@@ -23,4 +24,14 @@ test('refund notices take precedence over normal delivery messages', () => {
     assert.equal(orderNotice({ ...paid, fulfillmentStatus, refundStatus: 'REQUIRED' }), 'refundRequired');
     assert.equal(orderNotice({ ...paid, fulfillmentStatus, refundStatus: 'COMPLETED' }), 'refundCompleted');
   }
+});
+test('fulfillment details are deferred until post-payment or refund, and QR countdown formats 2-hour window', () => {
+  assert.equal(showFulfillmentDetails({ status: 'PENDING', refundStatus: 'NONE' }), false);
+  assert.equal(showFulfillmentDetails({ status: 'PAID', refundStatus: 'NONE' }), true);
+  assert.equal(showFulfillmentDetails({ status: 'CANCELLED', refundStatus: 'REQUIRED' }), true);
+  assert.equal(formatQrCountdown('2026-10-18T12:00:00.000Z', Date.parse('2026-10-18T10:00:00.000Z')), '02:00:00');
+  assert.equal(formatQrCountdown('2026-10-18T12:00:00.000Z', Date.parse('2026-10-18T10:00:15.000Z')), '01:59:45');
+  assert.equal(formatQrCountdown('2026-10-18T10:00:00.000Z', Date.parse('2026-10-18T10:05:00.000Z')), '00:00:00');
+  assert.equal(formatQrCountdown('invalid-date', Date.now()), null);
+  for (const lang of ['ID', 'MY', 'EN']) assert.ok(translations[lang].qrActiveTimer);
 });

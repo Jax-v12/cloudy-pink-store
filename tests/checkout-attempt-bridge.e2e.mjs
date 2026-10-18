@@ -20,7 +20,8 @@ const legacy = 'synthetic-legacy-fixture';
 const order = { invoice: 'INV-BRIDGE-FIXTURE', type: 'ROBLOX', status: 'PENDING', totalAmount: 7000, productSubtotal: 7000,
   currency: 'IDR', pricingRegion: 'ID', paymentFee: 0, discount: 0, paymentMethod: 'QRIS', fulfillmentStatus: 'NOT_READY', refundStatus: 'NONE',
   variantName: 'Fixture package', units: 100, robloxDetail: { method: 'LOGIN', username: 'FixtureUser', gamepassPrice: null }, gameDetail: null,
-  product: { name: 'Fixture Roblox' }, account: null, isAuthorized: true, qrisUrl: '/fixture-qr.png', qrisCode: null };
+  product: { name: 'Fixture Roblox' }, account: null, isAuthorized: true, qrisUrl: '/fixture-qr.png', qrisCode: null,
+  expiresAt: new Date(Date.now() + 7_200_000).toISOString() };
 async function run(name, fn) {
   try { await fn(); results.push({ name, status: 'PASS' }); console.log(`PASS ${name}`); }
   catch (error) { results.push({ name, status: 'FAIL', reason: error.message.slice(0, 250) }); console.log(`FAIL ${name}: ${error.message.slice(0, 250)}`); }

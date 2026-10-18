@@ -21,3 +21,17 @@ export function orderNotice(order: InvoiceState) {
   } as const;
   return notices[order.fulfillmentStatus];
 }
+
+export function showFulfillmentDetails(order: Pick<InvoiceState, 'status' | 'refundStatus'>): boolean {
+  return order.status === 'PAID' || order.refundStatus !== 'NONE';
+}
+
+export function formatQrCountdown(expiresAt: string | Date | null | undefined, nowMs = Date.now()): string | null {
+  const target = expiresAt instanceof Date ? expiresAt.getTime() : typeof expiresAt === 'string' ? Date.parse(expiresAt) : NaN;
+  if (!Number.isFinite(target) || !Number.isFinite(nowMs)) return null;
+  const totalSeconds = Math.max(0, Math.floor((target - nowMs) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map(v => String(v).padStart(2, '0')).join(':');
+}
