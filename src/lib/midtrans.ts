@@ -40,9 +40,11 @@ export async function getGatewayStatus(invoice: string, total: number): Promise<
   const data = await response.json();
   // Only a structured, definitive "not found" may release an expired orphan.
   if ((response.ok || response.status === 404) && data?.status_code === '404' && (!data.order_id || data.order_id === invoice)) return null;
+  // Midtrans reports expired transactions as 407; bind it to expire only.
+  const verifiedCode = data && (['200', '201', '202'].includes(data.status_code) || (data.status_code === '407' && data.transaction_status === 'expire'));
   if (!response.ok || !data || data.order_id !== invoice || data.currency !== 'IDR' ||
       typeof data.gross_amount !== 'string' || !/^\d{1,10}(?:\.\d{1,2})?$/.test(data.gross_amount) ||
-      Number(data.gross_amount) !== total || typeof data.transaction_id !== 'string' || !data.transaction_id || data.transaction_id.length > 191 || !['200', '201', '202'].includes(data.status_code) ||
+      Number(data.gross_amount) !== total || typeof data.transaction_id !== 'string' || !data.transaction_id || data.transaction_id.length > 191 || !verifiedCode ||
       !['pending', 'capture', 'settlement', 'deny', 'expire', 'cancel', 'refund', 'partial_refund', 'authorize'].includes(data.transaction_status)) {
     throw new Error('GATEWAY_STATUS_UNVERIFIED');
   }
