@@ -5,10 +5,11 @@ type InvoiceState = {
   refundStatus: 'NONE' | 'REQUIRED' | 'COMPLETED';
   account: unknown | null;
   qrisUrl: string | null;
+  appsSnapshot?: { fulfillmentMode: string } | null;
 };
 
 /** Display only server-reported milestones; payment alone never completes a top-up. */
-export function orderProgress(order: Pick<InvoiceState, 'type' | 'status' | 'fulfillmentStatus' | 'refundStatus' | 'account'>): {
+export function orderProgress(order: Pick<InvoiceState, 'type' | 'status' | 'fulfillmentStatus' | 'refundStatus' | 'account' | 'appsSnapshot'>): {
   stage: 'payment' | 'queued' | 'processing' | 'completed' | null;
   message: 'pending' | 'queued' | 'processing' | 'completed' | 'waitingCustomer' | 'review' | 'preparing' | 'accountReady' | 'expired' | 'cancelled' | 'refundRequired' | 'refundCompleted';
 } {
@@ -18,7 +19,7 @@ export function orderProgress(order: Pick<InvoiceState, 'type' | 'status' | 'ful
   if (order.status === 'CANCELLED') return { stage: null, message: 'cancelled' };
   if (order.status === 'PENDING') return { stage: 'payment', message: 'pending' };
   if (order.fulfillmentStatus === 'REQUIRES_REVIEW') return { stage: null, message: 'review' };
-  if (order.type === 'APPS') return order.account
+  if (order.type === 'APPS' && order.appsSnapshot?.fulfillmentMode !== 'ACTIVATION') return order.account
     ? { stage: 'completed', message: 'accountReady' }
     : { stage: 'processing', message: 'preparing' };
   switch (order.fulfillmentStatus) {
@@ -37,7 +38,7 @@ export function orderNotice(order: InvoiceState) {
   if (order.status === 'PENDING') return order.qrisUrl ? null : 'paymentPending';
   if (order.status !== 'PAID') return null;
   if (order.fulfillmentStatus === 'REQUIRES_REVIEW') return 'review';
-  if (order.type === 'APPS') return order.account ? null : 'accountReview';
+  if (order.type === 'APPS' && order.appsSnapshot?.fulfillmentMode !== 'ACTIVATION') return order.account ? null : 'accountReview';
   const notices = {
     NOT_READY: 'review', QUEUED: 'queued', PROCESSING: 'processing',
     WAITING_CUSTOMER: 'waitingCustomer', COMPLETED: 'completed',

@@ -1090,6 +1090,8 @@ export default function AdminPage() {
 
           {/* === PRODUCT MANAGEMENT TAB === */}
           {activeTab === 'products' && (
+            <div>
+              <Link href="/admin/apps" className="mb-5 inline-block rounded-xl border-2 border-pink-300 bg-white px-4 py-3 font-bold text-pink-900">{t.apps.manage}</Link>
             <div className="space-y-4">
               {/* Global feedback message */}
               {editMessage && (
@@ -1210,6 +1212,7 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           )}
 

@@ -1,4 +1,5 @@
 'use client';
+import { observeCheckout } from './AggregateMetrics';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
@@ -62,6 +63,7 @@ export default function RobloxCheckoutWizard({ method, productId, variants, enab
     const payload = JSON.stringify({ quoteToken: server.quote.quoteToken, paymentMethod: methodValue, productId, variantId: rate.id, quantity: quote.units, customerEmail: email.trim(), details: { username: username.trim(), ...(!viaUsername ? { gamepassUrl: link.trim() } : {}) } });
     if (retry.current.payload !== payload) retry.current = { payload, key: crypto.randomUUID() };
     submitting.current = true; setBusy(true); onBusyChange(true); setError('');
+    observeCheckout(method);
     try {
       const response = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': retry.current.key }, body: payload });
       const json = await response.json(); if (!response.ok || !json.success) throw new Error(json.errorCode);

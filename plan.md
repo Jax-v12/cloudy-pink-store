@@ -16,7 +16,17 @@ Do not merge these three user journeys into one confusing catalog. They may shar
 
 ## 2. Current Priority
 
+**Operations continuation, 20 October 2026:** owner requested pending items 2/3 and selected WhatsApp H-3/H-1, then confirmed no WhatsApp provider. Two additive Apps migrations are now deployed to verified `cloudy_staging` (13 applied; 26 historical Order digests unchanged). Fresh encrypted backup/round-trip and a seven-day local expiry task are verified separately from provider retention, which still needs Aiven login. Scheduler exists on main but its visible scheduled runs fail on legitimate Midtrans 407 expiry; isolated fix commit `a5bd268` is reviewed. WhatsApp consent/verification, durable no-resend review queue and aggregate metrics are implemented, default nonactive pending operational setup. See [current evidence and remaining release gates](docs/qa/operations-roadmap-2026-10-20.md) and [WhatsApp runbook](docs/plans/apps-whatsapp-reminders.md). Prior local-only schema/reminder checkpoints below are historical; Production application publication is separate.
+
+**Implementation checkpoint, 19 October 2026:** owner requested execution of the benchmark roadmap. P1/P2 and core manual Apps activation/renewal plus basic SEO are implemented locally; real product data, reminder dispatch, metrics and operational release gates remain open. Preserve the two confirmed CapCut package/warranty decisions in the [inventory](docs/plans/apps-product-inventory-2026-10-19.md). See [implementation QA and blockers](docs/qa/benchmark-implementation-2026-10-19.md); no commit, push, remote migration or release is implied. The documentation-only checkpoint immediately below is historical.
+
+**Benchmark direction, 19 October 2026:** retain pink/Anya, mature Apps ready-account sales before adding customer-account activation/renewal, and introduce warranty terms per product with immutable purchase snapshots. Follow P0 → P1 → P2 → P3 → P4 in [Benchmark & Roadmap Peningkatan — 19 Oktober 2026](#benchmark--roadmap-peningkatan--19-oktober-2026), with the [detailed comparison and evidence boundaries](docs/qa/competitive-benchmark-2026-10-19.md). This update records the approved roadmap only; the feature phases are not implemented by this documentation task.
+
 **Customer-experience update, 18 October 2026:** owner-requested priorities 1–3 are implemented locally: `/help` with FAQ and service terms, invoice progress from existing payment/delivery/refund state, and a requirements/process/timing comparison within the three Roblox method cards. All new copy uses ID/EN/MY through LanguageContext. No new delivery SLA, warranty duration or automatic refund policy is introduced. Existing Apps OTP/invoice work is preserved. See [verification and limits](docs/qa/service-help-order-progress-2026-10-18.md); publication and operational Login release gates remain separate.
+
+**Preview publication, 18 October 2026:** owner explicitly approved pushing both `553ad13` and `b3a5a36` to `origin/feat/roblox-login-checkout-recovery`. Remote HEAD is `b3a5a361ffa04bcead32ab73655d27a14f9b8fa7`; the existing project's matching Preview is READY with its feature-branch alias. Real public-page review: 19 PASS; denied-access API checks: 2 PASS; deployed invoice renderer with a synthetic API: 9 PASS. One existing EN/MY paid-status wording issue is documented in the [published Preview review](docs/qa/service-help-preview-2026-10-18.md). No Production promotion or database operation was performed. This post-publication handoff is local documentation, outside the two pushed commits.
+
+**P2 payment-label follow-up:** owner-requested fix/review/local commit `f2efd0c640e8546bf0fa7b61d865efd2e9160f0e` changes EN to `PAID` and MY to `BAYARAN DISAHKAN`. A subsequent explicit push request published it to the same feature branch. The matching Preview at `cloudy-pink-store-kijsbtcpf-jax-v12.vercel.app` is READY; two deployed EN/MY renderer smoke checks pass with synthetic invoice data. Production is unchanged; details and evidence are appended to the Preview QA above.
 
 **Current owner direction, 17 October 2026:** integrate the complete local Via Login feature for Preview then Production on the existing `cloudy_staging` contents. Never access/copy `defaultdb`. New Login credentials expire 72 hours after Order creation; existing stored expiry is not extended. GitHub Actions checks existing cleanup/fulfillment endpoints every five minutes, with a fifteen-minute heartbeat warning. Old checkpoint exclusions and 24-hour policy notes below are historical. Local source/configuration work is authorized; Git publication/release and Sandbox transaction scenarios retain their explicit approval gates. Track code, Preview, operations and Production evidence separately in [current release QA](docs/qa/roblox-login-release-2026-10-17.md).
 
@@ -955,3 +965,109 @@ User approved committing the reviewed P0-C files on `main`, pushing to `origin/m
 - Owner also authorized opening Laragon and running required isolated local P1-2 fixtures. Laragon launched; its UI was not targetable by the helper, so installed MySQL 8.4.3 was started with classic/X binds pinned to 127.0.0.1. Read-only metadata verified existing `cloudy_test_general`, port 3306. No DB was initialized or created.
 - **P1-2 NEEDS VERIFICATION / actual MySQL/HTTP NOT RUN**: all eleven existing `cloudy_test_*` schemas lack CheckoutSession/CheckoutAttempt and WhatsApp; chosen general schema also lacks removedFromAdminAt. [Concrete SQL/preflight report](docs/qa/login-policy-laragon-preflight-2026-10-16.md) lists the three additive SQL files and the suite's historical migration replay. Prior no-migration scope requires explicit approval of those changes on `cloudy_test_general` only; the question is pending. No DDL/fixture Order/provider call was performed.
 - Relevant mock/domain regressions: **62 PASS / 0 FAIL / 0 SKIP**; whitespace checks PASS. Current finding count **6 FIXED/resolved / 1 NEEDS VERIFICATION**. Full 152 PASS/9 SKIP and browser 43+13 remain the previous checkpoint, not freshly run integration evidence. No runtime/env/dependency/release operation changed; Laragon/local-only MySQL remain running for the next authorized step.
+
+## Benchmark & Roadmap Peningkatan — 19 Oktober 2026
+
+### Tujuan dan hasil pembandingan
+
+Pertahankan identitas **pink/Anya**; tingkatkan kejelasan produk, kenyamanan checkout, dan keandalan operasional. Apps dikembangkan bertahap: **akun siap pakai dahulu, kemudian aktivasi/perpanjangan akun pelanggan**, dengan **ketentuan garansi per produk**. Paket tetap Product/SKU terpisah dan tiga metode Roblox tetap memiliki workflow berbeda.
+
+Pembandingan 19 Oktober 2026 mencakup halaman publik, navigasi sebelum transaksi, kode lokal, dan QA yang tersedia. Backend kompetitor tidak dapat dinilai dari tampilan. Klaim keamanan, kecepatan, dan angka penjualan mereka bukan bukti teknis. [Laporan rinci](docs/qa/competitive-benchmark-2026-10-19.md) memisahkan status **tersedia**, **sebagian**, **belum tersedia**, dan **belum terverifikasi**, tanpa persentase kesempurnaan yang tidak terukur.
+
+| Bagian | Kondisi Cloudy Pink | Penilaian |
+| --- | --- | --- |
+| Alur Roblox | Tiga metode, wizard, nominal, pemeriksaan username, ringkasan, invoice, dan progres | Struktur alur sudah dekat dengan referensi; pertahankan perilaku yang bekerja |
+| Tampilan Roblox | Identitas dan kartu informatif tersedia | Perlu pematangan hierarki, panjang penjelasan, stepper, dan konsistensi |
+| Apps siap pakai | Pencarian lokal, stok, konfirmasi, pembayaran, pengiriman akun, bantuan OTP | Alur dasar tersedia; informasi paket dan cakupan pencarian masih kurang |
+| Katalog Apps aktual | API publik Preview mengembalikan 0 produk Apps saat pemeriksaan | Belum dapat dinilai sebagai katalog penjualan aktif; bukan bukti data lokal juga kosong |
+| Backend transaksi | Harga server, verifikasi pembayaran, transaksi stok, idempotensi, recovery, pemisahan payment/fulfillment | Fondasi cukup lengkap; kesiapan operasi memerlukan bukti tersendiri |
+| Aktivasi/perpanjangan Apps | Fulfillment saat ini berpusat pada stok akun | Memerlukan jalur bisnis dan fulfillment baru |
+
+### Referensi dan batas adopsi
+
+| Referensi | Pola yang digunakan |
+| --- | --- |
+| [Mayoblox Gamepass](https://www.mayoblox.com/robux/checkout/gamepass-po), [Via Login](https://www.mayoblox.com/robux/checkout/via-login) | Kejelasan tahapan, informasi sebelum pesan, slider/paket; perbaiki wizard yang ada tanpa membangun ulang |
+| [Mayoblox FAQ](https://www.mayoblox.com/faq), [pencarian pesanan](https://www.mayoblox.com/orders/search) | Bantuan menurut masalah dan tindak lanjut; akses pesanan toko tetap memerlukan hak yang sah |
+| [Premiumku detail produk](https://premku.com/netflix) | Detail paket, batas penggunaan, dan stok sebelum pembayaran |
+| [Seakun](https://seakun.id/) | Tahap layanan, masa aktif, dan perpanjangan; model grup tidak otomatis disalin |
+| [Panduan aktivasi Spotify itemku](https://itemku.zendesk.com/hc/id/articles/360039529151-Cara-Trading-Premium-Upgrade-Spotify) | Undangan dengan syarat/tindakan pelanggan; pisahkan aktivasi dari pengiriman akun |
+
+Aturan metode mengikuti [transfer Roblox](https://en.help.roblox.com/hc/en-us/articles/48510707796756-Sending-and-Receiving-Robux) dan [Experience Passes](https://en.help.roblox.com/hc/en-us/articles/203314040-Experience-Passes). Jangan menyalin batas umur, estimasi, harga, diskon, aset, atau klaim aman/legal dari kompetitor menjadi aturan toko. Jangan meminta DOB/identitas/OTP untuk meniru pemeriksaan kelayakan Roblox.
+
+### P0 — Pastikan kesiapan produk dan operasi
+
+- Inventarisasi produk Apps yang benar-benar dijual: paket, stok, cara penggunaan, perangkat/region, bantuan, dan sumber harga. Jangan mengisi katalog kosong dengan produk/stok contoh.
+- Gunakan matriks backend pada laporan QA: checkout, webhook, stok, recovery, fulfillment, akses akun, cleanup, backup/restore; pisahkan bukti lokal, fixture, Preview, dan provider.
+- Verifikasi eksekusi scheduler, purge rahasia, retensi backup, dan restore sebelum menyatakan Login siap operasional. Pertahankan bukti restore lokal yang sudah tercatat; jangan menganggapnya bukti retensi provider atau purge terjadwal di deployment.
+
+**Selesai jika:** setiap produk dan kemampuan memiliki status, bukti bertanggal atau hambatan yang jelas. Matriks awal sudah didokumentasikan; inventaris produk nyata dan penutupan gate operasional tetap pending.
+
+### P1 — Perbaiki kualitas UI dan informasi yang sudah ada
+
+- Roblox: ringkas hierarki judul, penjelasan, kartu, stepper, ringkasan, dan instruksi tindakan pelanggan. Pertahankan satu pemilihan metode dan tiga workflow.
+- Bedakan proses tim, pembelian Gamepass, pending Roblox, dan konfirmasi penerimaan. Estimasi toko hanya ditampilkan bila memiliki dasar operasional.
+- Apps: kurangi kepadatan kartu mobile dan tampilkan informasi penting sebelum konfirmasi.
+- Pemuatan katalog pertama harus menganggap HTTP gagal atau `success: false` sebagai error dengan coba lagi, bukan katalog kosong. Temuan saat ini berasal dari pembacaan kode, bukan insiden HTTP 500 yang direproduksi di Preview.
+- Perjelas informasi toko, dukungan, privasi, dan ketentuan produk; pertahankan FAQ/progres invoice yang sudah selesai.
+
+**Selesai jika:** pelanggan memahami produk, metode, total, tahap pesanan, dan tindakan berikutnya; seluruh state dan tiga bahasa terverifikasi pada ukuran layar wajib.
+
+### P2 — Matangkan Apps siap pakai dan garansi per produk
+
+- Tambahkan detail Apps: jenis akun, durasi, perangkat, batas penggunaan/region, isi paket, stok, panduan, dan ketentuan garansi.
+- Pertahankan Product/SKU terpisah per paket agar stok/checkout kompatibel. Kelompok aplikasi memakai metadata eksplisit, bukan tebakan nama produk.
+- Tambahkan kategori dan pencarian server yang mencakup seluruh katalog, kompatibel dengan pagination.
+- Admin mengelola garansi per produk/paket; checkout menyimpan versi ketentuan pada pesanan sehingga perubahan admin tidak mengubah hak pesanan lama.
+- Pertahankan jalur legacy tanpa snapshot; jangan membuat tanggal atau ketentuan historis dari asumsi.
+- Bantuan/klaim dari invoice memiliki status penanganan dan referensi pesanan. Kredensial hanya ditampilkan melalui akses invoice yang sah, bukan chat/notifikasi.
+
+**Selesai jika:** pelanggan dapat membandingkan paket dan memahami ketentuan sebelum membayar; admin menangani bantuan berdasarkan ketentuan saat pembelian.
+
+### P3 — Tambahkan aktivasi dan perpanjangan secara terpisah
+
+- Bedakan akun siap pakai dan aktivasi akun pelanggan melalui konfigurasi produk serta snapshot pesanan; produk lama tetap mode stok.
+- Gunakan mekanisme produk yang didukung: undangan, tautan aktivasi, atau voucher; jangan menambah formulir password pelanggan generik.
+- Pembayaran aktivasi menghasilkan antrean pekerjaan, bukan status layanan aktif. Catat tindakan pelanggan, proses admin, bukti aktivasi, serta awal/akhir layanan.
+- Perpanjangan membuat pesanan baru yang terhubung ke layanan sebelumnya dengan harga/quote dan konfirmasi baru; tanpa penagihan otomatis.
+- Pengingat bersifat pilihan dan memakai data minimum; tanpa password/kode akses di notifikasi.
+
+**Selesai jika:** kedua model Apps berjalan tanpa stok palsu, dan payment tidak disamakan dengan aktivasi selesai.
+
+### P4 — Optimasi setelah alur utama matang
+
+- Lengkapi metadata halaman, preview tautan, sitemap publik, dan perlindungan indeks halaman privat.
+- Ukur performa sebelum mengoptimalkan gambar, background, bundle, atau polling.
+- Ukur titik berhenti checkout secara agregat tanpa rahasia atau data pribadi.
+- Testimoni, promo, rekomendasi paket, dan statistik hanya dari data nyata. Leaderboard, popup pembelian, multi-cart, dan pilihan banyak nominal bukan prioritas awal.
+
+**Selesai jika:** perubahan SEO/performa memiliki bukti terukur, halaman privat terlindungi dari indeks, dan informasi promosi memiliki sumber nyata.
+
+### Kontrak, pengujian, dan batas implementasi
+
+Fase fitur perlu merancang metadata publik/admin Apps dan garansi, parameter pencarian/kategori dengan pagination, snapshot ketentuan/fulfillment, serta pekerjaan aktivasi/perpanjangan terpisah dari reservasi stok. Schema additive ditinjau sebelum migrasi; produk/order lama harus tetap kompatibel.
+
+- UI ID/EN/MY pada **375×812, 810×1080, 1440×900**: keyboard, teks panjang, loading, empty, error, stok habis.
+- HTTP gagal tidak tampak kosong; pencarian menemukan produk di luar halaman pertama.
+- Harga server, double-submit, pembayaran ambigu, webhook berulang, dan reservasi stok bersamaan tetap aman.
+- Perubahan admin tidak mengubah snapshot garansi pesanan lama; legacy tidak memperoleh tanggal rekaan.
+- Aktivasi dibayar belum selesai sebelum fulfillment terkonfirmasi.
+- Invoice/admin menolak akses tanpa hak; rahasia tidak masuk log, storage, atau notifikasi.
+- Provider, scheduler, purge, dan restore dilaporkan terpisah dari fixture; SKIP bukan PASS.
+
+**Handoff dokumentasi:** bagian ini dan [laporan benchmark](docs/qa/competitive-benchmark-2026-10-19.md) ditambahkan tanpa menimpa riwayat/perubahan lokal. P0 → P4 adalah roadmap, bukan klaim fitur selesai. Pekerjaan ini tidak mengubah API, schema, konfigurasi, database, atau kode aplikasi; tidak mencakup commit, push, maupun deployment.
+
+### Implementasi lanjutan — 19 Oktober 2026
+
+Pemilik kemudian meminta roadmap dikerjakan dan memberi akses penuh untuk pekerjaan ini. Scope lokal berkembang menjadi UI/API/schema additive dan pengujian disposable localhost. Checkpoint dokumentasi sebelumnya tetap dipertahankan sebagai riwayat; bukan status implementasi terbaru.
+
+- P0 sebagian: matriks dan [inventaris CapCut](docs/plans/apps-product-inventory-2026-10-19.md) tersedia; data harga/stok/perangkat/region/metode aktivasi dan bukti scheduler/retensi provider masih menghambat penjualan/rilis operasional.
+- P1 lokal: Apps lebih terbaca, error/retry tidak false empty, detail sebelum bayar, pencarian server, bantuan/privasi; kartu Roblox lebih ringkas dan estimasi lima hari tanpa bukti dihapus.
+- P2 lokal: metadata/admin paket, SKU tetap terpisah, token konfirmasi dan snapshot garansi, legacy fallback, bantuan invoice dengan lifecycle/audit.
+- P3 inti lokal: activation dipisahkan dari stock delivery, paid tidak otomatis aktif, owner/recent reauth/evidence, periode layanan dan renewal yang menjaga sisa durasi/serialisasi sumber. Reminder dispatch dan metode CapCut nyata pending.
+- P4 dasar lokal: metadata, robots/sitemap publik dan private noindex. Pengukuran funnel/performa serta optimasi berbasis pengukuran belum dilaksanakan.
+- Migration baru hanya diuji di `cloudy_test_benchmark_20261019` dan `cloudy_test_benchmark_upgrade_20261019`. Runtime baru belum boleh dirilis sebelum additive migration pada target bersama yang terverifikasi; tidak mengakses defaultdb atau menjalankan transaksi provider.
+
+[QA implementasi](docs/qa/benchmark-implementation-2026-10-19.md) memuat kontrak, bukti, batas fixture/provider, hasil review, dan urutan rilis/pemulihan. Tidak ada commit/push/deployment pada checkpoint ini.
+
+**Bukti akhir lokal:** regression **207 PASS / 0 FAIL / 9 SKIP**; integration Apps MySQL **9 PASS**; browser fixture **9 Apps + 37 shared PASS**; HTTP tanpa database **5 PASS**. Migration kosong dan upgrade fixture lama PASS (digest lama utuh, diff schema kosong). TypeScript/lint/build PASS dengan warning yang dijelaskan di QA. Ini bukan bukti pembayaran provider, aktivasi CapCut nyata, eksekusi scheduler deployment atau kesiapan Production.

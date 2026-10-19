@@ -1,4 +1,5 @@
 'use client';
+import { observeCheckout } from '@/components/AggregateMetrics';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { LoginAccount } from '@/lib/loginContact';
 import { LOGIN_BACKUP_CODE_COUNT } from '@/lib/loginCredentials';
@@ -100,6 +101,7 @@ export function LoginDraftProvider({ children }: { children: React.ReactNode }) 
     try {
       // Only this explicit final click authorizes a changed quote after locked
       // NOT_COMMITTED. Recovery/polling never sends a confirmation or new key.
+      observeCheckout('LOGIN');
       const data = await loginRequest(`/api/checkout/attempts/${row.flowId}/confirm`, { version: row.version, checkout: body, reconfirm: true });
       if (data.outcome !== 'COMMITTED' || data.flowId !== row.flowId || !invoiceId(data.invoice)) throw new Error('CHECKOUT_UNKNOWN');
       if (!alive.current || epoch !== generation.current) return null;

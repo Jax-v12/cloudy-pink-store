@@ -1,4 +1,5 @@
 import { loginFlowTranslations } from './loginFlowTranslations';
+import { appsTranslations } from './appsTranslations';
 import { serviceHelpTranslations } from './serviceHelpTranslations';
 import { regionalTranslations } from './regionalTranslations';
 import { invoiceStatusTranslations } from './invoiceStatusTranslations';
@@ -11,6 +12,7 @@ export type Language = 'ID' | 'EN' | 'MY';
 
 export const translations = {
   ID: {
+    apps: appsTranslations.ID,
     serviceHelp: serviceHelpTranslations.ID,
     loginFlow: loginFlowTranslations.ID,
     loginDatabaseError: "Database belum diperbarui. Jalankan migrasi Prisma sebelum login.",
@@ -208,6 +210,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   MY: {
+    apps: appsTranslations.MY,
     serviceHelp: serviceHelpTranslations.MY,
     loginFlow: loginFlowTranslations.MY,
     loginDatabaseError: "Database belum dikemas kini. Jalankan migrasi Prisma sebelum log masuk.",
@@ -405,6 +408,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   EN: {
+    apps: appsTranslations.EN,
     serviceHelp: serviceHelpTranslations.EN,
     loginFlow: loginFlowTranslations.EN,
     loginDatabaseError: "The database schema is outdated. Apply Prisma migrations before signing in.",

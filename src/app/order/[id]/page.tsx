@@ -5,6 +5,8 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
 import OrderProgress from '@/components/OrderProgress';
+import AppsOrderPanel, { type AppsOrder } from '@/components/AppsOrderPanel';
+import { APPS_DELIVERY_TTL_MS } from '@/lib/appsProduct';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import RegionalPaymentSummary from '@/components/RegionalPaymentSummary';
 import { orderNotice, formatQrCountdown, showFulfillmentDetails } from '@/lib/orderNotice';
@@ -13,7 +15,7 @@ import { buildAppsOtpWhatsappUrl, type AppsOtpState } from '@/lib/appsOtp';
 import { saveRecentOrder } from '@/lib/recentOrders';
 import { useLanguage } from '@/context/LanguageContext';
 
-interface OrderDetail {
+interface OrderDetail extends AppsOrder {
   invoice: string;
   type: 'APPS' | 'GAME' | 'ROBLOX';
   fulfillmentStatus: 'NOT_READY' | 'QUEUED' | 'PROCESSING' | 'WAITING_CUSTOMER' | 'COMPLETED' | 'REQUIRES_REVIEW';
@@ -59,6 +61,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [appsRevision, setAppsRevision] = useState(0);
+  const appsDeliveredAt = order?.appsService?.deliveredAt;
+  const hasAppsDelivery = Boolean(order?.appsService?.delivery);
+  useEffect(() => {
+    if (!hasAppsDelivery || !appsDeliveredAt) return;
+    const deadline = Date.parse(appsDeliveredAt) + APPS_DELIVERY_TTL_MS;
+    const timer = setTimeout(() => setOrder(current => current?.appsService?.deliveredAt === appsDeliveredAt
+      ? { ...current, appsService: { ...current.appsService, delivery: null } } : current), Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : 0);
+    return () => clearTimeout(timer);
+  }, [appsDeliveredAt, hasAppsDelivery]);
+
+
 
   useEffect(() => {
     if (!order) return;
@@ -120,7 +134,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     }
     void loadOrder();
     return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
-  }, [id, order?.otp?.status]);
+  }, [id, order?.otp?.status, appsRevision]);
 
   const formatRupiah = (amount: number) => formatMoney(amount, order?.currency ?? 'IDR', language);
 
@@ -308,7 +322,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b-2 border-pink-100 gap-2 mb-6">
             <div>
               <h1 className="text-xl font-black text-pink-700">{t.orderTitle}</h1>
-              <p className="text-xs text-neutral-500">{order.type === 'APPS' ? t.orderSubtitle : order.type === 'GAME' ? t.commerce.gameDescription : t.commerce.robloxDescription}</p>
+              <p className="text-xs text-neutral-500">{order.type === 'APPS' ? order.appsSnapshot?.fulfillmentMode === 'ACTIVATION' ? t.apps.ACTIVATION : t.orderSubtitle : order.type === 'GAME' ? t.commerce.gameDescription : t.commerce.robloxDescription}</p>
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase self-start sm:self-auto ${
@@ -352,6 +366,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           <OrderProgress order={order} />
+          {order.type === 'APPS' && <AppsOrderPanel order={order} now={now} refresh={() => setAppsRevision(n => n + 1)} />}
 
           {showFulfillmentDetails(order) && (
             <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">
@@ -362,7 +377,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               {order.robloxDetail?.method === 'GAMEPASS' && order.status === 'PAID' && order.fulfillmentStatus === 'COMPLETED' && order.refundStatus === 'NONE' && <p className="text-sm text-slate-600">{t.roblox.pendingNotice}</p>}
               {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
               {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
-              {order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
+              {order.type !== 'APPS' && order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
             </section>
           )}
 
@@ -522,7 +537,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               </div>
 
               {/* Garansi 25 Hari berdasarkan paidAt */}
-              {hasValidPaidAt ? (
+              {!order.appsSnapshot && (hasValidPaidAt ? (
                 isWarrantyActive ? (
                   <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
                     <div>
@@ -564,8 +579,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     {t.warrantyInfoBody}
                   </p>
                 </div>
-              )}
-
+              ))}
               {/* FAQ / Panduan Login Accordion */}
               <div className="bg-white/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3">
                 <h4 className="text-xs font-black text-pink-800 flex items-center gap-1.5">

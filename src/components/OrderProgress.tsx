@@ -8,7 +8,8 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
   const { t } = useLanguage();
   const copy = t.serviceHelp.progress;
   const progress = orderProgress(order);
-  const stages = order.type === 'APPS'
+  const readyAccount = order.type === 'APPS' && order.appsSnapshot?.fulfillmentMode !== 'ACTIVATION';
+  const stages = readyAccount
     ? ['payment', 'processing', 'completed'] as const
     : ['payment', 'queued', 'processing', 'completed'] as const;
   const currentIndex = stages.findIndex(stage => stage === progress.stage);
@@ -18,13 +19,13 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
 
   return <section aria-labelledby="order-progress-title" className="mb-6 rounded-2xl border-2 border-pink-200 bg-white p-4 sm:p-5">
     <h2 id="order-progress-title" className="text-base font-black text-pink-900">{copy.title}</h2>
-    {progress.stage !== null && <ol className={`mt-4 grid gap-3 ${order.type === 'APPS' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+    {progress.stage !== null && <ol className={`mt-4 grid gap-3 ${readyAccount ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
       {stages.map((stage, index) => {
         const current = index === currentIndex;
         const done = currentIndex > index || (current && stage === 'completed');
         return <li key={stage} aria-current={current ? 'step' : undefined} className={`flex items-start gap-2 rounded-xl border p-3 text-xs font-bold leading-5 ${current ? 'border-pink-600 bg-pink-50 text-pink-900' : done ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
           <span aria-hidden="true" className="shrink-0">{done ? '✓' : index + 1}</span>
-          <span>{order.type === 'APPS' && stage === 'processing' ? copy.preparingStep : copy[stage]}<span className="sr-only"> · {current ? copy.current : done ? copy.done : copy.next}</span></span>
+          <span>{readyAccount && stage === 'processing' ? copy.preparingStep : copy[stage]}<span className="sr-only"> · {current ? copy.current : done ? copy.done : copy.next}</span></span>
         </li>;
       })}
     </ol>}

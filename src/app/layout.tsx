@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { publicSiteOrigin } from '@/lib/siteMetadata';
+import AggregateMetrics from '@/components/AggregateMetrics';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cloudy Pink Store - Instant Digital Goods",
-  description: "Automated 24/7 Digital Store",
+  title: "Cloudy Pink Store — Apps Premium & Roblox",
+  description: "Apps Premium dan Roblox Top-up. Periksa paket, ketentuan, pembayaran, dan progres pesanan.",
+  ...(publicSiteOrigin() ? { metadataBase: new URL(publicSiteOrigin()!), openGraph: { title: 'Cloudy Pink Store', description: 'Apps Premium & Roblox Top-up', images: ['/banner-logo.png'], type: 'website' as const } } : {}),
 };
 
 export default function RootLayout({
@@ -25,11 +28,12 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <LanguageProvider>
+          <AggregateMetrics active={process.env.AGGREGATE_METRICS_ENABLED === 'true'} />
           {children}
         </LanguageProvider>
       </body>

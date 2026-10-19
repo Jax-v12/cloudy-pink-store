@@ -6,6 +6,8 @@ import QRCode from 'qrcode';
 import { isValidOrderQrUrl } from '@/lib/midtrans';
 import { invoiceAccessWhere } from '@/lib/invoiceAccess';
 import { OTP_REPLY_PREFIX, OTP_REQUEST_ACTION, resolveAppsOtpState } from '@/lib/appsOtp';
+import { parseAppsConfig, appsWarranty, appsDeliveryVisible } from '@/lib/appsProduct';
+import { whatsappReady } from '@/lib/appsReminders';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,6 +22,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       include: {
         product: { select: { name: true } },
         accountStock: true,
+        appsService: true,
+        appsSupport: true,
         robloxDetail: { select: { method: true, username: true, gamepassPrice: true } },
         gameDetail: { select: { userId: true, zoneId: true } },
         audits: {
@@ -31,6 +35,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       },
     });
     if (!order) return NextResponse.json({ success: false, errorCode: 'ORDER_NOT_FOUND' }, { status: 404, headers: privateHeaders });
+    const appsSnapshot = order.type === 'APPS' ? parseAppsConfig(order.appsSnapshot) : null;
+    const appsService = order.appsService;
+    const appsDelivery = order.status === 'PAID' && order.refundStatus === 'NONE' && appsService?.deliveryCiphertext && appsDeliveryVisible(appsService.deliveredAt)
+      ? decryptData(appsService.deliveryCiphertext) : null;
     const stock = order.status === 'PAID' ? order.accountStock : null;
     const account = stock ? {
       emailAccount: decryptLegacyField(stock.emailAccount),
@@ -54,6 +62,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       invoice: order.invoice, totalAmount: order.totalAmount, status: order.status,
       type: order.type, currency: order.currency, pricingRegion: order.pricingRegion, productSubtotal: order.productSubtotal ?? order.totalAmount, paymentFee: order.paymentFee, discount: order.discount, fulfillmentStatus: order.fulfillmentStatus, refundStatus: order.refundStatus,
       variantName: order.variantName, units: order.units, robloxDetail: order.robloxDetail, gameDetail: order.gameDetail,
+      ...(order.type === 'APPS' ? { appsSnapshot, appsWarranty: appsWarranty(appsSnapshot, order.paidAt, appsService?.activeFrom ?? null),
+        appsSupport: order.appsSupport ? { reason: order.appsSupport.reason, status: order.appsSupport.status, updatedAt: order.appsSupport.updatedAt } : null,
+        appsService: appsService ? { deliveredAt: appsService.deliveredAt, acknowledgedAt: appsService.acknowledgedAt, activeFrom: appsService.activeFrom, activeUntil: appsService.activeUntil, delivery: appsDelivery,
+          reminderOptIn: appsService.reminderOptIn, reminderVerified: !!appsService.reminderVerifiedAt, remindersAvailable: whatsappReady() } : null } : {}),
       paymentMethod: order.paymentMethod, qrisUrl, qrisCode,
       expiresAt: order.expiresAt, createdAt: order.createdAt.toISOString(), paidAt: order.paidAt ? order.paidAt.toISOString() : null, product: { name: order.productName || order.product.name }, account, otp, isAuthorized: true,
     } }, { headers: privateHeaders });

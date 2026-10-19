@@ -7,7 +7,7 @@ import { type RobloxMethodKey } from '@/lib/roblox';
 
 type Product = { id: number; slug: string; name: string; checkoutEnabled: boolean; variants: { regionalPrices?: RegionalPrice[]; method: string | null; price: number | null; units: number }[] };
 function ServiceArt({ method }: { method: RobloxMethodKey }) {
-  return <svg viewBox="0 0 160 150" aria-hidden="true" className="h-28 w-28 shrink-0 text-pink-300">
+  return <svg viewBox="0 0 160 150" aria-hidden="true" className="h-20 w-20 shrink-0 text-pink-300 sm:h-28 sm:w-28">
     <circle cx="85" cy="80" r="60" fill="#fff1f5" /><circle cx="133" cy="24" r="8" fill="#fbcfe0" />
     {method === 'GAMEPASS' ? <g transform="rotate(-12 80 75)"><rect x="34" y="39" width="95" height="69" rx="15" fill="#fce7ef" stroke="currentColor" strokeWidth="3" /><path d="M59 40v68" stroke="currentColor" strokeWidth="3" strokeDasharray="5 5" /><path d="m96 55 17 17-17 17-17-17z" fill="#fb718f" /><circle cx="96" cy="72" r="6" fill="white" /></g>
       : method === 'LOGIN' ? <g><path d="M58 63V49a23 23 0 0 1 46 0v14" fill="none" stroke="#f9a8c5" strokeWidth="12" /><rect x="43" y="62" width="75" height="60" rx="17" fill="#fce7ef" stroke="currentColor" strokeWidth="3" /><circle cx="80" cy="85" r="8" fill="#fb718f" /><path d="M80 88v12" stroke="#fb718f" strokeWidth="7" strokeLinecap="round" /></g>
@@ -36,7 +36,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
       <div className="relative flex items-center justify-between gap-3 bg-gradient-to-br from-pink-50/50 via-rose-50/30 to-transparent px-6 pt-6 pb-2">
         <div className="min-w-0 self-start">
           <span className="inline-block rounded-xl bg-white px-3 py-1 text-xs font-black uppercase tracking-widest text-pink-500 shadow-sm border border-pink-100">{t.roblox[method]}</span>
-          <h3 className="mt-4 text-2xl font-black leading-tight text-pink-800">{f[method]}</h3>
+          <h3 className="mt-3 text-xl font-black leading-tight text-pink-800 sm:text-2xl">{f[method]}</h3>
           <p className="mt-1 font-bold text-slate-700">{tag[method]}</p>
         </div>
         <div className="-mr-3 transition group-hover:scale-105"><ServiceArt method={method} /></div>

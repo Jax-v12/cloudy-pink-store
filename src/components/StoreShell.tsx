@@ -146,6 +146,7 @@ export default function StoreShell({ children, wide = false }: { children: React
       {children}
       {!pathname.startsWith('/admin') && <footer className="mt-8 rounded-2xl border border-pink-200 bg-white px-5 py-5">
         <ServiceHelpLinks />
+        <Link href="/privacy" className="mt-3 inline-block rounded text-sm font-semibold text-pink-900 underline underline-offset-4">{t.apps.privacy}</Link>
       </footer>}
     </div>
 
