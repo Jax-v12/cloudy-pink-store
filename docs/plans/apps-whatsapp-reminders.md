@@ -2,6 +2,8 @@
 
 Keputusan pemilik: WhatsApp H-3 dan H-1; belum memiliki penyedia (20 Oktober 2026). Implementasi menggunakan adapter Meta Cloud API, nonaktif secara default. Tidak ada akun baru, biaya, token, nomor pelanggan atau pesan nyata yang dibuat oleh task ini.
 
+Meta Cloud API adalah layanan resmi untuk menghubungkan website dengan pengiriman WhatsApp otomatis. Pengingat H-3/H-1 membutuhkan akun bisnis, nomor pengirim dan template pesan yang disetujui; akun WhatsApp biasa belum menjadi layanan API. Pemilik menyelesaikan identitas, persetujuan ketentuan dan biaya yang berlaku, lalu memasukkan credential langsung ke secret store. Bantuan WhatsApp manual yang sudah tersedia tetap dapat dipakai. Source telah dirilis, tetapi flag pengiriman tetap nonaktif sampai prasyarat ini dipenuhi dan diuji dengan penerima yang disetujui.
+
 ## Prasyarat aktivasi operator
 
 1. Siapkan akun pengirim WhatsApp Business Platform melalui Meta atau pilih penyedia lain. Jika penyedia berbeda, review adapter sebelum mengaktifkan flag; jangan memasukkan endpoint arbitrer ke konfigurasi.
