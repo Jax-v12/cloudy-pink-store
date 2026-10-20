@@ -174,7 +174,7 @@ const my: Copy = {
   attempts: 'Percubaan penyedia', audit: 'Aktiviti pentadbir', noData: 'Belum ada rekod.', overdue: 'Worker belum melapor dalam tiga minit terakhir.', pendingCount: 'Penghantaran belum selesai', reviewCount: 'Pesanan perlu disemak',
   unknown: 'Belum diketahui', status: 'Semak status', 'resolve-game': 'Penghantaran penyedia disahkan', 'reveal-secret': 'Butiran sulit dibuka', 'refund-required': 'Perlu bayaran balik', 'refund-completed': 'Bayaran balik selesai',
   checkoutRetry: 'Cuba semula pesanan yang sama', back: 'Kembali',
-  robloxHeroEyebrow: 'Tambah nilai Roblox', robloxHeroTitle: 'Tambah nilai Robux, diproses dengan teliti',
+  robloxHeroEyebrow: 'Tambah nilai Roblox', robloxHeroTitle: 'Tambah nilai Robux dengan teliti',
   gameHeroEyebrow: 'Tambah nilai permainan', gameHeroTitle: 'Tambah nilai permainan kegemaran anda',
   trustSecure: 'Pembayaran selamat', trustManual: 'Disemak oleh pasukan kami', trustInvoice: 'Invois & jejak pesanan', trustRegional: 'Harga mata wang tempatan', trustServerPrice: 'Harga disahkan pelayan',
   startingFrom: 'Bermula dari', packagesCount: '{count} pakej', backToCatalog: 'Kembali ke katalog', retryLoad: 'Cuba lagi',

@@ -10,8 +10,9 @@ const dir = '.cache/operations-20261020/browser'; await fs.mkdir(dir, { recursiv
 const browser = await chromium.launch({ channel: 'chrome', headless: true }), results = [];
 try {
   for (const [width,height] of [[375,812],[810,1080],[1440,900]]) for (const language of ['ID','EN','MY']) {
+    if (process.env.QA_CASE && process.env.QA_CASE !== `${width}-${language}`) continue;
     const context = await browser.newContext({ viewport: { width,height }, serviceWorkers:'block' });
-    await context.addInitScript(language => { localStorage.setItem('store_lang', language); localStorage.setItem('token_INV-SYNTHETIC-OTP-QA','synthetic-only'); window.__shifts = []; new PerformanceObserver(l => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__shifts.push(e.value); }).observe({ type:'layout-shift', buffered:true }); }, language);
+    await context.addInitScript(language => { localStorage.setItem('store_lang', language); localStorage.setItem('token_INV-SYNTHETIC-OTP-QA','synthetic-only'); window.__shifts = []; window.__shiftSources=[]; new PerformanceObserver(l => { for (const e of l.getEntries()) if (!e.hadRecentInput) { window.__shifts.push(e.value); window.__shiftSources.push({value:e.value,time:e.startTime,sources:e.sources.map(s => ({tag:s.node?.tagName,text:s.node?.textContent?.slice(0,80),cls:s.node?.className,before:s.previousRect.toJSON(),after:s.currentRect.toJSON()}))}); } }).observe({ type:'layout-shift', buffered:true }); }, language);
     const page = await context.newPage(); let posts = 0, writes = 0;
     await context.route('**/*', async route => {
       const req = route.request(), url = new URL(req.url());
@@ -28,6 +29,7 @@ try {
     });
     await page.goto(base+'/roblox',{waitUntil:'networkidle'});
     const cls = await page.evaluate(() => window.__shifts.reduce((a,b) => a+b,0));
+    await fs.writeFile(`${dir}/shifts-${language}-${width}.json`,JSON.stringify(await page.evaluate(() => window.__shiftSources),null,2));
     assert.ok(cls < 0.1, `CLS ${cls} at ${width}/${language}`);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
     await page.screenshot({path:`${dir}/roblox-${language}-${width}.png`,fullPage:true});

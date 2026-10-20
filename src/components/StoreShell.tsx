@@ -95,7 +95,7 @@ export default function StoreShell({ children, wide = false }: { children: React
               &larr; {c.home}
             </Link>
           ) : <div></div>}
-          <nav className="order-3 flex w-full gap-2 overflow-x-auto rounded-2xl bg-white/90 backdrop-blur-md p-1.5 text-sm font-bold sm:order-none sm:w-auto shadow-md border-2 border-pink-200" aria-label={c.home}>
+          <nav className="order-3 flex w-full gap-2 overflow-x-auto rounded-2xl bg-white/90 backdrop-blur-md p-1.5 text-sm font-bold lg:order-none lg:w-auto shadow-md border-2 border-pink-200" aria-label={c.home}>
             {links.map(([href, label]) => {
               const current = pathname === href || pathname.startsWith(href + '/');
               return <Link key={href} href={href} aria-current={current ? 'page' : undefined}
