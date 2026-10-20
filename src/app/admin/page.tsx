@@ -1,5 +1,6 @@
 'use client';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
+import { refreshOrderPages } from '@/lib/adminOrderPages';
 
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -135,11 +136,12 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
-  const [otpInputs, setOtpInputs] = useState<Record<number, string>>({});
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [otpSendingId, setOtpSendingId] = useState<number | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const seenOrderIdsRef = useRef<Set<number>>(new Set());
   const seenOtpRequestIdsRef = useRef<Set<number>>(new Set());
+  const loadedOrderCursorsRef = useRef<number[]>([]);
   const initialOrdersLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -211,50 +213,97 @@ export default function AdminPage() {
   const loadOrders = useCallback(async (cursor?: number) => {
     setOrdersLoading(true);
     try {
-      const res = await fetch('/api/admin/orders' + (cursor ? '?cursor=' + cursor : ''));
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
-      if (Array.isArray(json.data)) {
-        const incoming: OrderItem[] = json.data;
-        if (!cursor) {
-          let hasNewOrder = false;
-          let hasNewRequestedOtp = false;
-          for (const row of incoming) {
-            if (!seenOrderIdsRef.current.has(row.id)) {
-              hasNewOrder = true;
-              seenOrderIdsRef.current.add(row.id);
-            }
-            if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
-              if (!seenOtpRequestIdsRef.current.has(row.otp.requestId)) {
-                hasNewRequestedOtp = true;
-                seenOtpRequestIdsRef.current.add(row.otp.requestId);
-              }
-            }
+      if (cursor) {
+        const res = await fetch(`/api/admin/orders?cursor=${cursor}`);
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
+        if (Array.isArray(json.data)) {
+          const incoming: OrderItem[] = json.data;
+          if (!loadedOrderCursorsRef.current.includes(cursor)) {
+            loadedOrderCursorsRef.current = [...loadedOrderCursorsRef.current, cursor];
           }
-          if (initialOrdersLoadedRef.current && (hasNewOrder || hasNewRequestedOtp)) {
-            let soundAllowed = true;
-            try {
-              soundAllowed = localStorage.getItem('cloudy_admin_sound') !== 'false';
-            } catch {
-              soundAllowed = true;
-            }
-            if (soundAllowed) {
-              playAdminChime();
-            }
-          }
-          initialOrdersLoadedRef.current = true;
-        } else {
           for (const row of incoming) {
             seenOrderIdsRef.current.add(row.id);
             if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
               seenOtpRequestIdsRef.current.add(row.otp.requestId);
             }
           }
+          setOrders(previous => {
+            const seenIds = new Set(previous.map(item => item.id));
+            const merged = [...previous];
+            for (const row of incoming) {
+              if (!seenIds.has(row.id)) {
+                seenIds.add(row.id);
+                merged.push(row);
+              }
+            }
+            return merged;
+          });
+          setOrderCursor(json.pagination.nextCursor);
+          setOrdersError('');
         }
-        setOrders(previous => cursor ? [...previous, ...incoming] : incoming);
-        setOrderCursor(json.pagination.nextCursor);
-        setOrdersError('');
+        return;
       }
+
+      const refreshed = await refreshOrderPages<OrderItem>(loadedOrderCursorsRef.current.length + 1, async pageCursor => {
+        const res = await fetch('/api/admin/orders' + (pageCursor ? `?cursor=${pageCursor}` : ''));
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
+        if (!Array.isArray(json.data)) throw new Error('LOAD_FAILED');
+        return { data: json.data, nextCursor: json.pagination?.nextCursor ?? null };
+      });
+      const combined = refreshed.rows;
+      const lastNextCursor = refreshed.nextCursor;
+      loadedOrderCursorsRef.current = refreshed.cursors;
+
+      let hasNewOrder = false;
+      let hasNewRequestedOtp = false;
+      for (const row of combined) {
+        if (!seenOrderIdsRef.current.has(row.id)) {
+          hasNewOrder = true;
+          seenOrderIdsRef.current.add(row.id);
+        }
+        if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
+          if (!seenOtpRequestIdsRef.current.has(row.otp.requestId)) {
+            hasNewRequestedOtp = true;
+            seenOtpRequestIdsRef.current.add(row.otp.requestId);
+          }
+        }
+      }
+      if (initialOrdersLoadedRef.current && (hasNewOrder || hasNewRequestedOtp)) {
+        let soundAllowed = true;
+        try {
+          soundAllowed = localStorage.getItem('cloudy_admin_sound') !== 'false';
+        } catch {
+          soundAllowed = true;
+        }
+        if (soundAllowed) {
+          playAdminChime();
+        }
+      }
+      initialOrdersLoadedRef.current = true;
+
+      setOrders(combined);
+      setOrderCursor(lastNextCursor);
+      setOtpInputs(prev => {
+        const activeKeys = new Set<string>();
+        for (const row of combined) {
+          if (row.otp?.status === 'REQUESTED' && row.otp.requestId !== null) {
+            activeKeys.add(`${row.id}:${row.otp.requestId}`);
+          }
+        }
+        let changed = false;
+        const next: Record<string, string> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (activeKeys.has(k)) {
+            next[k] = v;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+      setOrdersError('');
     } catch (err: unknown) {
       setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
     } finally {
@@ -272,9 +321,11 @@ export default function AdminPage() {
 
   const handleSendOtp = async (order: OrderItem) => {
     const orderId = order.id;
-    const code = (otpInputs[orderId] || '').trim();
     const requestId = order.otp?.status === 'REQUESTED' ? order.otp.requestId : null;
-    if (!code || !requestId || otpSendingId !== null) return;
+    if (!requestId || otpSendingId !== null) return;
+    const draftKey = `${orderId}:${requestId}`;
+    const code = (otpInputs[draftKey] || '').trim();
+    if (!code) return;
     setOtpSendingId(orderId);
     setOrdersError('');
     try {
@@ -291,7 +342,11 @@ export default function AdminPage() {
         }
         throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
       }
-      setOtpInputs(prev => ({ ...prev, [orderId]: '' }));
+      setOtpInputs(prev => {
+        const next = { ...prev };
+        delete next[draftKey];
+        return next;
+      });
       setOrders(prev => prev.map(row => row.id === orderId ? { ...row, otp: { status: 'DELIVERED', requestId } } : row));
     } catch (err: unknown) {
       setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
@@ -388,8 +443,10 @@ export default function AdminPage() {
     try {
       const response = await fetch('/api/admin/auth', { method: 'DELETE' });
       if (!response.ok) throw new Error('LOGOUT_FAILED');
+      loadedOrderCursorsRef.current = [];
       setStocks([]);
       setOrders([]);
+      setOtpInputs({});
       setIsAuthenticated(false);
     } catch (err: unknown) {
       console.error('Logout error:', err);
@@ -1249,7 +1306,12 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : (
-                      orders.map((order) => (
+                      orders.map((order) => {
+                        const otpDraftKey =
+                          order.otp?.status === 'REQUESTED' && order.otp.requestId !== null
+                            ? `${order.id}:${order.otp.requestId}`
+                            : null;
+                        return (
                         <tr key={order.id} className="hover:bg-pink-50/30 transition">
                           <td className="py-3 px-3 font-mono font-bold text-neutral-800">
                             <div>{order.invoice}</div>
@@ -1302,20 +1364,21 @@ export default function AdminPage() {
                                     ✓ {t.adminOtpDelivered}
                                   </span>
                                 )}
-                                {order.otp.status === 'REQUESTED' && order.otp.requestId !== null && (
+                                {otpDraftKey !== null && (
                                   <div className="flex items-center gap-1">
                                     <input
+                                      key={otpDraftKey}
                                       type="text"
                                       maxLength={24}
                                       aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
                                       placeholder={t.adminOtpPlaceholder}
-                                      value={otpInputs[order.id] || ''}
-                                      onChange={(e) => setOtpInputs(prev => ({ ...prev, [order.id]: e.target.value }))}
+                                      value={otpInputs[otpDraftKey] || ''}
+                                      onChange={(e) => setOtpInputs(prev => ({ ...prev, [otpDraftKey]: e.target.value }))}
                                       className="w-28 bg-white border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-mono text-neutral-800 focus:outline-none focus:border-pink-500"
                                     />
                                     <button
                                       type="button"
-                                      disabled={otpSendingId === order.id || !(otpInputs[order.id] || '').trim()}
+                                      disabled={otpSendingId === order.id || !(otpInputs[otpDraftKey] || '').trim()}
                                       onClick={() => handleSendOtp(order)}
                                       className="px-2 py-1 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition active:scale-95 cursor-pointer"
                                     >
@@ -1327,7 +1390,8 @@ export default function AdminPage() {
                             )}
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

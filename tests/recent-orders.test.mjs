@@ -81,4 +81,22 @@ describe('recentOrders', () => {
     clearRecentOrders();
     assert.deepEqual(getRecentOrders(nowMs), []);
   });
+
+  it('gracefully falls back when window.localStorage getter throws SecurityError', () => {
+    const windowWithBlockedStorage = {};
+    Object.defineProperty(windowWithBlockedStorage, 'localStorage', {
+      get() {
+        const err = new Error('Access is denied for this document.');
+        err.name = 'SecurityError';
+        throw err;
+      },
+    });
+    global.window = windowWithBlockedStorage;
+
+    assert.doesNotThrow(() => {
+      assert.deepEqual(getRecentOrders(), []);
+      saveRecentOrder({ invoice: 'INV-BLOCKED-1', visitedAt: '2026-10-18T10:00:00.000Z' });
+      clearRecentOrders();
+    });
+  });
 });

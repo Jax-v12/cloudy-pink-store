@@ -10,9 +10,12 @@ import {
   resolveAppsOtpState,
   buildAppsOtpWhatsappUrl,
 } from '../src/lib/appsOtp.ts';
-import { requestAppsOtp, replyAppsOtp } from '../src/lib/appsOtpServer.ts';
 
 process.env.ENCRYPTION_KEY ||= 'test-encryption-key-32-bytes-minimum';
+globalThis.prisma = {};
+const { requestAppsOtp, markAppsOtpNotified, markAppsOtpRejected, replyAppsOtp, OTP_MAX_NOTIFY_ATTEMPTS } = await import(
+  '../src/lib/appsOtpServer.ts'
+);
 
 let mockOrders = new Map();
 let mockAudits = [];
@@ -212,7 +215,7 @@ describe('appsOtpServer transactional guarantees', () => {
     });
   });
 
-  it('deduplicates concurrent customer OTP requests under lock', async () => {
+  it('deduplicates concurrent customer OTP requests under lock and bounds notification retries to the same requestId', async () => {
     const [r1, r2] = await Promise.all([
       requestAppsOtp(1, () => Date.now(), runMockMutation),
       requestAppsOtp(1, () => Date.now(), runMockMutation),
@@ -220,7 +223,53 @@ describe('appsOtpServer transactional guarantees', () => {
     const createdCount = [r1, r2].filter((r) => r.created).length;
     assert.equal(createdCount, 1);
     assert.equal(r1.state.requestId, r2.state.requestId);
-    assert.equal(mockAudits.length, 1);
+    const requestAudits = mockAudits.filter((a) => a.action === OTP_REQUEST_ACTION);
+    assert.equal(requestAudits.length, 1);
+
+    // The first claim blocks concurrent sends and ambiguous outcomes.
+    assert.equal(r1.shouldNotify, true);
+    assert.equal(r2.shouldNotify, false);
+
+    // An absent acknowledgment cannot authorize another send.
+    const r3 = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(r3.created, false);
+    assert.equal(r3.state.requestId, r1.state.requestId);
+    assert.equal(r3.shouldNotify, false);
+
+    // Only an explicit rejection allows a new attempt for the same request.
+    await markAppsOtpRejected(1, r1.state.requestId, 1, runMockMutation);
+    const retry = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(retry.shouldNotify, true); assert.equal(retry.notificationAttempt, 2);
+    await markAppsOtpRejected(1, r1.state.requestId, 2, runMockMutation);
+    const final = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(final.shouldNotify, true); assert.equal(final.notificationAttempt, 3);
+    await markAppsOtpRejected(1, r1.state.requestId, 3, runMockMutation);
+    // Attempt 4 exceeds the cap and is suppressed.
+    assert.equal(OTP_MAX_NOTIFY_ATTEMPTS, 3);
+    const r4 = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(r4.created, false);
+    assert.equal(r4.state.requestId, r1.state.requestId);
+    assert.equal(r4.shouldNotify, false);
+
+    // Once notified is recorded for a fresh request, subsequent retries immediately return shouldNotify=false
+    const reply = await replyAppsOtp({
+      orderId: 1,
+      requestId: r1.state.requestId,
+      code: '123456',
+      sessionId: 'sess-valid',
+      runMutation: runMockMutation,
+    });
+    assert.equal(reply.outcome, 'DELIVERED');
+
+    const freshReq = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(freshReq.created, true);
+    assert.equal(freshReq.shouldNotify, true);
+    await markAppsOtpNotified(1, freshReq.state.requestId, runMockMutation);
+
+    const afterNotified = await requestAppsOtp(1, () => Date.now(), runMockMutation);
+    assert.equal(afterNotified.created, false);
+    assert.equal(afterNotified.state.requestId, freshReq.state.requestId);
+    assert.equal(afterNotified.shouldNotify, false);
   });
 
   it('rejects non-eligible orders (ROBLOX, refunded, removed, or missing accountStockId)', async () => {
@@ -256,6 +305,11 @@ describe('appsOtpServer transactional guarantees', () => {
   });
 
   it('enforces requestId correlation and prevents duplicate or stale replies', async () => {
+    const otpAudits = () =>
+      mockAudits.filter(
+        (a) => a.action === OTP_REQUEST_ACTION || String(a.action).startsWith(OTP_REPLY_PREFIX),
+      );
+
     // Reply when no request exists returns REQUEST_NOT_FOUND
     const notFoundReply = await replyAppsOtp({
       orderId: 1,
@@ -289,8 +343,8 @@ describe('appsOtpServer transactional guarantees', () => {
     ]);
     assert.equal([rep1, rep2].filter((r) => r.outcome === 'DELIVERED').length, 1);
     assert.equal([rep1, rep2].filter((r) => r.outcome === 'ALREADY_DELIVERED').length, 1);
-    assert.equal(mockAudits.length, 2);
-    assert.equal(mockAudits[1].sessionId, 'sess-valid');
+    assert.equal(otpAudits().length, 2);
+    assert.equal(otpAudits()[1].sessionId, 'sess-valid');
 
     // Customer creates a second OTP request (superseding req1Id)
     const req2 = await requestAppsOtp(1, () => Date.now(), runMockMutation);
@@ -306,7 +360,7 @@ describe('appsOtpServer transactional guarantees', () => {
       runMutation: runMockMutation,
     });
     assert.equal(superseded.outcome, 'REQUEST_SUPERSEDED');
-    assert.equal(mockAudits.length, 3); // req1, rep1, req2
+    assert.equal(otpAudits().length, 3); // req1, rep1, req2
 
     // Replying after OTP_TTL_MS returns REQUEST_EXPIRED
     const expired = await replyAppsOtp({
@@ -318,10 +372,14 @@ describe('appsOtpServer transactional guarantees', () => {
       runMutation: runMockMutation,
     });
     assert.equal(expired.outcome, 'REQUEST_EXPIRED');
-    assert.equal(mockAudits.length, 3);
+    assert.equal(otpAudits().length, 3);
   });
 
   it('records Telegram update receipt atomically and deduplicates replayed update_id', async () => {
+    const otpAudits = () =>
+      mockAudits.filter(
+        (a) => a.action === OTP_REQUEST_ACTION || String(a.action).startsWith(OTP_REPLY_PREFIX),
+      );
     const reqRes = await requestAppsOtp(1, () => Date.now(), runMockMutation);
     const requestId = reqRes.state.requestId;
 
@@ -335,7 +393,7 @@ describe('appsOtpServer transactional guarantees', () => {
     });
     assert.equal(first.outcome, 'DELIVERED');
     assert.equal(mockReceipts.has('50001'), true);
-    assert.equal(mockAudits[1].sessionId, 'telegram:7694473069');
+    assert.equal(otpAudits()[1].sessionId, 'telegram:7694473069');
 
     // Replay same update_id
     const replay = await replyAppsOtp({
@@ -347,6 +405,139 @@ describe('appsOtpServer transactional guarantees', () => {
       runMutation: runMockMutation,
     });
     assert.equal(replay.outcome, 'DUPLICATE_UPDATE');
-    assert.equal(mockAudits.length, 2);
+    assert.equal(otpAudits().length, 2);
+  });
+
+  for (const scenario of ['502', 'timeout', 'ack-failure', 'parallel']) it(`OTP route keeps one send claim after ${scenario}`, async () => {
+    const originalFetch = globalThis.fetch, originalCreate = mockTx.adminAudit.create;
+    mockOrders.get(1).accessToken = 'synthetic-token';
+    globalThis.prisma.order = { findFirst: async () => ({ id: 1 }) };
+    let points = 0, calls = 0;
+    globalThis.prisma.rateLimit = { upsert: async ({ create }) => ({ ...create, points: ++points }) };
+    globalThis.prisma.$transaction = async work => runMockMutation('route', work);
+    process.env.TELEGRAM_BOT_TOKEN = 'synthetic'; process.env.TELEGRAM_ADMIN_CHAT_ID = 'synthetic';
+    let release, started;
+    const pending = new Promise(resolve => { release = resolve; });
+    const ready = new Promise(resolve => { started = resolve; });
+    globalThis.fetch = async () => {
+      calls++; started();
+      if (scenario === 'parallel') await pending;
+      if (scenario === 'timeout') throw new Error('simulated timeout');
+      if (scenario === '502') return new Response('Bad Gateway', { status: 502 });
+      return Response.json({ ok: true });
+    };
+    if (scenario === 'ack-failure') mockTx.adminAudit.create = async input => {
+      if (input.data.action.startsWith('APPS_OTP_NOTIFIED:')) throw new Error('simulated ACK failure');
+      return originalCreate(input);
+    };
+    try {
+      const { POST } = await import('../src/app/api/orders/[id]/otp/route.ts');
+      const request = () => POST(new Request('https://example.test/api/orders/INV-APPS-001/otp', { method: 'POST', headers: { 'x-order-token': 'synthetic-token' } }), { params: Promise.resolve({ id: 'INV-APPS-001' }) });
+      const first = request();
+      if (scenario === 'parallel') {
+        await ready;
+        let timer;
+        try {
+          const second = await Promise.race([request(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('parallel request did not reuse the send claim')), 1000); })]);
+          assert.equal(second.status, 200);
+        } finally { clearTimeout(timer); release(); }
+      }
+      const response = await first; assert.equal(response.status, 200);
+      const id = (await response.json()).data.requestId;
+      const retry = await request(); assert.equal(retry.status, 200); assert.equal((await retry.json()).data.requestId, id);
+      assert.equal(calls, 1);
+      assert.equal(mockAudits.some(row => row.action.startsWith('APPS_OTP_NOTIFY_REJECTED:')), false);
+    } finally { release(); globalThis.fetch = originalFetch; mockTx.adminAudit.create = originalCreate; }
+  });
+
+  it('POST /api/orders/[id]/otp retries failed Telegram notification for the same requestId and stops once notified', async () => {
+    const originalFetch = globalThis.fetch;
+    let failTelegram = true;
+    const sentTexts = [];
+    const rateLimits = new Map();
+
+    globalThis.prisma.order = {
+      findFirst: async ({ where }) => {
+        for (const o of mockOrders.values()) {
+          if (where.invoice && o.invoice !== where.invoice) continue;
+          if (where.accessToken && o.accessToken !== where.accessToken) continue;
+          return { id: o.id };
+        }
+        return null;
+      },
+    };
+    globalThis.prisma.rateLimit = {
+      upsert: async ({ where, create }) => {
+        const current = rateLimits.get(where.id) || 0;
+        const points = current + 1;
+        rateLimits.set(where.id, points);
+        return { id: where.id, points, expiresAt: create.expiresAt };
+      },
+    };
+    globalThis.prisma.$transaction = async (work) => runMockMutation('route-tx', work);
+
+    mockOrders.set(1, {
+      id: 1,
+      invoice: 'INV-APPS-001',
+      accessToken: 'tok-valid-001',
+      totalAmount: 35000,
+      type: 'APPS',
+      status: 'PAID',
+      accountStockId: 10,
+      removedFromAdminAt: null,
+      refundStatus: 'NONE',
+    });
+
+    process.env.TELEGRAM_BOT_TOKEN = 'test-bot-token';
+    process.env.TELEGRAM_ADMIN_CHAT_ID = '7694473069';
+
+    globalThis.fetch = async (url, init) => {
+      if (String(url).includes('api.telegram.org')) {
+        if (failTelegram) {
+          return Response.json({ ok: false, error_code: 400 }, { status: 400 });
+        }
+        const parsed = JSON.parse(String(init?.body || '{}'));
+        sentTexts.push(parsed.text);
+        return Response.json({ ok: true });
+      }
+      return originalFetch(url, init);
+    };
+
+    try {
+      const { POST: orderOtpPost } = await import('../src/app/api/orders/[id]/otp/route.ts');
+      const makeReq = () =>
+        new Request('https://example.test/api/orders/INV-APPS-001/otp', {
+          method: 'POST',
+          headers: { 'x-order-token': 'tok-valid-001' },
+        });
+
+      // 1st call: commits request, Telegram explicitly rejects it.
+      const res1 = await orderOtpPost(makeReq(), { params: Promise.resolve({ id: 'INV-APPS-001' }) });
+      assert.equal(res1.status, 200);
+      const body1 = await res1.json();
+      assert.equal(body1.success, true);
+      assert.equal(body1.data.status, 'REQUESTED');
+      const firstRequestId = body1.data.requestId;
+      assert.equal(typeof firstRequestId, 'number');
+      assert.equal(sentTexts.length, 0);
+
+      // 2nd call: Telegram now succeeds -> retries notification with the exact same requestId
+      failTelegram = false;
+      const res2 = await orderOtpPost(makeReq(), { params: Promise.resolve({ id: 'INV-APPS-001' }) });
+      assert.equal(res2.status, 200);
+      const body2 = await res2.json();
+      assert.equal(body2.data.requestId, firstRequestId);
+      assert.equal(sentTexts.length, 1);
+      assert.equal(sentTexts[0].includes(`#${firstRequestId}`), true);
+
+      // 3rd call: already notified -> does not send duplicate Telegram message
+      const res3 = await orderOtpPost(makeReq(), { params: Promise.resolve({ id: 'INV-APPS-001' }) });
+      assert.equal(res3.status, 200);
+      const body3 = await res3.json();
+      assert.equal(body3.data.requestId, firstRequestId);
+      assert.equal(sentTexts.length, 1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { invoiceAccessWhere } from '@/lib/invoiceAccess';
 import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
 import { privateHeaders } from '@/lib/http';
-import { sendTelegramNotification } from '@/lib/telegram';
-import { requestAppsOtp } from '@/lib/appsOtpServer';
+import { sendTelegramNotificationOutcome } from '@/lib/telegram';
+import { requestAppsOtp, markAppsOtpNotified, markAppsOtpRejected } from '@/lib/appsOtpServer';
 import { otpRequestNotification } from '@/lib/telegramWebhook';
 import { apiError } from '@/lib/apiError';
 import { adminMutationError } from '@/lib/adminMutation';
@@ -24,9 +24,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!allowed) throw new CommerceError('RATE_LIMIT_EXCEEDED', 429);
 
     const result = await requestAppsOtp(order.id);
-    // Network call only after commit; a repeated click on an active request sends nothing.
-    if (result.created && result.state.requestId) {
-      await sendTelegramNotification(otpRequestNotification(result.invoice, result.state.requestId, result.totalAmount));
+    // Network call only after commit; retries are bounded to the same requestId until notified.
+    if (result.shouldNotify && result.state.requestId) {
+      const outcome = await sendTelegramNotificationOutcome(
+        otpRequestNotification(result.invoice, result.state.requestId, result.totalAmount),
+      );
+      try {
+        if (outcome === 'SENT') await markAppsOtpNotified(order.id, result.state.requestId);
+        else if (outcome === 'REJECTED' && result.notificationAttempt) await markAppsOtpRejected(order.id, result.state.requestId, result.notificationAttempt);
+      } catch { console.error('APPS_OTP_NOTIFICATION_ACK_FAILED'); }
     }
 
     return NextResponse.json({ success: true, data: result.state }, { headers: privateHeaders });

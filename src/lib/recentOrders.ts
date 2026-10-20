@@ -19,10 +19,20 @@ function normalizeVisitedAt(value: unknown, now: number): string | null {
   return new Date(parsed).toISOString();
 }
 
-export function getRecentOrders(now = Date.now()): RecentOrderItem[] {
-  if (typeof window === 'undefined' || !window.localStorage) return [];
+function getStorage(): Storage | null {
   try {
-    const raw = window.localStorage.getItem(RECENT_ORDERS_STORAGE_KEY);
+    if (typeof window === 'undefined') return null;
+    return window.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function getRecentOrders(now = Date.now()): RecentOrderItem[] {
+  try {
+    const storage = getStorage();
+    if (!storage) return [];
+    const raw = storage.getItem(RECENT_ORDERS_STORAGE_KEY);
     if (!raw || typeof raw !== 'string' || raw.length > 8192) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -57,18 +67,19 @@ export function saveRecentOrder(
   input: { invoice: string; visitedAt?: string },
   now = Date.now(),
 ): void {
-  if (typeof window === 'undefined' || !window.localStorage) return;
   if (!input || !isValidInvoice(input.invoice)) return;
   const invoice = input.invoice.trim();
   const visitedAt = normalizeVisitedAt(input.visitedAt ?? new Date(now).toISOString(), now);
   if (!visitedAt) return;
 
   try {
+    const storage = getStorage();
+    if (!storage) return;
     const current = getRecentOrders(now);
     const key = invoice.toUpperCase();
     const filtered = current.filter(item => item.invoice.toUpperCase() !== key);
     filtered.unshift({ invoice, visitedAt });
-    window.localStorage.setItem(
+    storage.setItem(
       RECENT_ORDERS_STORAGE_KEY,
       JSON.stringify(filtered.slice(0, RECENT_ORDERS_MAX_ITEMS)),
     );
@@ -78,9 +89,10 @@ export function saveRecentOrder(
 }
 
 export function clearRecentOrders(): void {
-  if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    window.localStorage.removeItem(RECENT_ORDERS_STORAGE_KEY);
+    const storage = getStorage();
+    if (!storage) return;
+    storage.removeItem(RECENT_ORDERS_STORAGE_KEY);
   } catch {
     // Graceful fallback if localStorage is unavailable
   }

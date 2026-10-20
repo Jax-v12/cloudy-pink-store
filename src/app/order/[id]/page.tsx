@@ -72,15 +72,16 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     return () => clearTimeout(timer);
   }, [appsDeliveredAt, hasAppsDelivery]);
 
-
+  const orderStatus = order?.status ?? null;
+  const orderExpiresAt = order?.expiresAt ?? null;
 
   useEffect(() => {
-    if (!order) return;
-    if (order.status === 'PENDING' && order.expiresAt) {
+    if (!orderStatus) return;
+    if (orderStatus === 'PENDING' && orderExpiresAt) {
       const interval = setInterval(() => setNow(Date.now()), 1000);
       return () => clearInterval(interval);
     }
-    if (order.status === 'PAID') {
+    if (orderStatus === 'PAID') {
       const syncNow = () => setNow(Date.now());
       const onVisibilityChange = () => {
         if (document.visibilityState === 'visible') syncNow();
@@ -94,7 +95,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         document.removeEventListener('visibilitychange', onVisibilityChange);
       };
     }
-  }, [order]);
+  }, [orderStatus, orderExpiresAt]);
   
   useEffect(() => {
     let cancelled = false;
@@ -515,12 +516,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <div className="grid sm:grid-cols-2 gap-2">
                   <button
                     type="button"
-                    disabled={requestingOtp || effectiveOtp?.status === 'REQUESTED'}
+                    disabled={requestingOtp}
                     onClick={handleRequestOtp}
                     className="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {requestingOtp
                       ? t.btnProcessing
+                      : effectiveOtp?.status === 'REQUESTED'
+                      ? t.btnRetryOtpNotification
                       : effectiveOtp?.status === 'DELIVERED'
                       ? t.btnRequestOtpAgain
                       : t.btnRequestOtp}

@@ -41,6 +41,36 @@ Kelanjutan benchmark 19 Oktober; branch `feat/roblox-login-checkout-recovery`. P
 - Independent review menemukan dan memverifikasi perbaikan: caller cron, durable failure signal, private-route telemetry, submit setelah final guard; hasil ambigu immediate-retry diperbaiki dengan regresi nyata MySQL.
 - Automatic approval review menolak peluncuran renderer lokal berkonfigurasi uji dengan alasan hanya “blocked by policy”. Perintah tidak diulang. QA browser diarahkan ke Preview terpublikasi, dengan fixture API terisolasi bila perlu; hasilnya harus ditambahkan terpisah.
 
-## Pending publication evidence
+## Publication and deployed verification
 
-Publikasi feature Preview, pemeriksaan browser/performa, SHA/alias dan hasil scheduler setelah fix belum dicatat pada checkpoint ini. Retensi provider, alert delivery dan cadence scheduler belum dinyatakan selesai. Login/aktivasi nyata tetap mengikuti gate operasional terkait.
+- Feature commit **`dae9023e14a43831cf71040af4eb0833e9f55b5f`** pushed ke `origin/feat/roblox-login-checkout-recovery`. Deployment **`dpl_HoqGsjHAjjWuE2wgT92Un27psT8K`**, target Preview, **READY** dan commit SHA cocok: [immutable Preview](https://cloudy-pink-store-gal0mqzx7-jax-v12.vercel.app). Tidak mempromosikan Apps ke Production.
+- Pemilik memberikan persetujuan task+target main untuk fix cron saja. Managed worktree terpisah dari origin/main menerima cherry-pick dua file identik dengan commit reviewed `a5bd268`: **`cad2e6ca9eb1fffe74a3df1d01cf3f15041bbeeb`** dipush fast-forward ke main. Deployment **`dpl_z8JMZrpARsoZ5hQC1PRb8Tncnauo`**, **READY**, SHA cocok dan alias **`https://cloudy-pink-store.vercel.app`** terverifikasi. Worktree sementara telah diarsipkan secara recoverable.
+- [Run cron #12](https://github.com/Jax-v12/cloudy-pink-store/actions/runs/39292455442) pada main cad2e6c **SUCCESS**, 15 detik, **workflow_dispatch** (bukan scheduled event). GitHub secret/origin yang ada berhasil dipakai oleh runner. Screenshot `cron-success.jpg` tersimpan di cache QA.
+- Post-run read-only: heartbeat fulfillment `2026-10-19T17:14:58.895Z` (20 Oktober 00:14:58 WIB), **0 expired pending** dan **0 expired Login secrets**. Ini membuktikan backlog expired yang diperiksa sudah kosong, bukan klaim jumlah purge nonzero atau bukti lima menit cadence. Tidak membuat transaksi baru atau melakukan provider charge/expire/refund.
+- HTTP nyata pada Preview: **8 PASS** — katalog Apps/Roblox sukses; admin products/metrics/review tanpa sesi 401; invoice yang tidak sah dan preferensi reminder tanpa token 404; cron reminder tanpa secret 401. Apps aktual tetap **0 produk**, Roblox **2 produk**; tidak mengisi data contoh.
+- HTML private: **2 PASS** — `/admin/apps` dan invoice sintetis nonexisting memiliki noindex metadata serta X-Robots-Tag. Tidak membaca invoice pelanggan atau mengklaim UI tanpa token sebagai akses data.
+- Renderer Preview terautentikasi menggunakan local-development OIDC hanya sebagai header origin yang sama, tanpa pull file env, perubahan proteksi, atau token di URL/output. **9 PASS** = ID/EN/MY × 375×812, 810×1080, 1440×900 untuk consent/stop/unavailable, tidak menyimpan nomor di browser storage, antrean review, agregat, dan no overflow. Seluruh API writes pada skenario ini fixture terisolasi: 2 preference writes dan 1 review write per case, **0 write remote** dan **0 pesan nyata**. Screenshot/result di `.cache/operations-20261019/browser/`.
+- Satu tambahan harness OIDC serta hasil akhir dokumen ini disimpan lokal setelah commit publikasi; tidak mengubah source aplikasi yang sudah diuji/dipublikasikan atau memicu deployment kedua hanya untuk bukti.
+
+## Pengukuran halaman publik
+
+Satu observasi browser terisolasi per halaman/viewport, cache context baru, tanpa CPU/network throttling dan tanpa request tulis. F2 dan dae masing-masing diuji di deployment immutable terproteksi dengan origin-scoped OIDC. Ini **bukan field p75**, eksperimen terkontrol, atau bukti persentase peningkatan.
+
+| SHA | Halaman | Lebar | TTFB ms | LCP ms | CLS | Transfer resource bytes |
+| --- | --- | --- | --- | --- | --- | --- |
+| f2efd0c | Apps | 375 | 27 | 1164 | 0.0008 | 2565080 |
+| dae9023 | Apps | 375 | 29 | 2176 | 0 | 740236 |
+| f2efd0c | Apps | 1440 | 28 | 400 | 0.0004 | 2565080 |
+| dae9023 | Apps | 1440 | 26 | 324 | 0.0006 | 763318 |
+| f2efd0c | Roblox | 375 | 27 | 732 | 0.0698 | 713276 |
+| dae9023 | Roblox | 375 | 31 | 640 | **0.1081** | 726059 |
+| f2efd0c | Roblox | 1440 | 29 | 248 | 0.0318 | 713276 |
+| dae9023 | Roblox | 1440 | 29 | 260 | 0.0490 | 736539 |
+
+Tidak ada overflow pada delapan observasi. INP tidak dinilai tanpa rangkaian interaksi terkontrol. Apps mengirim resource lebih sedikit pada observasi ini, tetapi LCP mobile tidak konsisten; tidak mengklaim seluruh performa meningkat. **Follow-up P4:** telusuri sumber CLS Roblox mobile 0.1081 dengan attribution/layout-shift trace, terutama transisi lokasi/loading/kartu; jangan mengoptimalkan dari dugaan atau satu angka. RUM agregat tetap default nonaktif dan Preview tidak mencampur counter funnel dengan Production.
+
+## Gate yang masih terbuka
+
+WhatsApp tidak dapat diaktifkan karena pemilik belum memiliki provider/approved template; nomor/pesan nyata tidak dikumpulkan/dikirim. Retensi backup Aiven memerlukan login operator; pengiriman alert dan interval scheduled aktual GitHub setelah recovery belum terverifikasi. Satu manual success tidak menutup gate cadence lima menit/heartbeat 15 menit. Login/aktivasi nyata tetap mengikuti gate operasional tersebut. Harga, stok dan detail CapCut tetap mengikuti inventaris produk yang belum lengkap.
+
+MySQL lokal yang dinyalakan task dihentikan secara graceful setelah kepemilikan PID/parent/listener diverifikasi. Database fixture dipertahankan; tidak drop database/hard-delete histori. Working tree pekerjaan OTP sebelumnya tetap ada di delapan file dan tidak masuk release Apps maupun main fix.

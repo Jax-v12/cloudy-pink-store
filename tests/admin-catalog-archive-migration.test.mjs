@@ -26,7 +26,8 @@ test('archive migration preserves legacy orders and stock and restricts product 
     const { archivedAt, ...original } = after[0];
     assert.equal(archivedAt, null); assert.deepEqual(original, before[0]);
     assert.equal(await prisma.accountStock.count(), 1);
-    await assert.rejects(prisma.product.delete({ where: { id: 2 } }), e => e.code === 'P2003');
+    // The current client also knows columns added by later migrations.
+    await assert.rejects(prisma.product.delete({ where: { id: 2 }, select: { id: true } }), e => e.code === 'P2003');
     assert.equal(await prisma.catalogAudit.count(), 0);
     const index = await prisma.$queryRaw`SHOW INDEX FROM \`Order\` WHERE Key_name = 'Order_type_archivedAt_id_idx'`;
     assert.equal(index.length, 3);

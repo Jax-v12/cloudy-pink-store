@@ -66,16 +66,26 @@ async function latestOtpAudit(tx: Prisma.TransactionClient, orderId: number) {
   });
 }
 
+export const OTP_NOTIFY_SENT_PREFIX = 'APPS_OTP_NOTIFIED:';
+export const OTP_NOTIFY_ATTEMPT_PREFIX = 'APPS_OTP_NOTIFY_TRY:';
+export const OTP_NOTIFY_REJECTED_PREFIX = 'APPS_OTP_NOTIFY_REJECTED:';
+export const OTP_MAX_NOTIFY_ATTEMPTS = 3;
+
 export interface OtpRequestResult {
   state: AppsOtpState;
   created: boolean;
+  shouldNotify: boolean;
+  notificationAttempt?: number;
   invoice: string;
   totalAmount: number;
 }
 
 type MutationRunner = <T>(operation: string, work: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>;
 
-/** Customer request. A still-active request is returned as-is (no new audit, no duplicate notification). */
+/**
+ * Customer request. A still-active request keeps the same requestId; if initial Telegram
+ * notification was explicitly rejected, bounded retries are permitted for that requestId.
+ */
 export async function requestAppsOtp(
   orderId: number,
   now: () => number = () => Date.now(),
@@ -86,19 +96,108 @@ export async function requestAppsOtp(
     if (!otpEligible(order)) throw new CommerceError('ORDER_NOT_FOUND', 404);
     const latest = await latestOtpAudit(tx, order.id);
     const current = resolveAppsOtpState(latest ? [latest] : [], false, now());
-    if (current.status === 'REQUESTED') {
-      return { state: current, created: false, invoice: order.invoice, totalAmount: order.totalAmount };
+    if (current.status === 'REQUESTED' && current.requestId) {
+      const requestId = current.requestId;
+      const sentMarker = `${OTP_NOTIFY_SENT_PREFIX}${requestId}`;
+      const alreadySent = await tx.adminAudit.findFirst({
+        where: { orderId: order.id, action: sentMarker },
+        select: { id: true },
+      });
+      if (alreadySent) {
+        return {
+          state: current,
+          created: false,
+          shouldNotify: false,
+          invoice: order.invoice,
+          totalAmount: order.totalAmount,
+        };
+      }
+      for (let attempt = 1; attempt <= OTP_MAX_NOTIFY_ATTEMPTS; attempt++) {
+        const tryMarker = `${OTP_NOTIFY_ATTEMPT_PREFIX}${requestId}:${attempt}`;
+        const existingTry = await tx.adminAudit.findFirst({
+          where: { orderId: order.id, action: tryMarker },
+          select: { id: true },
+        });
+        if (!existingTry) {
+          await tx.adminAudit.create({
+            data: { orderId: order.id, sessionId: 'customer-otp', action: tryMarker },
+            select: { id: true },
+          });
+          return {
+            state: current,
+            created: false,
+            shouldNotify: true,
+            notificationAttempt: attempt,
+            invoice: order.invoice,
+            totalAmount: order.totalAmount,
+          };
+        }
+        // A durable claim without explicit rejection is in-flight or ambiguous.
+        const rejected = await tx.adminAudit.findFirst({ where: { orderId: order.id, action: `${OTP_NOTIFY_REJECTED_PREFIX}${requestId}:${attempt}` }, select: { id: true } });
+        if (!rejected) break;
+      }
+      return {
+        state: current,
+        created: false,
+        shouldNotify: false,
+        invoice: order.invoice,
+        totalAmount: order.totalAmount,
+      };
     }
     const audit = await tx.adminAudit.create({
       data: { orderId: order.id, sessionId: 'customer-otp', action: OTP_REQUEST_ACTION },
       select: { id: true, action: true, createdAt: true },
     });
+    await tx.adminAudit.create({
+      data: {
+        orderId: order.id,
+        sessionId: 'customer-otp',
+        action: `${OTP_NOTIFY_ATTEMPT_PREFIX}${audit.id}:1`,
+      },
+      select: { id: true },
+    });
     return {
       state: resolveAppsOtpState([audit], false, audit.createdAt.getTime()),
       created: true,
+      shouldNotify: true,
+      notificationAttempt: 1,
       invoice: order.invoice,
       totalAmount: order.totalAmount,
     };
+  });
+}
+
+export async function markAppsOtpRejected(orderId: number, requestId: number, attempt: number, runMutation: MutationRunner = adminMutation) {
+  if (!Number.isSafeInteger(requestId) || requestId <= 0 || !Number.isInteger(attempt) || attempt < 1 || attempt > OTP_MAX_NOTIFY_ATTEMPTS) return;
+  await runMutation('apps-otp-notify-rejected', async tx => {
+    await lockOrder(tx, orderId);
+    const claim = await tx.adminAudit.findFirst({ where: { orderId, action: `${OTP_NOTIFY_ATTEMPT_PREFIX}${requestId}:${attempt}` }, select: { id: true } });
+    if (!claim) return;
+    const action = `${OTP_NOTIFY_REJECTED_PREFIX}${requestId}:${attempt}`;
+    if (!await tx.adminAudit.findFirst({ where: { orderId, action }, select: { id: true } })) await tx.adminAudit.create({ data: { orderId, sessionId: 'customer-otp', action }, select: { id: true } });
+  });
+}
+
+/** Records that the Telegram notification for a specific requestId was delivered. */
+export async function markAppsOtpNotified(
+  orderId: number,
+  requestId: number,
+  runMutation: MutationRunner = adminMutation,
+): Promise<void> {
+  if (!Number.isSafeInteger(requestId) || requestId <= 0) return;
+  const sentMarker = `${OTP_NOTIFY_SENT_PREFIX}${requestId}`;
+  await runMutation('apps-otp-notify-ack', async tx => {
+    await lockOrder(tx, orderId);
+    const existing = await tx.adminAudit.findFirst({
+      where: { orderId, action: sentMarker },
+      select: { id: true },
+    });
+    if (!existing) {
+      await tx.adminAudit.create({
+        data: { orderId, sessionId: 'customer-otp', action: sentMarker },
+        select: { id: true },
+      });
+    }
   });
 }
 

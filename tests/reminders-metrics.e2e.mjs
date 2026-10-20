@@ -20,7 +20,7 @@ try{for(const[width,height]of[[375,812],[810,1080],[1440,900]])for(const locale 
  if(['/api/admin/apps/orders','/api/admin/apps/products','/api/products'].includes(url.pathname))return route.fulfill({json:{success:true,data:[],pagination:{nextCursor:null}}});
  if(url.pathname==='/api/admin/metrics')return route.fulfill({json:{success:true,data:{observations:[],paid:[]}}});
  if(url.pathname==='/api/metrics')throw Error('METRICS_MUST_REMAIN_DISABLED_ON_SHARED_PREVIEW');
- if(url.pathname.startsWith('/api/')||!['GET','HEAD'].includes(req.method()))throw Error('UNEXPECTED_API_REQUEST');return route.continue();});
+ if(url.pathname.startsWith('/api/')||!['GET','HEAD'].includes(req.method()))throw Error('UNEXPECTED_API_REQUEST');return route.continue({headers:{...req.headers(),...(process.env.VERCEL_OIDC_TOKEN?{'x-vercel-trusted-oidc-idp-token':process.env.VERCEL_OIDC_TOKEN}:{})}});});
  try{
  await page.goto(base+'/order/INV-SYNTHETIC-REMINDER');await page.getByRole('heading',{name:a.reminders,exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:a.reminderEnable,exact:true}).isDisabled(),true);

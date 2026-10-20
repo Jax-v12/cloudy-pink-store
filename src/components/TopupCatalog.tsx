@@ -126,7 +126,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
     {type === 'ROBLOX' && <DetectedLocation region={region} loading={loading} />}
     {error && <p role="alert" className="bg-rose-100 text-rose-800 p-4 rounded-xl mb-4">{errors[error] || t.errSystem}</p>}
     <div>
-      {loading && <p role="status">{t.loadingCatalog}</p>}
+      {loading && <div><p role="status" className="mb-4 rounded-xl bg-white p-4 text-pink-900">{t.loadingCatalog}</p>{!slug && type === 'ROBLOX' && <div aria-hidden="true" className="grid gap-5 lg:grid-cols-3">{[0, 1, 2].map(key => <div key={key} className="min-h-[30rem] rounded-3xl border-2 border-pink-200 bg-white/95 p-6 motion-safe:animate-pulse"><div className="h-12 w-12 rounded-2xl bg-pink-100" /><div className="mt-6 h-6 w-3/4 rounded bg-pink-100" /><div className="mt-4 h-20 rounded-xl bg-pink-50" /></div>)}</div>}</div>}
       {!loading && products.length === 0 && <p className="p-8 bg-white rounded-2xl">{t.emptyCatalog}</p>}
       {!slug && type === 'ROBLOX' && !loading && <RobloxServiceCards products={products} region={region} />}
       {!slug && type === 'GAME' && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">{products.map(p => {

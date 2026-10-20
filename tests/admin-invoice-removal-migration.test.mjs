@@ -22,7 +22,8 @@ test('removal migration is additive and preserves existing active and archived f
     const before = await prisma.$queryRaw`SELECT * FROM \`Order\` ORDER BY id`;
     const audits = await prisma.adminAudit.findMany();
     await apply(migration);
-    const after = await prisma.order.findMany({ orderBy: { id: 'asc' } });
+    // Read the actual historical schema, without selecting later client fields.
+    const after = await prisma.$queryRaw`SELECT o.* FROM \`Order\` o ORDER BY o.id`;
     assert.equal(after.length, 2);
     for (let i = 0; i < after.length; i++) {
       const { removedFromAdminAt, ...original } = after[i];
