@@ -12,7 +12,7 @@ export async function runStoreCron(env = process.env, request = fetch, wait = se
   const headers = { Authorization: `Bearer ${env.CRON_SECRET}` };
   if (env.VERCEL_AUTOMATION_BYPASS_SECRET) headers['x-vercel-protection-bypass'] = env.VERCEL_AUTOMATION_BYPASS_SECRET;
   let failed = false;
-  for (const path of ['/api/cron/cleanup', '/api/cron/fulfillment']) {
+  for (const path of ['/api/cron/cleanup', '/api/cron/fulfillment', '/api/cron/reminders']) {
     let succeeded = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       let retry = false;

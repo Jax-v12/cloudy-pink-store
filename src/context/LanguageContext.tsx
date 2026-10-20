@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useCallback, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { Language, translations } from '@/lib/translations';
 
 interface LanguageContextType {
@@ -34,6 +34,7 @@ function getServerSnapshot(): Language {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const language = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useEffect(() => { document.documentElement.lang = { ID: 'id', EN: 'en', MY: 'ms' }[language]; }, [language]);
 
   const setLanguage = useCallback((lang: Language) => {
     localStorage.setItem('store_lang', lang);

@@ -34,6 +34,7 @@ model Product {
   active     Boolean          @default(true)
   coverImage String?          @db.Text
   variants   ProductVariant[]
+  appsConfig Json?
 
   @@index([type, active, id])
 }
@@ -75,6 +76,8 @@ model Order {
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+  // Set once when a verified payment settles the order; null for orders paid before this column.
+  paidAt             DateTime?
   type               ProductType        @default(APPS)
   currency           String             @default("IDR")
   pricingRegion      String             @default("ID") @db.VarChar(2)
@@ -100,6 +103,10 @@ model Order {
   job                FulfillmentJob?
   audits             AdminAudit[]
   checkoutAttempt    CheckoutAttempt?
+  appsSnapshot       Json?
+  appsService        AppsService? @relation("AppsServiceOrder")
+  appsRenewals       AppsService[] @relation("AppsRenewalSource")
+  appsSupport        AppsSupport?
 
   @@index([type, fulfillmentStatus, id])
   @@index([archivedAt, id])
@@ -310,6 +317,17 @@ model AdminAudit {
   @@index([orderId, id])
 }
 
+// Telegram webhook update ids already handled. Metadata only: never message text or codes.
+model TelegramUpdateReceipt {
+  updateId  BigInt   @id
+  orderId   Int?
+  requestId Int?
+  outcome   String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model WorkerHeartbeat {
   name        String   @id
   succeededAt DateTime
@@ -326,4 +344,64 @@ model CatalogAudit {
   createdAt   DateTime    @default(now())
 
   @@index([productId, id])
+}
+
+// No credentials here; optional delivery material is encrypted and invoice-authorized.
+model AppsService {
+  orderId            Int       @id
+  order              Order     @relation("AppsServiceOrder", fields: [orderId], references: [id], onDelete: Restrict)
+  renewalOfOrderId    Int?
+  renewalOf          Order?    @relation("AppsRenewalSource", fields: [renewalOfOrderId], references: [id], onDelete: Restrict)
+  deliveryCiphertext String?   @db.Text
+  deliveredAt        DateTime?
+  acknowledgedAt     DateTime?
+  activeFrom         DateTime?
+  activeUntil        DateTime?
+  activationConfirmedAt DateTime?
+  reminderOptIn      Boolean   @default(false)
+  reminderPhone      String?   @db.Text
+  reminderConsentAt  DateTime?
+  reminderVerifiedAt DateTime?
+  reminderLanguage   String    @default("ID") @db.VarChar(2)
+  reminders          AppsReminder[]
+
+  @@index([renewalOfOrderId])
+  @@index([reminderOptIn, activeUntil])
+}
+
+model AppsReminder {
+  id          Int         @id @default(autoincrement())
+  orderId     Int
+  service     AppsService @relation(fields: [orderId], references: [orderId], onDelete: Restrict)
+  daysBefore  Int
+  periodEnd   DateTime
+  dueAt       DateTime
+  expiresAt   DateTime
+  status      String      @default("PENDING") @db.VarChar(16)
+  attemptedAt DateTime?
+  acceptedAt  DateTime?
+
+  @@unique([orderId, daysBefore, periodEnd])
+  @@index([status, dueAt])
+}
+
+model AggregateMetric {
+  day    DateTime @db.Date
+  area   String   @db.VarChar(16)
+  metric String   @db.VarChar(24)
+  bucket String   @db.VarChar(24)
+  count  Int      @default(0)
+
+  @@id([day, area, metric, bucket])
+}
+
+model AppsSupport {
+  orderId   Int      @id
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  reason    String   @db.VarChar(32)
+  status    String   @default("OPEN") @db.VarChar(32)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, orderId])
 }

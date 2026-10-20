@@ -1,0 +1,22 @@
+{
+  "status": "INACTIVE_TEST_DRAFTS",
+  "source": "Owner confirmed prices, duration and warranty; remaining text is a proposal for testing",
+  "stock": "No account stock created",
+  "packages": [
+    { "name": "CapCut Pro Private 1 bulan", "slug": "capcut-pro-private-1-bulan", "priceIDR": 44000, "priceMYRSen": 1000, "durationDays": 30, "warrantyDays": 25 },
+    { "name": "CapCut Pro Private 7 hari", "slug": "capcut-pro-private-7-hari", "priceIDR": 13000, "priceMYRSen": 300, "durationDays": 7, "warrantyDays": 7 }
+  ],
+  "proposedConfig": {
+    "version": 1,
+    "appGroup": "capcut",
+    "accountType": "Private — draf pengujian, belum dijual",
+    "devices": "USULAN: satu perangkat aktif. Batas resmi paket belum dikonfirmasi operator.",
+    "regionRules": "DRAF: cakupan akun untuk Indonesia/Malaysia belum diverifikasi. Pembayaran Apps saat ini hanya IDR; harga MYR dicatat untuk persiapan.",
+    "included": "DRAF: akses CapCut Pro Private selama durasi paket. Rincian entitlement akun harus diverifikasi sebelum aktivasi penjualan.",
+    "usageRules": "USULAN: penggunaan pribadi; jangan bagikan akses, mengubah data pemulihan, atau menjual ulang akun. Ketentuan final menunggu verifikasi operator.",
+    "instructions": "DRAF: akun siap pakai diusulkan untuk pengujian alur stok. Operator harus memastikan metode pengiriman yang benar dan menambahkan stok asli terenkripsi sebelum mengaktifkan paket. Tidak ada akun atau password contoh yang disimpan.",
+    "warrantyTerms": "USULAN: ajukan bantuan dari invoice selama masa garansi dengan kategori kendala yang sesuai. Garansi tidak memperpanjang durasi layanan. Penanganan, pengecualian, dan ketentuan penggantian/refund perlu dikonfirmasi sebelum penjualan.",
+    "fulfillmentMode": "READY_ACCOUNT",
+    "activationMethod": null
+  }
+}

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ProductType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { checkoutEnabled } from '@/lib/commerce';
+import { checkoutEnabled, requestDigest } from '@/lib/commerce';
+import { catalogFilters, parseAppsConfig } from '@/lib/appsProduct';
 import { apiError } from '@/lib/apiError';
 import { InputError, pagination, pageResult, privateHeaders } from '@/lib/http';
 import { paymentMethods } from '@/lib/paymentProvider';
@@ -15,10 +16,10 @@ export async function GET(req: Request) {
     const type = q.get('type') || 'APPS';
     if (!Object.values(ProductType).includes(type as ProductType)) throw new InputError();
     const { limit, cursor } = pagination(req);
-    const rows = await prisma.product.findMany({ where: { type: type as ProductType, active: true,
+    const rows = await prisma.product.findMany({ where: { type: type as ProductType, active: true, ...catalogFilters(q),
       ...(q.get('slug') ? { slug: q.get('slug')! } : {}), ...(cursor ? { id: { lt: cursor } } : {}) },
       take: limit + 1, orderBy: { id: 'desc' }, select: {
-        id: true, name: true, slug: true, price: true, type: true, category: true, coverImage: true,
+        id: true, name: true, slug: true, price: true, type: true, category: true, coverImage: true, appsConfig: true,
         variants: { where: { active: true }, orderBy: { price: 'asc' }, select: { id: true, name: true, price: true, units: true, maxUnits: true, unitStep: true, method: true, gamepassPrice: true, requiresZone: true, regionalPrices: { select: { region: true, amount: true, active: true } } } },
         _count: { select: { stocks: { where: { status: 'READY', order: null } } } },
       },
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
       ...(p.type === 'ROBLOX' ? { price: null, currency: region ? REGION_CURRENCY[region] : null,
         variants: p.variants.map(v => ({ ...v, price: region ? regionalAmount(v, region) : null,
           regionalPrices: region ? v.regionalPrices.filter(row => row.region === region) : [] })) } : {}),
+      ...(p.type === 'APPS' ? { appsConfig: parseAppsConfig(p.appsConfig), appsPolicyToken: p.appsConfig ? requestDigest({ productId: p.id, price: p.price, appsConfig: parseAppsConfig(p.appsConfig) }) : null } : { appsConfig: null }),
       stockAvailable: _count.stocks, checkoutEnabled: checkoutEnabled(p.type) && (p.type !== 'ROBLOX' || Boolean(region && methods.length)),
     })) }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }

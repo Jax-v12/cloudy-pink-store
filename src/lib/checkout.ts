@@ -10,6 +10,7 @@ import type { Region } from './regionalPricing';
 import { encryptData } from './crypto';
 import { LOGIN_ACCESS_TTL_MS } from './loginCredentials';
 import { attemptTransaction, prepareAttemptCommit, type AttemptCommit } from './checkoutAttempt';
+import { parseAppsConfig } from './appsProduct';
 
 function quoteVariant(type: string, variant: { method: string | null; units: number; price: number; maxUnits: number | null; unitStep: number } | null, quantity?: number) {
   if (type === 'ROBLOX' && (variant?.method === 'GAMEPASS' || variant?.method === 'GIFT_USERNAME')) {
@@ -19,10 +20,10 @@ function quoteVariant(type: string, variant: { method: string | null; units: num
   return { units: variant?.units ?? 1, totalAmount: variant?.price };
 }
 
-export async function createCheckout(body: Record<string, unknown>, key: string, resolvedRegion: Region | null = null, attempt?: AttemptCommit, requireLoginAttempt = false) {
+export async function createCheckout(body: Record<string, unknown>, key: string, resolvedRegion: Region | null = null, attempt?: AttemptCommit, requireLoginAttempt = false, renewalOfOrderId?: number) {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(key)) throw new CommerceError('INVALID_INPUT', 400);
   const input = checkoutInput(body);
-  const hash = requestDigest(input);
+  const hash = requestDigest(renewalOfOrderId ? { ...input, renewalOfOrderId } : input);
   const replay = async () => {
     const order = await prisma.order.findUnique({ where: { checkoutKey: key }, include: { checkoutAttempt: { select: { id: true } } } });
     if (order?.checkoutAttempt) throw new CommerceError('CHECKOUT_SESSION_REQUIRED', 401);
@@ -49,6 +50,7 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
   try {
     return await prisma.$transaction(async tx => {
       const committing = attempt ? await prepareAttemptCommit(tx, attempt, key, hash, input.productId, input.variantId) : null;
+      if (renewalOfOrderId) await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${renewalOfOrderId} FOR UPDATE`;
       // Serialize stock selection and same-product checkout replay before any snapshot read.
       await tx.$queryRaw`SELECT id FROM \`Product\` WHERE id = ${input.productId} FOR UPDATE`;
       const prior = await tx.order.findUnique({ where: { checkoutKey: key }, include: { checkoutAttempt: { select: { id: true } } } });
@@ -60,6 +62,19 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
       }
       const product = await tx.product.findUnique({ where: { id: input.productId }, include: { variants: { include: { regionalPrices: true } } } });
       if (!product?.active || !checkoutEnabled(product.type)) throw new CommerceError('PRODUCT_UNAVAILABLE');
+      const appsConfig = product.type === 'APPS' ? parseAppsConfig(product.appsConfig) : null;
+      if (appsConfig && input.appsPolicyToken !== requestDigest({ productId: product.id, price: product.price, appsConfig })) throw new CommerceError('APPS_TERMS_CHANGED');
+      if (product.type !== 'APPS' && input.appsPolicyToken) throw new InputError();
+      if (renewalOfOrderId) {
+        const source = await tx.order.findUnique({ where: { id: renewalOfOrderId }, include: { appsService: true } });
+        const sourceConfig = parseAppsConfig(source?.appsSnapshot);
+        if (!source || source.type !== 'APPS' || source.status !== 'PAID' || source.refundStatus !== 'NONE' || source.productId !== product.id ||
+            source.customerEmail !== input.customerEmail || !source.appsService?.activeFrom || appsConfig?.fulfillmentMode !== 'ACTIVATION' || sourceConfig?.fulfillmentMode !== 'ACTIVATION') throw new CommerceError('PRODUCT_UNAVAILABLE');
+        // The source Order lock serializes distinct-key renewals. Renew the latest service next.
+        if (await tx.order.findFirst({ where: { appsService: { is: { renewalOfOrderId } }, OR: [
+          { status: 'PENDING' }, { status: 'PAID', NOT: { refundStatus: 'COMPLETED', appsService: { is: { activeFrom: null } } } },
+        ] }, select: { id: true } })) throw new CommerceError('RENEWAL_EXISTS');
+      }
       const variant = product.variants.find(v => v.id === input.variantId && v.active) ?? null;
       if (requireLoginAttempt && product.type === 'ROBLOX' && variant?.method === 'LOGIN') throw new CommerceError('CHECKOUT_SESSION_REQUIRED', 401);
       if (attempt && (product.type !== 'ROBLOX' || variant?.method !== 'LOGIN')) throw new CommerceError('PRODUCT_UNAVAILABLE');
@@ -81,7 +96,7 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
         throw new CommerceError('PRODUCT_UNAVAILABLE');
       }
       let stockId: number | null = null;
-      if (product.type === 'APPS') {
+      if (product.type === 'APPS' && appsConfig?.fulfillmentMode !== 'ACTIVATION') {
         const stock = await tx.accountStock.findFirst({ where: { productId: product.id, status: 'READY', order: null }, orderBy: { id: 'asc' } });
         if (!stock) throw new CommerceError('STOCK_EMPTY');
         const locked = await tx.accountStock.updateMany({ where: { id: stock.id, status: 'READY', order: null }, data: { status: 'LOCKED' } });
@@ -96,7 +111,8 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
         productSubtotal: quote.productSubtotal, paymentFee: quote.paymentFee, discount: quote.discount,
         paymentProvider: quote.paymentProvider, paymentMethod: quote.paymentMethod, customerEmail: input.customerEmail,
         accountStockId: stockId, checkoutKey: key, requestHash: hash,
-        expiresAt: new Date(Date.now() + 86_400_000),
+        ...(appsConfig ? { appsSnapshot: appsConfig, appsService: { create: { renewalOfOrderId } } } : {}),
+        expiresAt: new Date(Date.now() + 7_200_000),
         ...(details.game ? { gameDetail: { create: details.game } } : {}),
         ...(details.loginCredentials && verified ? { secret: { create: {
           ciphertext: encryptData(JSON.stringify({ version: 1, invoice, username: verified.username, ...details.loginCredentials })),

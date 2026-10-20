@@ -5,10 +5,10 @@ import { runStoreCron } from '../scripts/run-store-cron.mjs';
 const env = { STORE_CRON_ORIGIN: 'https://store.example.invalid', CRON_SECRET: 'synthetic-cron-secret', VERCEL_AUTOMATION_BYPASS_SECRET: 'synthetic-bypass' };
 const noWait = async () => {};
 
-test('cron invokes both existing endpoints with private headers and no secret in URLs', async () => {
+test('cron invokes cleanup, fulfillment and reminders with private headers and no secret in URLs', async () => {
   const calls = [];
   await runStoreCron(env, async (url, options) => { calls.push({ url: String(url), options }); return Response.json({ success: true }); }, noWait);
-  assert.deepEqual(calls.map(row => row.url), ['/api/cron/cleanup', '/api/cron/fulfillment'].map(path => env.STORE_CRON_ORIGIN + path));
+  assert.deepEqual(calls.map(row => row.url), ['/api/cron/cleanup', '/api/cron/fulfillment', '/api/cron/reminders'].map(path => env.STORE_CRON_ORIGIN + path));
   for (const { options } of calls) {
     assert.equal(options.headers.Authorization, 'Bearer ' + env.CRON_SECRET);
     assert.equal(options.headers['x-vercel-protection-bypass'], env.VERCEL_AUTOMATION_BYPASS_SECRET);
@@ -31,7 +31,7 @@ test('redirect, denied auth and false-success responses fail closed without retr
   for (const response of [() => new Response(null, { status: 302, headers: { Location: 'https://foreign.invalid' } }), () => new Response(null, { status: 401 }), () => Response.json({ success: false }), () => new Response('<html>login</html>')]) {
     let calls = 0;
     await assert.rejects(runStoreCron(env, async () => { calls++; return response(); }, noWait), /CRON_RUN_FAILED/);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
   }
 });
 
@@ -42,4 +42,12 @@ test('invalid cron configuration never sends credentials', async () => {
     assert.equal(calls, 0);
   }
   await assert.rejects(runStoreCron({ ...env, CRON_SECRET: '' }, async () => {}, noWait), /CRON_CONFIG_INVALID/);
+});
+
+test('reminder review failures remain failed after bounded retries without suppressing cleanup or fulfillment', async () => {
+  const calls = [];
+  await assert.rejects(runStoreCron(env, async url => { calls.push(url.pathname); return Response.json({ success: !url.pathname.endsWith('reminders') }, { status: url.pathname.endsWith('reminders') ? 503 : 200 }); }, noWait), /CRON_RUN_FAILED/);
+  assert.equal(calls.filter(p => p.endsWith('reminders')).length, 3);
+  assert.equal(calls.filter(p => p.endsWith('cleanup')).length, 1);
+  assert.equal(calls.filter(p => p.endsWith('fulfillment')).length, 1);
 });

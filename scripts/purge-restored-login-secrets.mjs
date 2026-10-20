@@ -20,6 +20,22 @@ export async function purgeRestoredLoginSecrets(db) {
   }
 }
 
+/** Restored reminder state may predate a send: require consent again before dispatch. */
+export async function purgeRestoredAppsSecrets(db) {
+  let deliveries = 0, contacts = 0;
+  for (;;) {
+    const rows = await db.$queryRaw`SELECT s.orderId FROM AppsService s JOIN \`Order\` o ON o.id=s.orderId WHERE s.reminderPhone IS NOT NULL OR s.reminderOptIn=1 OR (s.deliveryCiphertext IS NOT NULL AND (s.deliveredAt IS NULL OR s.deliveredAt<=DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 72 HOUR) OR o.status<>'PAID' OR o.refundStatus<>'NONE' OR o.archivedAt IS NOT NULL OR o.removedFromAdminAt IS NOT NULL)) ORDER BY s.orderId LIMIT 100`;
+    for (const { orderId } of rows) await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id=${orderId} FOR UPDATE`;
+      const contact = await tx.appsService.updateMany({ where: { orderId, OR: [{ reminderPhone: { not: null } }, { reminderOptIn: true }] }, data: { reminderPhone: null, reminderOptIn: false, reminderVerifiedAt: null } });
+      const delivery = await tx.$executeRaw`UPDATE AppsService s JOIN \`Order\` o ON o.id=s.orderId SET s.deliveryCiphertext=NULL WHERE s.orderId=${orderId} AND s.deliveryCiphertext IS NOT NULL AND (s.deliveredAt IS NULL OR s.deliveredAt<=DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 72 HOUR) OR o.status<>'PAID' OR o.refundStatus<>'NONE' OR o.archivedAt IS NOT NULL OR o.removedFromAdminAt IS NOT NULL)`;
+      if (contact.count || delivery) await tx.adminAudit.create({ data: { orderId, sessionId: 'system-restore', action: 'apps-access-restore-purge' } });
+      contacts += contact.count; deliveries += Number(delivery);
+    });
+    if (rows.length < 100) return { deliveries, contacts };
+  }
+}
+
 export function restoreTarget(env) {
   let url;
   try { url = new URL(env.RESTORE_DATABASE_URL); } catch { throw new Error('RESTORE_TARGET_REJECTED'); }
@@ -34,7 +50,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     db = new PrismaClient({ datasourceUrl: restoreTarget(process.env), log: [] });
     const purged = await purgeRestoredLoginSecrets(db);
-    console.log(JSON.stringify({ restorePurge: 'PASS', purged }));
+    const apps = await purgeRestoredAppsSecrets(db);
+    console.log(JSON.stringify({ restorePurge: 'PASS', purged, apps }));
   } catch { console.error('RESTORE_PURGE_FAILED'); process.exitCode = 1; }
   finally { await db?.$disconnect(); }
 }

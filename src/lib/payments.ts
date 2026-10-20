@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sendTelegramNotification } from '@/lib/telegram';
 import type { VerifiedPayment } from '@/lib/paymentProvider';
+import { parseAppsConfig } from './appsProduct';
 
 export async function applyPaymentStatus(id: number, status: VerifiedPayment | null, expiresBefore?: Date) {
   const state = status?.state ?? 'failed';
@@ -8,6 +9,8 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${id} FOR UPDATE`;
     const order = await tx.order.findUnique({ where: { id } });
     if (!order) throw new Error('ORDER_NOT_FOUND');
+    const apps = order.type === 'APPS' ? parseAppsConfig(order.appsSnapshot) : null;
+    const activation = apps?.fulfillmentMode === 'ACTIVATION';
     if (status && (order.paymentProvider !== status.provider || order.pricingRegion !== status.region || status.invoice !== order.invoice || status.amount !== order.totalAmount || status.currency !== order.currency ||
         !status.reference || (order.paymentReference && order.paymentReference !== status.reference))) throw new Error('PAYMENT_MISMATCH');
     if (status && (!order.paymentReference || (order.status === 'PENDING' && state === 'pending' && status.qr && order.qrisUrl !== status.qr))) {
@@ -19,18 +22,19 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     if (order.status !== 'PENDING') {
       // A paid notification for a released reservation requires reconciliation.
       if (state === 'paid') {
-        await tx.order.update({ where: { id }, data: { status: 'PAID', fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED' } });
+        await tx.order.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED' } });
         return { action: 'review' as const, order };
       }
       return { action: 'unchanged' as const, order };
     }
     if (expiresBefore && order.expiresAt >= expiresBefore) return { action: 'unchanged' as const, order };
     if (!status && !expiresBefore) throw new Error('UNCONFIRMED_EXPIRY');
-    if (state === 'paid' && order.type === 'APPS' && order.accountStockId === null) throw new Error('MISSING_RESERVED_STOCK');
+    if (state === 'paid' && order.type === 'APPS' && !activation && order.accountStockId === null) throw new Error('MISSING_RESERVED_STOCK');
+    if (activation && order.accountStockId !== null) throw new Error('STOCK_STATE_CONFLICT');
     const target = state === 'paid' ? 'PAID' : status?.cancelled ? 'CANCELLED' : 'EXPIRED';
     const updated = await tx.order.updateMany({
       where: { id, status: 'PENDING', accountStockId: order.accountStockId, ...(expiresBefore ? { expiresAt: { lt: expiresBefore } } : {}) },
-      data: { status: target, fulfillmentStatus: state === 'paid' ? (order.type === 'APPS' ? 'COMPLETED' : 'QUEUED') : 'NOT_READY', ...(state === 'failed' ? { accountStockId: null } : {}) },
+      data: { status: target, ...(state === 'paid' ? { paidAt: new Date() } : {}), fulfillmentStatus: state === 'paid' ? (order.type === 'APPS' && !activation ? 'COMPLETED' : 'QUEUED') : 'NOT_READY', ...(state === 'failed' ? { accountStockId: null } : {}) },
     });
     if (!updated.count) {
       // A concurrent expiry may have released the reservation after our read.
@@ -45,7 +49,11 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
       });
       if (stock.count !== 1) throw new Error('STOCK_STATE_CONFLICT');
     }
-    if (state === 'paid' && order.type !== 'APPS') {
+    if (state === 'paid' && order.type === 'APPS' && apps && !activation) {
+      const activeFrom = new Date();
+      await tx.appsService.update({ where: { orderId: id }, data: { activeFrom, activeUntil: new Date(activeFrom.getTime() + apps.durationDays * 86400_000) } });
+    }
+    if (state === 'paid' && (order.type !== 'APPS' || activation)) {
       await tx.fulfillmentJob.upsert({ where: { orderId: id }, create: { orderId: id }, update: {} });
     }
     if (state === 'failed') {

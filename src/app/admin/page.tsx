@@ -1,10 +1,35 @@
 'use client';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
+import { refreshOrderPages } from '@/lib/adminOrderPages';
 
 import { useLanguage } from '@/context/LanguageContext';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+function playAdminChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.onended = () => {
+      void ctx.close().catch(() => {});
+    };
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // AudioContext blocked or unavailable
+  }
+}
 
 interface ProductSummary {
   name: string;
@@ -44,11 +69,16 @@ interface OrderItem {
   currency: Currency;
   pricingRegion?: Region;
   paymentMethod?: string;
+  type?: 'APPS' | 'GAME' | 'ROBLOX';
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   createdAt: string;
   product: {
     name: string;
   };
+  otp?: {
+    status: 'IDLE' | 'REQUESTED' | 'DELIVERED';
+    requestId: number | null;
+  } | null;
 }
 
 interface AnalyticsData {
@@ -106,6 +136,40 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [otpSendingId, setOtpSendingId] = useState<number | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const seenOrderIdsRef = useRef<Set<number>>(new Set());
+  const seenOtpRequestIdsRef = useRef<Set<number>>(new Set());
+  const loadedOrderCursorsRef = useRef<number[]>([]);
+  const initialOrdersLoadedRef = useRef(false);
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => {
+      try {
+        const saved = localStorage.getItem('cloudy_admin_sound');
+        if (saved !== null) {
+          setSoundEnabled(saved === 'true');
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
+
+  const toggleSound = () => {
+    setSoundEnabled(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('cloudy_admin_sound', String(next));
+      } catch {
+        // Ignore storage errors
+      }
+      if (next) playAdminChime();
+      return next;
+    });
+  };
 
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [stockCursor, setStockCursor] = useState<number | null>(null);
@@ -149,20 +213,147 @@ export default function AdminPage() {
   const loadOrders = useCallback(async (cursor?: number) => {
     setOrdersLoading(true);
     try {
-      const res = await fetch('/api/admin/orders' + (cursor ? '?cursor=' + cursor : ''));
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
-      if (Array.isArray(json.data)) {
-        setOrders(previous => cursor ? [...previous, ...json.data] : json.data);
-        setOrderCursor(json.pagination.nextCursor);
-        setOrdersError('');
+      if (cursor) {
+        const res = await fetch(`/api/admin/orders?cursor=${cursor}`);
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
+        if (Array.isArray(json.data)) {
+          const incoming: OrderItem[] = json.data;
+          if (!loadedOrderCursorsRef.current.includes(cursor)) {
+            loadedOrderCursorsRef.current = [...loadedOrderCursorsRef.current, cursor];
+          }
+          for (const row of incoming) {
+            seenOrderIdsRef.current.add(row.id);
+            if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
+              seenOtpRequestIdsRef.current.add(row.otp.requestId);
+            }
+          }
+          setOrders(previous => {
+            const seenIds = new Set(previous.map(item => item.id));
+            const merged = [...previous];
+            for (const row of incoming) {
+              if (!seenIds.has(row.id)) {
+                seenIds.add(row.id);
+                merged.push(row);
+              }
+            }
+            return merged;
+          });
+          setOrderCursor(json.pagination.nextCursor);
+          setOrdersError('');
+        }
+        return;
       }
+
+      const refreshed = await refreshOrderPages<OrderItem>(loadedOrderCursorsRef.current.length + 1, async pageCursor => {
+        const res = await fetch('/api/admin/orders' + (pageCursor ? `?cursor=${pageCursor}` : ''));
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
+        if (!Array.isArray(json.data)) throw new Error('LOAD_FAILED');
+        return { data: json.data, nextCursor: json.pagination?.nextCursor ?? null };
+      });
+      const combined = refreshed.rows;
+      const lastNextCursor = refreshed.nextCursor;
+      loadedOrderCursorsRef.current = refreshed.cursors;
+
+      let hasNewOrder = false;
+      let hasNewRequestedOtp = false;
+      for (const row of combined) {
+        if (!seenOrderIdsRef.current.has(row.id)) {
+          hasNewOrder = true;
+          seenOrderIdsRef.current.add(row.id);
+        }
+        if (row.otp?.status === 'REQUESTED' && typeof row.otp.requestId === 'number') {
+          if (!seenOtpRequestIdsRef.current.has(row.otp.requestId)) {
+            hasNewRequestedOtp = true;
+            seenOtpRequestIdsRef.current.add(row.otp.requestId);
+          }
+        }
+      }
+      if (initialOrdersLoadedRef.current && (hasNewOrder || hasNewRequestedOtp)) {
+        let soundAllowed = true;
+        try {
+          soundAllowed = localStorage.getItem('cloudy_admin_sound') !== 'false';
+        } catch {
+          soundAllowed = true;
+        }
+        if (soundAllowed) {
+          playAdminChime();
+        }
+      }
+      initialOrdersLoadedRef.current = true;
+
+      setOrders(combined);
+      setOrderCursor(lastNextCursor);
+      setOtpInputs(prev => {
+        const activeKeys = new Set<string>();
+        for (const row of combined) {
+          if (row.otp?.status === 'REQUESTED' && row.otp.requestId !== null) {
+            activeKeys.add(`${row.id}:${row.otp.requestId}`);
+          }
+        }
+        let changed = false;
+        const next: Record<string, string> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (activeKeys.has(k)) {
+            next[k] = v;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+      setOrdersError('');
     } catch (err: unknown) {
       setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
     } finally {
       setOrdersLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      void loadOrders();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, loadOrders]);
+
+  const handleSendOtp = async (order: OrderItem) => {
+    const orderId = order.id;
+    const requestId = order.otp?.status === 'REQUESTED' ? order.otp.requestId : null;
+    if (!requestId || otpSendingId !== null) return;
+    const draftKey = `${orderId}:${requestId}`;
+    const code = (otpInputs[draftKey] || '').trim();
+    if (!code) return;
+    setOtpSendingId(orderId);
+    setOrdersError('');
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, requestId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        if (res.status === 409) {
+          void loadOrders();
+          throw new Error('OTP_REFRESH_REQUIRED');
+        }
+        throw new Error(res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED');
+      }
+      setOtpInputs(prev => {
+        const next = { ...prev };
+        delete next[draftKey];
+        return next;
+      });
+      setOrders(prev => prev.map(row => row.id === orderId ? { ...row, otp: { status: 'DELIVERED', requestId } } : row));
+    } catch (err: unknown) {
+      setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
+    } finally {
+      setOtpSendingId(null);
+    }
+  };
 
   const loadAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -252,8 +443,10 @@ export default function AdminPage() {
     try {
       const response = await fetch('/api/admin/auth', { method: 'DELETE' });
       if (!response.ok) throw new Error('LOGOUT_FAILED');
+      loadedOrderCursorsRef.current = [];
       setStocks([]);
       setOrders([]);
+      setOtpInputs({});
       setIsAuthenticated(false);
     } catch (err: unknown) {
       console.error('Logout error:', err);
@@ -534,6 +727,19 @@ export default function AdminPage() {
               <button onClick={() => setLanguage('MY')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'MY' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>MY</button>
               <button onClick={() => setLanguage('EN')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'EN' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>EN</button>
             </div>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                soundEnabled
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-neutral-100 border-neutral-300 text-neutral-500'
+              }`}
+              title={`${t.adminSoundToggle}: ${soundEnabled ? t.adminSoundOn : t.adminSoundOff}`}
+            >
+              <span>{soundEnabled ? '🔔' : '🔕'}</span>
+              <span className="hidden sm:inline">{soundEnabled ? t.adminSoundOn : t.adminSoundOff}</span>
+            </button>
             <Link
               href="/"
               className="px-3.5 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-xl text-xs transition border border-pink-200"
@@ -941,6 +1147,8 @@ export default function AdminPage() {
 
           {/* === PRODUCT MANAGEMENT TAB === */}
           {activeTab === 'products' && (
+            <div>
+              <Link href="/admin/apps" className="mb-5 inline-block rounded-xl border-2 border-pink-300 bg-white px-4 py-3 font-bold text-pink-900">{t.apps.manage}</Link>
             <div className="space-y-4">
               {/* Global feedback message */}
               {editMessage && (
@@ -1062,6 +1270,7 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
+            </div>
           )}
 
           {/* === TRANSACTION HISTORY TAB === */}
@@ -1097,7 +1306,12 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : (
-                      orders.map((order) => (
+                      orders.map((order) => {
+                        const otpDraftKey =
+                          order.otp?.status === 'REQUESTED' && order.otp.requestId !== null
+                            ? `${order.id}:${order.otp.requestId}`
+                            : null;
+                        return (
                         <tr key={order.id} className="hover:bg-pink-50/30 transition">
                           <td className="py-3 px-3 font-mono font-bold text-neutral-800">
                             <div>{order.invoice}</div>
@@ -1126,7 +1340,7 @@ export default function AdminPage() {
                           <td className="py-3 px-3 font-black text-pink-600">
                             {formatMoney(order.totalAmount, order.currency, language)}
                           </td>
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-3 text-center space-y-1.5">
                             <span
                               className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase ${
                                 order.status === 'PAID'
@@ -1138,9 +1352,46 @@ export default function AdminPage() {
                             >
                               {order.status}
                             </span>
+                            {order.otp && order.status === 'PAID' && (
+                              <div className="flex flex-col items-center gap-1 pt-1">
+                                {order.otp.status === 'REQUESTED' && (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                    ⏳ {t.adminOtpRequested}{order.otp.requestId ? ` #${order.otp.requestId}` : ''}
+                                  </span>
+                                )}
+                                {order.otp.status === 'DELIVERED' && (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    ✓ {t.adminOtpDelivered}
+                                  </span>
+                                )}
+                                {otpDraftKey !== null && (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      key={otpDraftKey}
+                                      type="text"
+                                      maxLength={24}
+                                      aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
+                                      placeholder={t.adminOtpPlaceholder}
+                                      value={otpInputs[otpDraftKey] || ''}
+                                      onChange={(e) => setOtpInputs(prev => ({ ...prev, [otpDraftKey]: e.target.value }))}
+                                      className="w-28 bg-white border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-mono text-neutral-800 focus:outline-none focus:border-pink-500"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={otpSendingId === order.id || !(otpInputs[otpDraftKey] || '').trim()}
+                                      onClick={() => handleSendOtp(order)}
+                                      className="px-2 py-1 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition active:scale-95 cursor-pointer"
+                                    >
+                                      {t.adminBtnSendOtp}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1149,7 +1400,15 @@ export default function AdminPage() {
           )}
         </div>
 
-        {ordersError && <p role="alert" className="text-rose-700 bg-white p-3">{ordersError === 'UNAUTHORIZED' ? t.regional.adminSessionExpired : t.regional.adminLoadError}</p>}
+        {ordersError && (
+          <p role="alert" className="text-rose-700 bg-white p-3">
+            {ordersError === 'UNAUTHORIZED'
+              ? t.regional.adminSessionExpired
+              : ordersError === 'OTP_REFRESH_REQUIRED'
+              ? t.adminOtpRefreshRequired
+              : t.regional.adminLoadError}
+          </p>
+        )}
         {pageError && <p role="alert" className="text-rose-700 bg-white p-3">{t.errSystem}</p>}
         {/* Card Tabel Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">
