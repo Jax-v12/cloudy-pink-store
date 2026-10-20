@@ -33,4 +33,32 @@ Pemilik meminta seluruh pekerjaan tersisa dilanjutkan, lalu mengonfirmasi harga/
 
 ## Publikasi dan QA deployment
 
-Menunggu commit source final, Preview dengan SHA cocok, QA renderer/CLS, lalu rilis main ke proyek Vercel yang sama. Flag metrics disiapkan hanya untuk Production; Preview tetap nonaktif karena database dipakai bersama. Gate Login/aktivasi/WhatsApp yang belum terpenuhi tetap terbuka walaupun source dipublikasikan.
+Source fixes feature `dea2a6f`, lalu UI follow-up **`d0f3c3ab34f1a610920f757572d946739c876c93`**, sudah dipush. [Preview yang diuji](https://cloudy-pink-store-7au8syw4l-jax-v12.vercel.app), deployment `dpl_AfU9tsSgVsR66sAPK7wdgHFEi7j4`, READY dan SHA cocok.
+
+QA pertama menemukan CLS tablet MY **0,4260** saat hidrasi: navigasi lebih panjang memindahkan kontrol ke baris berikutnya (+52 px), judul menambah baris (+40 px). Navigasi kini mempertahankan pola mobile sampai breakpoint lg dan judul MY diringkas. Review independen, TypeScript dan lint PASS. QA ulang **9 PASS / 0 FAIL**, ID/EN/MY × tiga ukuran wajib, katalog fixture diperlambat satu detik. Retry OTP bekerja melalui keyboard; tidak ada overflow; seluruh mutation diintersep.
+
+| Lebar | CLS ID | CLS EN | CLS MY |
+| --- | --- | --- | --- |
+| 375 | 0 | 0,0355 | 0,0044 |
+| 810 | 0 | 0,0039 | 0,0063 |
+| 1440 | 0 | 0,0025 | 0,0041 |
+
+Tablet MY pada skenario sama turun 0,4260 → 0,0063. Ini hasil lab, bukan field p75/INP atau bukti semua metrik meningkat.
+
+- Main code merge **`606c9752bbe7999bb5b6fc8c95dc25780270d4a3`** memiliki tree aplikasi identik dengan feature d0f3c3a. [Production code deployment](https://cloudy-pink-store-1rgk4jb86-jax-v12.vercel.app), `dpl_8JaRku2fofwgxu3NpBdJD8AdFumc`, READY/SHA cocok. Alias [toko](https://cloudy-pink-store.vercel.app), team dan git-main terverifikasi. Publikasi dokumentasi sesudahnya tidak mengubah kode aplikasi.
+- `AGGREGATE_METRICS_ENABLED=true` ditambahkan hanya pada **Production** sebelum build. Preview tetap nonaktif. HTTP Production **13 PASS**, termasuk halaman publik, katalog, penolakan akses admin/invoice/cron, dan penolakan event PAID dari client (400 sebelum counter ditulis). Apps publik tetap nol karena dua produk baru adalah draft tidak aktif.
+- Renderer Production nyata **6 PASS** untuk Apps/Roblox × tiga ukuran: HTTP 200, tanpa page error/overflow, client mencoba mengirim VIEW. Metrics QA diintersep sehingga tidak mencampur counter uji dengan data operasional. Private noindex **2 PASS**. Counter organik/field INP menunggu trafik nyata; tidak mengarang konversi.
+- [Cron #18](https://github.com/Jax-v12/cloudy-pink-store/actions/runs/39449971428), main 606c975, manual pascarilis, **SUCCESS 12 detik**, memakai runner cleanup/fulfillment/reminders terbaru. Read-only terpisah: heartbeat cleanup `2026-10-20T15:36:34.910Z`, fulfillment `15:36:35.551Z`, expired pending/secrets nol. Provider reminder disabled; bukan bukti WhatsApp terkirim atau cadence lima menit.
+- Production belum memiliki `TELEGRAM_WEBHOOK_SECRET`; POST kosong menghasilkan **503 fail-closed**. OTP melalui admin web tersedia; autentikasi/kebijakan webhook dua arah serta uji provider tetap perlu diselesaikan operator. Tidak mengubah bot/provider atau mengirim pesan uji nyata.
+- Sebelum disposal, seluruh digest kolom **26 Order** pada restore terbaru cocok dengan sumber. Dua salinan yang dibuat task (`cloudy_test_ops_restore_20261020`, `cloudy_test_ops_restore_current_20261020`) dihapus setelah **persetujuan target spesifik pemilik**; kedua schema dipastikan tidak tersisa. Backup terenkripsi/`cloudy_staging` dipertahankan. Fixture lain dan restore historis tidak dihapus.
+- HTTP harness lokal dihentikan, lalu MySQL task dihentikan secara graceful setelah verifikasi PID/parent/listener loopback.
+
+## Hambatan yang masih memerlukan pemilik/provider
+
+1. Stok CapCut asli, metode pengiriman dan ketentuan final sebelum mengaktifkan penjualan. Harga MYR masih inventory-only; merchant/payment Apps MY belum tersedia.
+2. Akun WhatsApp bisnis, nomor pengirim, template ID/EN/MY dan credential langsung di secret store. Tidak meminta secret melalui chat.
+3. Scheduler yang benar-benar mencapai lima menit serta bukti alert sampai ke operator; GitHub schedule sekarang sukses tetapi masih berjarak beberapa jam.
+4. Kepastian tertulis TTL/pemusnahan backup/binlog Aiven dan jalur provider-native restore yang tersedia pada plan tersebut; tidak membeli upgrade atau menyimpulkan jaminan dari tiga backup yang terlihat.
+5. Konfigurasi/kebijakan Telegram webhook dan uji payment/aktivasi provider dengan data/recipient/scenario nyata yang disepakati.
+
+Gate operasional Login/aktivasi/WhatsApp tetap terbuka. Publikasi tidak mengaktifkan produk draft, mode pembayaran live, pengiriman WhatsApp, atau pengumpulan secret customer baru.
