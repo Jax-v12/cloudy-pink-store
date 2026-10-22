@@ -81,7 +81,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         <form className="my-6 grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={event => { event.preventDefault(); activeRequest.current?.abort(); setLoading(true); setError(''); setProducts([]); setCursor(null); setFilters(new URLSearchParams({ q: query.trim(), category: category.trim() }).toString()); setRevision(n => n + 1); }}>
           <label className="text-sm font-bold">{t.searchPlaceholder}<input type="search" maxLength={100} value={query} onChange={e => setQuery(e.target.value)} className="mt-1 w-full rounded-xl border-2 border-pink-200 p-3 font-normal" /></label>
           <label className="text-sm font-bold">{a.category}<input maxLength={50} value={category} onChange={e => setCategory(e.target.value)} className="mt-1 w-full rounded-xl border-2 border-pink-200 p-3 font-normal" /></label>
-          <button className="rounded-xl bg-pink-700 px-5 py-3 font-bold text-white">{t.trackButton}</button>
+          <button className="rounded-xl bg-pink-700 px-5 py-3 font-bold text-white">{t.searchButton}</button>
         </form>
       </>}
       {slug && <Link href="/apps" className="my-4 inline-block rounded-xl border border-pink-200 px-4 py-3 font-bold text-pink-900">← {a.back}</Link>}
