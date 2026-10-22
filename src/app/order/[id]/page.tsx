@@ -439,7 +439,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <h3 className="text-sm font-bold text-emerald-800 mb-1">{t.accountReadyTitle}</h3>
                 <p className="text-[11px] text-emerald-600 mb-3">{t.accountReadySubtitle}</p>
 
-                <div className="bg-white rounded-xl p-3 border border-emerald-100 space-y-2 text-xs font-mono">
+                <div className="break-all bg-white rounded-xl p-3 border border-emerald-100 space-y-2 text-xs font-mono">
                   <div>
                     <span className="text-neutral-400 block text-[10px]">{t.fieldEmail}</span>
                     <span className="font-bold text-neutral-800">{order.account.emailAccount}</span>
