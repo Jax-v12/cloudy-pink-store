@@ -2,6 +2,10 @@
   "name": "store-premium",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
