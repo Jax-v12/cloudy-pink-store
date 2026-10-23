@@ -8,5 +8,10 @@ export async function fulfillFixtureRead(route, server) {
   }
   // Playwright retries ECONNRESET only; never retry API/mutation traffic or HTTP failures.
   const response = await route.fetch({ url: target.origin + url.pathname + url.search, maxRedirects: 0, maxRetries: 1 });
-  return route.fulfill({ response });
+  try { return await route.fulfill({ response }); }
+  catch (error) {
+    // Navigation can cancel a prefetched read after its response was fetched.
+    if (error instanceof Error && error.message.includes('Route is already handled!') && route.request().failure?.()?.errorText === 'net::ERR_ABORTED') return;
+    throw error;
+  }
 }

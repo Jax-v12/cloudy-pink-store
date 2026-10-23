@@ -36,7 +36,9 @@ try {
       if (url.pathname === '/api/orders/INV-SYNTHETIC-APPS/apps') { mutationCount++; ack = true; return route.fulfill({ json: { success: true } }); }
       if (url.pathname === '/api/admin/apps/products') return route.fulfill({ json: { success: true, data: [], pagination: { nextCursor: null } } });
       if (url.pathname === '/api/admin/apps/orders') return route.fulfill({ json: { success: true, data: [], pagination: { nextCursor: null } } });
-      if (url.pathname.startsWith('/api/')) throw new Error('UNEXPECTED_API_REQUEST');
+      if (url.pathname === '/api/admin/metrics' && route.request().method() === 'GET') return route.fulfill({ json: { success: true, data: { observations: [], paid: [] } } });
+      if (url.pathname === '/api/admin/apps/reminders' && route.request().method() === 'GET') return route.fulfill({ json: { success: true, data: [], pagination: { nextCursor: null } } });
+      if (url.pathname.startsWith('/api/')) throw new Error(`UNEXPECTED_API_REQUEST ${route.request().method()} ${url.pathname}`);
       try { return await fulfillFixtureRead(route, server); }
       catch (error) { if (route.request().failure()?.errorText === 'net::ERR_ABORTED') return; throw error; }
     });
