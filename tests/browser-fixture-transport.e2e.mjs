@@ -30,6 +30,14 @@ function route(path, method = 'GET') {
   };
 }
 try {
+  await run('a cancelled renderer request does not fail response fulfillment', async () => {
+    const request = { url: () => 'https://store.invalid/page', method: () => 'GET', failure: () => ({ errorText: 'net::ERR_ABORTED' }) };
+    await fulfillFixtureRead({ request: () => request, fetch: async () => ({}), fulfill: async () => { throw new Error('Route is already handled!'); } }, origin);
+  });
+  await run('uncancelled fulfillment errors remain failures', async () => {
+    const request = { url: () => 'https://store.invalid/page', method: () => 'GET', failure: () => null };
+    await assert.rejects(fulfillFixtureRead({ request: () => request, fetch: async () => ({}), fulfill: async () => { throw new Error('Route is already handled!'); } }, origin), /already handled/);
+  });
   await run('one transient TCP reset recovers the same read', async () => {
     const r = route('/once-reset.css'); await fulfillFixtureRead(r, origin);
     assert.equal(r.status(), 200); assert.match(r.body(), /color: black/); assert.equal(counts.get('/once-reset.css'), 2);
