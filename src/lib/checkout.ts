@@ -35,6 +35,8 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
   if (existing) return { order: existing, created: false };
   // Old payloads may recover an existing invoice but cannot choose a region for new orders.
   if (input.pricingRegion !== undefined) throw new InputError();
+  if (!resolvedRegion) throw new CommerceError('REGION_UNVERIFIED');
+  if (resolvedRegion !== 'ID') throw new CommerceError('PAYMENT_REGION_UNAVAILABLE');
   // Verify the Roblox recipient before taking locks; upstream calls can take seconds.
   let verified: RobloxVerification | null = null;
   if (input.variantId !== undefined && checkoutEnabled('ROBLOX')) {
@@ -80,8 +82,7 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
       if (attempt && (product.type !== 'ROBLOX' || variant?.method !== 'LOGIN')) throw new CommerceError('PRODUCT_UNAVAILABLE');
       if ((product.type !== 'APPS' && !variant) || (product.type === 'APPS' && input.variantId !== undefined)) throw new CommerceError('INVALID_INPUT', 400);
       if (variant?.method === 'GIFT_USERNAME' && (!variant.capacityCheckedAt || Date.now() - variant.capacityCheckedAt.getTime() > 86_400_000)) throw new CommerceError('CAPACITY_REVIEW_REQUIRED');
-      if (product.type === 'ROBLOX' && !resolvedRegion) throw new CommerceError('REGION_UNVERIFIED');
-      const quote = checkoutPricing(product.type, product.price, variant, product.type === 'ROBLOX' ? resolvedRegion! : 'ID', input.paymentMethod ?? 'QRIS', input.quantity);
+      const quote = checkoutPricing(product.type, product.price, variant, resolvedRegion, input.paymentMethod ?? 'QRIS', input.quantity);
       // Check after idempotency replay, under the same lock as authoritative pricing.
       // Every new Roblox order requires a confirmed server quote, including legacy clients.
       if (product.type === 'ROBLOX' && variant) {

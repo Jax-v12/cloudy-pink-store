@@ -49,7 +49,16 @@ test('first catalog load rejects HTTP failure, explicit failure and malformed pa
     Response.json({ success: true, data: null }), Response.json({ success: true, data: [], pagination: { nextCursor: 'bad' } })]) {
     await assert.rejects(parseCatalogResponse(response));
   }
-  assert.deepEqual(await parseCatalogResponse(Response.json({ success: true, data: [], pagination: { nextCursor: null } })), { data: [], nextCursor: null });
+  assert.deepEqual(await parseCatalogResponse(Response.json({ success: true, data: [], pagination: { nextCursor: null } })), { data: [], nextCursor: null, region: null });
+});
+
+test('Apps catalog exposes only verified Indonesia as an available purchase region', async () => {
+  const product = { id: 1, name: 'Synthetic', slug: 'fixture', price: null, stockAvailable: 1, checkoutEnabled: false };
+  for (const region of ['ID', 'MY', 'PH', null, 'US']) {
+    const page = await parseCatalogResponse(Response.json({ success: true, data: [product], pagination: { nextCursor: null }, location: { region } }));
+    assert.equal(page.region, region === 'ID' ? 'ID' : null);
+    assert.equal(page.data[0].price, null);
+  }
 });
 
 test('server search and category filters compose before pagination and reject unbounded input', () => {

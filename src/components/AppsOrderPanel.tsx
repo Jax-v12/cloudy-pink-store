@@ -31,15 +31,22 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
     setBusy(true); setError('');
     try {
       const response = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/renew`, { headers: headers() }); const json = await response.json();
+      if (!response.ok && json.errorCode === 'REGION_UNVERIFIED') { setError(t.regional.locationUnavailable); return; }
       if (!response.ok || !json.success) throw new Error(); setRenewal(json.data); setAgree(false); renewalKey.current = crypto.randomUUID();
     } catch { setError(a.error); } finally { setBusy(false); }
   }
   async function confirmRenewal(event: React.FormEvent) {
-    event.preventDefault(); if (!renewal || !agree || lock.current) return;
+    event.preventDefault(); if (!renewal || renewal.price === null || !agree || lock.current) return;
     lock.current = true; setBusy(true); setError('');
     try {
       const response = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/renew`, { method: 'POST', headers: { ...headers(), 'idempotency-key': renewalKey.current }, body: JSON.stringify({ appsPolicyToken: renewal.appsPolicyToken }) });
-      const json = await response.json(); if (!response.ok || !json.success) { if (json.errorCode === 'APPS_TERMS_CHANGED') { setAgree(false); setRenewal(null); } throw new Error(); }
+      const json = await response.json(); if (!response.ok || !json.success) {
+        if (json.errorCode === 'APPS_TERMS_CHANGED') { setAgree(false); setRenewal(null); }
+        if (['REGION_UNVERIFIED', 'PAYMENT_REGION_UNAVAILABLE'].includes(json.errorCode)) {
+          setAgree(false); setError(t.regional.locationUnavailable); return;
+        }
+        throw new Error();
+      }
       localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken); router.push(`/order/${encodeURIComponent(json.data.invoice)}`);
     } catch { setError(a.error); } finally { lock.current = false; setBusy(false); }
   }
@@ -62,6 +69,6 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
       {order.fulfillmentStatus === 'COMPLETED' && order.appsService?.activeUntil && Date.parse(order.appsService.activeUntil) > now && <AppsReminderPanel invoice={order.invoice} service={order.appsService} refresh={refresh} />}
     </>}
     {error && <p role="alert" className="text-rose-800">{error}</p>}
-    {renewal && <AdminDialog title={a.renew} busy={busy} onClose={() => setRenewal(null)}><form onSubmit={confirmRenewal} className="space-y-4"><p className="text-sm">{a.renewConfirm}</p><p className="font-bold">{renewal.name} · {formatMoney(renewal.price, 'IDR', language)}</p><AppsPackageDetails product={renewal} /><label className="flex gap-3 text-sm"><input type="checkbox" required checked={agree} onChange={e => setAgree(e.target.checked)} />{a.agree}</label><button disabled={!agree || busy} className="rounded-xl bg-pink-700 p-3 font-bold text-white disabled:opacity-50">{t.btnPayNow}</button><button type="button" disabled={busy} onClick={() => setRenewal(null)} className="ml-3 rounded-xl border p-3">{a.cancel}</button>{error && <p role="alert">{error}</p>}</form></AdminDialog>}
+    {renewal && <AdminDialog title={a.renew} busy={busy} onClose={() => setRenewal(null)}><form onSubmit={confirmRenewal} className="space-y-4"><p className="text-sm">{a.renewConfirm}</p><p className="font-bold">{renewal.name} · {renewal.price === null ? t.regional.unavailable : formatMoney(renewal.price, 'IDR', language)}</p><AppsPackageDetails product={renewal} /><label className="flex gap-3 text-sm"><input type="checkbox" required checked={agree} onChange={e => setAgree(e.target.checked)} />{a.agree}</label><button disabled={!agree || busy || renewal.price === null} className="rounded-xl bg-pink-700 p-3 font-bold text-white disabled:opacity-50">{t.btnPayNow}</button><button type="button" disabled={busy} onClick={() => setRenewal(null)} className="ml-3 rounded-xl border p-3">{a.cancel}</button>{error && <p role="alert">{error}</p>}</form></AdminDialog>}
   </section>;
 }

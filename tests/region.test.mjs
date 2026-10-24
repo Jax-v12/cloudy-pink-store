@@ -13,7 +13,8 @@ test('only authenticated request-scoped ingress country can resolve a region', (
 
     for (const region of ['ID', 'MY', 'PH']) {
       const headers = geoHeaders(url, region);
-      assert.deepEqual(resolveRequestRegion(new Request(url, { headers })), { region, reason: 'detected' });
+      assert.deepEqual(resolveRequestRegion(new Request(url, { headers })), region === 'ID'
+        ? { region, reason: 'detected' } : { region: null, reason: 'unsupported' });
       assert.equal(resolveRequestRegion(new Request(url, { headers: { ...headers, 'x-store-geo-country': 'US' } })).region, null);
       assert.equal(resolveRequestRegion(new Request(url + '?region=ID', { headers })).region, null);
       assert.equal(resolveRequestRegion(new Request(url, { method: 'POST', headers })).region, null);
@@ -82,14 +83,14 @@ test('Vercel Edge boundary mode resolves regions only when VERCEL=1 is active an
     // 3. Inside Vercel environment (VERCEL=1 simulated in isolated scope)
     process.env.VERCEL = '1';
 
-    // 3a. Resolves supported regions
-    for (const region of ['ID', 'MY', 'PH']) {
+    // 3a. Only Indonesia is open for public sales.
+    for (const region of ['ID']) {
       const headers = { 'x-vercel-id': testVercelId, 'x-vercel-ip-country': region };
       assert.deepEqual(resolveRequestRegion(new Request(url, { headers })), { region, reason: 'detected' });
     }
 
     // 3b. Unsupported countries fail closed with reason 'unsupported'
-    for (const country of ['US', 'SG', 'JP', 'GB', 'AU']) {
+    for (const country of ['MY', 'PH', 'US', 'SG', 'JP', 'GB', 'AU']) {
       const headers = { 'x-vercel-id': testVercelId, 'x-vercel-ip-country': country };
       assert.deepEqual(resolveRequestRegion(new Request(url, { headers })), { region: null, reason: 'unsupported' });
     }
@@ -123,6 +124,12 @@ test('Vercel Edge boundary mode resolves regions only when VERCEL=1 is active an
       },
     });
     assert.deepEqual(resolveRequestRegion(spoofedReq), { region: 'ID', reason: 'detected' });
+    for (const country of ['MY', 'PH']) {
+      assert.deepEqual(resolveRequestRegion(new Request(url + '?region=ID&country=ID', {
+        headers: { 'x-vercel-id': testVercelId, 'x-vercel-ip-country': country,
+          cookie: 'region=ID', 'accept-language': 'id-ID' },
+      })), { region: null, reason: 'unsupported' });
+    }
 
     // 4. Explicit GEOIP_SOURCE='vercel' works when VERCEL=1 and fails closed when VERCEL is not '1'
     process.env.GEOIP_SOURCE = 'vercel';

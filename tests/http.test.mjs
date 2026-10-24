@@ -73,12 +73,12 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     assert.equal(regionalCatalog.paymentMethods[0].id, 'QRIS');
     assert.ok(regionalCatalog.data[0].variants.find(v => v.id === regional.id).regionalPrices.every(r => r.region === 'ID'));
     const catalogPath = '/api/products?type=ROBLOX&slug=' + p.slug;
-    for (const [country, amount] of [['MY', 250], ['PH', 3000]]) {
+    for (const country of ['MY', 'PH']) {
       const response = await request(catalogPath, {}, country); const catalog = await response.json();
       assert.match(response.headers.get('cache-control'), /private.*no-store/);
-      assert.equal(catalog.location.region, country); assert.deepEqual(catalog.paymentMethods, []);
+      assert.deepEqual(catalog.location, { region: null, reason: 'unsupported' }); assert.deepEqual(catalog.paymentMethods, []);
       assert.equal(catalog.data[0].checkoutEnabled, false);
-      assert.equal(catalog.data[0].variants.find(v => v.id === regional.id).price, amount);
+      assert.equal(catalog.data[0].variants.find(v => v.id === regional.id).price, null);
     }
     const unsigned = await fetch(new URL(catalogPath + '&region=ID', base), { headers: { 'cf-ipcountry': 'ID', 'x-vercel-ip-country': 'ID', cookie: 'region=ID' } });
     const unknown = await unsigned.json(); assert.equal(unknown.location.region, null);
@@ -95,7 +95,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const idQuoteData = (await idQuote.json()).data; assert.equal(idQuoteData.totalAmount, 14000); assert.equal(idQuoteData.paymentFee, 0); assert.equal(idQuoteData.currency, 'IDR');
     assert.match(idQuoteData.quoteToken, /^[a-f0-9]{64}$/);
     for (const region of ['MY', 'PH']) {
-      const unavailable = await priceQuote(region); assert.equal(unavailable.status, 409); assert.equal((await unavailable.json()).errorCode, 'PAYMENT_REGION_UNAVAILABLE');
+      const unavailable = await priceQuote(region); assert.equal(unavailable.status, 409); assert.equal((await unavailable.json()).errorCode, 'REGION_UNVERIFIED');
     }
     assert.equal(await prisma.order.count(), orderCount, 'Quotes never create orders');
     assert.equal((await createRate({ regionalPrices: [{ region: 'MY', amount: 2.5, active: true }] })).status, 400);
@@ -105,7 +105,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     const regionalBody = { productId: p.id, variantId: regional.id, quantity: 100, paymentMethod: 'QRIS', customerEmail: 'regional-http@example.test', details: { username: 'customer', gamepassUrl: 'https://www.roblox.com/game-pass/123/example' } };
     const postRegional = (quoteToken, key) => request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': key }, body: JSON.stringify({ ...regionalBody, quoteToken }) });
     const drifting = await request('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ ...regionalBody, customerEmail: 'drift@example.test', quoteToken: idQuoteData.quoteToken }) }, 'MY');
-    assert.equal(drifting.status, 409); assert.equal((await drifting.json()).errorCode, 'PAYMENT_REGION_UNAVAILABLE');
+    assert.equal(drifting.status, 409); assert.equal((await drifting.json()).errorCode, 'REGION_UNVERIFIED');
     const unverifiedCheckout = await fetch(new URL('/api/checkout', base), { method: 'POST', headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID(), 'cf-ipcountry': 'ID' }, body: JSON.stringify({ ...regionalBody, customerEmail: 'unknown-location@example.test', quoteToken: idQuoteData.quoteToken }) });
     assert.equal(unverifiedCheckout.status, 409); assert.equal((await unverifiedCheckout.json()).errorCode, 'REGION_UNVERIFIED');
     const outdated = await postRegional(idQuoteData.quoteToken, crypto.randomUUID());

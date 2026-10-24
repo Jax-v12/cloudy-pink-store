@@ -143,6 +143,7 @@ export default function StoreShell({ children, wide = false }: { children: React
           </div>
         )}
       </header>
+      <p className="mb-6 rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold text-pink-900">{t.regional.indonesiaOnly}</p>
       {children}
       {!pathname.startsWith('/admin') && <footer className="mt-8 rounded-2xl border border-pink-200 bg-white px-5 py-5">
         <ServiceHelpLinks />

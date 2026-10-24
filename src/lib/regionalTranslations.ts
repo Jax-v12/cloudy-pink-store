@@ -1,6 +1,7 @@
 export const regionalTranslations = {
   ID: {
-    detecting: 'Memeriksa lokasi…', detected: 'Lokasi terdeteksi', locationUnavailable: 'Lokasi belum dapat diverifikasi atau belum didukung. Checkout belum tersedia. Hubungi bantuan untuk pemeriksaan lokasi.', locationHelp: 'Lokasi terdeteksi salah? Hubungi bantuan', adminLoadError: 'Pesanan gagal dimuat. Coba muat ulang. Jika masih gagal, minta pengelola memeriksa database dan migrasi.', adminSessionExpired: 'Sesi admin berakhir. Silakan masuk kembali.',
+    indonesiaOnly: 'Saat ini pembelian hanya tersedia dari Indonesia, dengan pembayaran dalam Rupiah (IDR).',
+    detecting: 'Memeriksa lokasi…', detected: 'Lokasi terdeteksi', locationUnavailable: 'Pembelian hanya tersedia dari Indonesia. Lokasi Anda belum terverifikasi sebagai Indonesia, jadi checkout belum tersedia. Hubungi bantuan jika lokasi terdeteksi salah.', locationHelp: 'Lokasi terdeteksi salah? Hubungi bantuan', adminLoadError: 'Pesanan gagal dimuat. Coba muat ulang. Jika masih gagal, minta pengelola memeriksa database dan migrasi.', adminSessionExpired: 'Sesi admin berakhir. Silakan masuk kembali.',
     priceChanged: 'Harga atau rincian pembayaran berubah. Periksa total terbaru, lalu konfirmasi kembali.',
     region: 'Negara / region', currency: 'Mata uang', ID: 'Indonesia', MY: 'Malaysia', PH: 'Filipina',
     pricing: 'Harga regional', price: 'Harga paket / harga per jumlah dasar', enabled: 'Harga tersedia di region ini',
@@ -15,7 +16,8 @@ export const regionalTranslations = {
     notAvailable: 'Tidak tersedia',
   },
   EN: {
-    detecting: 'Checking location…', detected: 'Detected location', locationUnavailable: 'Your location could not be verified or is unsupported. Checkout is unavailable. Contact support for a location review.', locationHelp: 'Incorrect location? Contact support', adminLoadError: 'Orders could not be loaded. Retry loading. If it persists, ask the operator to check the database and migrations.', adminSessionExpired: 'Your admin session expired. Please sign in again.',
+    indonesiaOnly: 'Purchases are currently available only from Indonesia, with payment in Indonesian Rupiah (IDR).',
+    detecting: 'Checking location…', detected: 'Detected location', locationUnavailable: 'Purchases are available only from Indonesia. Your location has not been verified as Indonesia, so checkout is unavailable. Contact support if your location is incorrect.', locationHelp: 'Incorrect location? Contact support', adminLoadError: 'Orders could not be loaded. Retry loading. If it persists, ask the operator to check the database and migrations.', adminSessionExpired: 'Your admin session expired. Please sign in again.',
     priceChanged: 'The price or payment details changed. Review the updated total, then confirm again.',
     region: 'Country / region', currency: 'Currency', ID: 'Indonesia', MY: 'Malaysia', PH: 'Philippines',
     pricing: 'Regional pricing', price: 'Package price / price per base quantity', enabled: 'Price available in this region',
@@ -30,7 +32,8 @@ export const regionalTranslations = {
     notAvailable: 'Unavailable',
   },
   MY: {
-    detecting: 'Menyemak lokasi…', detected: 'Lokasi dikesan', locationUnavailable: 'Lokasi belum dapat disahkan atau belum disokong. Daftar keluar belum tersedia. Hubungi bantuan untuk semakan lokasi.', locationHelp: 'Lokasi dikesan salah? Hubungi bantuan', adminLoadError: 'Pesanan gagal dimuatkan. Cuba muat semula. Jika masih gagal, minta pengendali menyemak pangkalan data dan migrasi.', adminSessionExpired: 'Sesi pentadbir tamat. Sila log masuk semula.',
+    indonesiaOnly: 'Pembelian kini hanya tersedia dari Indonesia, dengan bayaran dalam Rupiah Indonesia (IDR).',
+    detecting: 'Menyemak lokasi…', detected: 'Lokasi dikesan', locationUnavailable: 'Pembelian hanya tersedia dari Indonesia. Lokasi anda belum disahkan sebagai Indonesia, jadi daftar keluar belum tersedia. Hubungi bantuan jika lokasi dikesan salah.', locationHelp: 'Lokasi dikesan salah? Hubungi bantuan', adminLoadError: 'Pesanan gagal dimuatkan. Cuba muat semula. Jika masih gagal, minta pengendali menyemak pangkalan data dan migrasi.', adminSessionExpired: 'Sesi pentadbir tamat. Sila log masuk semula.',
     priceChanged: 'Harga atau butiran pembayaran berubah. Semak jumlah terkini, kemudian sahkan semula.',
     region: 'Negara / rantau', currency: 'Mata wang', ID: 'Indonesia', MY: 'Malaysia', PH: 'Filipina',
     pricing: 'Harga mengikut negara', price: 'Harga pakej / harga per kuantiti asas', enabled: 'Harga tersedia di negara ini',

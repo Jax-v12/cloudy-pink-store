@@ -270,7 +270,7 @@ test('MY/PH and price null fail closed without IDR fallback or an Order', async 
   const first = await start(); const body = input();
   for (const region of ['MY', 'PH']) {
     const current = await attempt.recoverLoginAttempt(sessionId, first.flowId);
-    await assert.rejects(confirmLoginAttempt(sessionId, first.flowId, current.version, body, region), /REGIONAL_PRICE_UNAVAILABLE/);
+    await assert.rejects(confirmLoginAttempt(sessionId, first.flowId, current.version, body, region), /PAYMENT_REGION_UNAVAILABLE/);
   }
   assert.equal(data.orders.length, 0);
   const current = await attempt.recoverLoginAttempt(sessionId, first.flowId);

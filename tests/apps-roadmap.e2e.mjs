@@ -6,8 +6,8 @@ import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 import { appsTranslations } from '../src/lib/appsTranslations.ts';
 import { translations } from '../src/lib/translations.ts';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.argv[2] || 'C:/Users/Jacob/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright');
-const server = 'http://127.0.0.1:3167', base = 'https://store.invalid';
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || process.argv[2] || 'C:/Users/Jacob/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright');
+const server = process.env.TEST_RENDERER_URL || 'http://127.0.0.1:3167', base = 'https://store.invalid';
 const output = '.cache/benchmark-20261019/browser'; await fs.mkdir(output, { recursive: true });
 const config = { version: 1, appGroup: 'Synthetic', accountType: 'Private', durationDays: 7, devices: 'One device', regionRules: 'ID', usageRules: 'Synthetic usage rules', included: 'Synthetic premium access', instructions: 'Synthetic guide', warrantyDays: 7, warrantyTerms: 'Synthetic seven-day policy', fulfillmentMode: 'ACTIVATION', activationMethod: 'INVITATION' };
 const product = { id: 1, slug: 'synthetic-capcut', name: 'Synthetic CapCut Private with a long package name', category: 'Video', price: 1000, stockAvailable: 0, checkoutEnabled: true, appsConfig: config, appsPolicyToken: 'a'.repeat(64) };
@@ -30,7 +30,7 @@ try {
       if (url.pathname === '/api/products') {
         if (failed) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) });
         querySeen ||= url.searchParams.get('q') === 'Beyond';
-        return route.fulfill({ json: { success: true, data: [product], pagination: { nextCursor: null } } });
+        return route.fulfill({ json: { success: true, data: [product], pagination: { nextCursor: null }, location: { region: 'ID', reason: 'detected' } } });
       }
       if (url.pathname === '/api/orders/INV-SYNTHETIC-APPS') return route.fulfill({ json: { success: true, data: { ...order, appsService: { ...order.appsService, deliveredAt: expired ? '2020-01-01T00:00:00Z' : order.appsService.deliveredAt, acknowledgedAt: ack ? new Date().toISOString() : null } } } });
       if (url.pathname === '/api/orders/INV-SYNTHETIC-APPS/apps') { mutationCount++; ack = true; return route.fulfill({ json: { success: true } }); }
