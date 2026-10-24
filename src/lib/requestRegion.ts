@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { isRegion, type Region } from './regionalPricing';
+import type { Region } from './regionalPricing';
 
 export type DetectedRegion = { region: Region | null; reason: 'detected' | 'unverified' | 'unsupported' };
 
@@ -20,8 +20,8 @@ function resolveVercelRegion(req: Request): DetectedRegion {
     return { region: null, reason: 'unverified' };
   }
 
-  return isRegion(country)
-    ? { region: country as Region, reason: 'detected' }
+  return country === 'ID'
+    ? { region: country, reason: 'detected' }
     : { region: null, reason: 'unsupported' };
 }
 
@@ -51,11 +51,12 @@ function resolveSignedIngressRegion(req: Request): DetectedRegion {
     return unavailable;
   }
 
-  return isRegion(country) ? { region: country as Region, reason: 'detected' } : { region: null, reason: 'unsupported' };
+  return country === 'ID' ? { region: country, reason: 'detected' } : { region: null, reason: 'unsupported' };
 }
 
 /**
- * Resolves customer pricing region based on explicitly configured GEOIP_SOURCE:
+ * Public sales are Indonesia-only; stored MY/PH prices remain available to admin/history.
+ * Resolves the purchase region based on explicitly configured GEOIP_SOURCE:
  * 1. 'signed-ingress': cryptographic HMAC-SHA256 attestation from a trusted proxy. Fails closed.
  * 2. 'vercel': trusted Vercel Edge boundary headers (x-vercel-ip-country + x-vercel-id when VERCEL=1).
  * 3. Default (unset/empty): allows Vercel mode only if running in a Vercel runtime (VERCEL=1).

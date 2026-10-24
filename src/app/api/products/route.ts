@@ -32,8 +32,8 @@ export async function GET(req: Request) {
       ...(p.type === 'ROBLOX' ? { price: null, currency: region ? REGION_CURRENCY[region] : null,
         variants: p.variants.map(v => ({ ...v, price: region ? regionalAmount(v, region) : null,
           regionalPrices: region ? v.regionalPrices.filter(row => row.region === region) : [] })) } : {}),
-      ...(p.type === 'APPS' ? { appsConfig: parseAppsConfig(p.appsConfig), appsPolicyToken: p.appsConfig ? requestDigest({ productId: p.id, price: p.price, appsConfig: parseAppsConfig(p.appsConfig) }) : null } : { appsConfig: null }),
-      stockAvailable: _count.stocks, checkoutEnabled: checkoutEnabled(p.type) && (p.type !== 'ROBLOX' || Boolean(region && methods.length)),
+      ...(p.type === 'APPS' ? { price: region ? p.price : null, appsConfig: parseAppsConfig(p.appsConfig), appsPolicyToken: p.appsConfig ? requestDigest({ productId: p.id, price: p.price, appsConfig: parseAppsConfig(p.appsConfig) }) : null } : { appsConfig: null }),
+      stockAvailable: _count.stocks, checkoutEnabled: checkoutEnabled(p.type) && Boolean(region && methods.length),
     })) }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }
 }

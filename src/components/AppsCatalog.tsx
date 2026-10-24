@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import StoreShell from './StoreShell';
+import DetectedLocation from './DetectedLocation';
 import { useLanguage } from '@/context/LanguageContext';
 import { parseCatalogResponse, type AppsProduct } from '@/lib/appsProduct';
 import { formatMoney } from '@/lib/regionalPricing';
@@ -23,6 +24,7 @@ export function AppsPackageDetails({ product }: { product: AppsProduct }) {
 export default function AppsCatalog({ slug }: { slug?: string }) {
   const { t, language } = useLanguage(); const a = t.apps; const router = useRouter();
   const [products, setProducts] = useState<AppsProduct[]>([]); const [cursor, setCursor] = useState<number | null>(null);
+  const [region, setRegion] = useState<'ID' | null>(null);
   const [query, setQuery] = useState(''); const [category, setCategory] = useState(''); const [filters, setFilters] = useState('');
   const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [revision, setRevision] = useState(0);
   const [email, setEmail] = useState(''); const [agree, setAgree] = useState(false); const [busy, setBusy] = useState(false);
@@ -36,7 +38,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
     const params = new URLSearchParams(filters); if (slug) params.set('slug', slug); if (next) params.set('cursor', String(next));
     try {
       const page = await parseCatalogResponse(await fetch('/api/products?' + params, { signal: controller.signal }));
-      if (id === requestId.current && !controller.signal.aborted) { setProducts(old => next ? [...old, ...page.data.filter(p => !old.some(o => o.id === p.id))] : page.data); setCursor(page.nextCursor); }
+      if (id === requestId.current && !controller.signal.aborted) { setProducts(old => next ? [...old, ...page.data.filter(p => !old.some(o => o.id === p.id))] : page.data); setCursor(page.nextCursor); setRegion(page.region); }
     } catch { if (!controller.signal.aborted && id === requestId.current) setError(t.errSystem); }
     finally { if (!controller.signal.aborted && id === requestId.current) setLoading(false); }
   }, [filters, slug, t.errSystem]);
@@ -44,14 +46,16 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
     activeRequest.current?.abort(); const controller = new AbortController(); activeRequest.current = controller;
     const id = ++requestId.current; const params = new URLSearchParams(filters); if (slug) params.set('slug', slug);
     fetch('/api/products?' + params, { signal: controller.signal }).then(parseCatalogResponse).then(page => {
-      if (!controller.signal.aborted && id === requestId.current) { setProducts(page.data); setCursor(page.nextCursor); setError(''); setAgree(false); }
+      if (!controller.signal.aborted && id === requestId.current) { setProducts(page.data); setCursor(page.nextCursor); setRegion(page.region); setError(''); setAgree(false); }
     }).catch(() => { if (!controller.signal.aborted && id === requestId.current) setError(t.errSystem); })
       .finally(() => { if (!controller.signal.aborted && id === requestId.current) setLoading(false); });
     return () => controller.abort();
   }, [filters, slug, revision, t.errSystem]);
   const product = slug ? products.find(p => p.slug === slug) : null;
-  const ready = (p: AppsProduct) => p.checkoutEnabled && (p.appsConfig?.fulfillmentMode === 'ACTIVATION' || p.stockAvailable > 0);
-  const money = (n: number) => formatMoney(n, 'IDR', language);
+  const ready = (p: AppsProduct) => region === 'ID' && p.price !== null && p.checkoutEnabled && (p.appsConfig?.fulfillmentMode === 'ACTIVATION' || p.stockAvailable > 0);
+  const availability = (p: AppsProduct) => !region || !p.checkoutEnabled ? t.commerce.unavailable
+    : ready(p) ? p.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.ACTIVATION : `${t.stockRemaining} ${p.stockAvailable}` : t.stockOut;
+  const money = (n: number | null) => region && n !== null ? formatMoney(n, 'IDR', language) : t.regional.unavailable;
   async function checkout(event: React.FormEvent) {
     event.preventDefault(); if (!product || !ready(product) || !agree || submitting.current) return;
     submitting.current = true; setBusy(true); setError('');
@@ -63,6 +67,9 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
       const json = await response.json();
       if (!response.ok || !json.success) {
         if (json.errorCode === 'APPS_TERMS_CHANGED') { await load(); throw new Error(a.changed); }
+        if (['REGION_UNVERIFIED', 'PAYMENT_REGION_UNAVAILABLE'].includes(json.errorCode)) {
+          setRegion(null); throw new Error(t.regional.locationUnavailable);
+        }
         throw new Error(t.errSystem);
       }
       if (!json.data?.invoice || !json.data?.accessToken) throw new Error(t.errSystem);
@@ -74,6 +81,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
   }
   return <StoreShell>
     {!slug && <div className="mx-auto mb-6 max-w-xl overflow-hidden rounded-3xl border-4 border-pink-200 bg-white"><Image src="/banner-logo.png" alt="Cloudy Pink Store" width={1774} height={887} sizes="(max-width: 640px) 100vw, 576px" className="h-auto w-full" /></div>}
+    <DetectedLocation region={region} loading={loading} />
     <section className="rounded-3xl border-2 border-pink-200 bg-white p-5 shadow-xl sm:p-8">
       <h1 className="text-2xl font-black text-pink-900 sm:text-3xl">{product?.name || t.catalogTitle}</h1>
       {!slug && <>
@@ -93,7 +101,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         <h2 className="mt-2 break-words text-base font-black leading-6 text-pink-900">{p.name}</h2>
         <p className="mt-3 text-lg font-black text-pink-800">{money(p.price)}</p>
         <p className="my-3 text-sm text-slate-700">{p.appsConfig ? a.days.replace('{days}', String(p.appsConfig.durationDays)) : a.details}</p>
-        <p className="text-sm font-semibold">{ready(p) ? p.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.ACTIVATION : `${t.stockRemaining} ${p.stockAvailable}` : t.stockOut}</p>
+        <p className="text-sm font-semibold">{availability(p)}</p>
         <Link href={`/apps/${encodeURIComponent(p.slug)}`} className="mt-4 block rounded-xl bg-pink-700 px-3 py-3 text-center text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-4">{a.details}</Link>
       </article>)}</div>}
       {!slug && cursor && <button type="button" disabled={loading} onClick={() => void load(cursor)} className="mt-5 rounded-xl border-2 border-pink-200 px-5 py-3 font-bold">{t.loadMore}</button>}
@@ -101,7 +109,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         <AppsPackageDetails product={product} />
         <form onSubmit={checkout} className="space-y-4 rounded-2xl border-2 border-pink-200 p-5">
           <p className="text-xl font-black text-pink-900">{t.modalTotal}: {money(product.price)}</p>
-          <p className="text-sm">{ready(product) ? product.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.ACTIVATION : `${t.stockRemaining} ${product.stockAvailable}` : t.stockOut}</p>
+          <p className="text-sm">{availability(product)}</p>
           <label className="block text-sm font-bold">{a.email}<input type="email" autoComplete="email" required maxLength={150} value={email} onChange={e => setEmail(e.target.value)} disabled={busy} className="mt-1 w-full rounded-xl border-2 border-pink-200 p-3" /></label>
           <p className="text-sm leading-6 text-slate-700">{a.emailHint}</p>
           <label className="flex gap-3 text-sm leading-6"><input type="checkbox" required checked={agree} onChange={e => setAgree(e.target.checked)} disabled={busy} className="mt-1 h-5 w-5 shrink-0" />{a.agree}</label>

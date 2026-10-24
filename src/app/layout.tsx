@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cloudy Pink Store — Apps Premium & Roblox",
-  description: "Apps Premium dan Roblox Top-up. Periksa paket, ketentuan, pembayaran, dan progres pesanan.",
-  ...(publicSiteOrigin() ? { metadataBase: new URL(publicSiteOrigin()!), openGraph: { title: 'Cloudy Pink Store', description: 'Apps Premium & Roblox Top-up', images: ['/banner-logo.png'], type: 'website' as const } } : {}),
+  title: "Cloudy Pink Store — Aplikasi Premium & Robux",
+  description: "Aplikasi premium dan isi ulang Robux untuk Indonesia. Periksa paket, ketentuan, pembayaran, dan perkembangan pesanan.",
+  ...(publicSiteOrigin() ? { metadataBase: new URL(publicSiteOrigin()!), openGraph: { title: 'Cloudy Pink Store', description: 'Aplikasi premium dan isi ulang Robux untuk Indonesia', images: ['/banner-logo.png'], type: 'website' as const } } : {}),
 };
 
 export default function RootLayout({

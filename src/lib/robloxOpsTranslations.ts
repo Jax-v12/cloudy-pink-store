@@ -10,10 +10,10 @@ const en = {
 };
 type Copy = typeof en;
 const id: Copy = {
-  loginNotice: 'Via Login memakai username, password, lima kode backup, dan kontak pesanan. Data disimpan terenkripsi dan akses berakhir setelah 72 jam. Jangan berikan OTP atau cookie sesi.',
-  loginNext: 'Setelah pembayaran terverifikasi, admin yang ditugaskan dapat membuka data akun terenkripsi untuk top-up ini. Hubungi bantuan dengan nomor invoice jika akses kedaluwarsa atau perlu verifikasi tambahan. Jangan masukkan kredensial ke catatan atau bukti pengiriman.',
+  loginNotice: "Via Login memakai nama pengguna, kata sandi, lima kode cadangan, dan kontak pesanan. Data disimpan terenkripsi dan akses berakhir setelah 72 jam. Jangan berikan OTP atau cookie sesi.",
+  loginNext: "Setelah pembayaran terverifikasi, admin yang ditugaskan dapat membuka data akun terenkripsi untuk top-up ini. Hubungi bantuan dengan nomor bukti pesanan jika akses kedaluwarsa atau perlu verifikasi tambahan. Jangan masukkan kredensial ke catatan atau bukti pengiriman.",
   noCredentials: 'Akses akun terenkripsi',
-  search: 'Cari invoice, username, atau email kontak', searchButton: 'Cari', clear: 'Hapus pencarian',
+  search: "Cari bukti pesanan, nama pengguna, atau email kontak", searchButton: 'Cari', clear: 'Hapus pencarian',
   diagnostics: 'Diagnostik teknis', ready: 'Pembayaran terkonfirmasi · siap diproses', waiting: 'Menunggu data pelanggan',
   queueIntro: 'Ambil pesanan berbayar, periksa penerima, lalu selesaikan pengiriman dengan referensi. Pilih Tunggu pelanggan jika partisipasi pelanggan diperlukan.',
   empty: 'Tidak ada pesanan yang cocok dengan filter ini.', loading: 'Memuat pesanan…', method: 'Metode Roblox',

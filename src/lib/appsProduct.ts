@@ -36,10 +36,10 @@ export function appsWarranty(snapshot: AppsConfig | null, paidAt: Date | null, a
   return { days, expiresAt, active: Boolean(days > 0 && start && now >= start && expiresAt && now < expiresAt), legacy: !snapshot };
 }
 
-export type AppsProduct = { id: number; name: string; slug: string; price: number; category: string; stockAvailable: number;
+export type AppsProduct = { id: number; name: string; slug: string; price: number | null; category: string; stockAvailable: number;
   checkoutEnabled: boolean; appsConfig: AppsConfig | null; appsPolicyToken?: string | null };
 
-export async function parseCatalogResponse(response: Response): Promise<{ data: AppsProduct[]; nextCursor: number | null }> {
+export async function parseCatalogResponse(response: Response): Promise<{ data: AppsProduct[]; nextCursor: number | null; region: 'ID' | null }> {
   if (!response.ok) throw new Error('CATALOG_ERROR');
   const body: unknown = await response.json();
   if (!body || typeof body !== 'object' || !('success' in body) || body.success !== true || !('data' in body) || !Array.isArray(body.data) ||
@@ -50,13 +50,15 @@ export async function parseCatalogResponse(response: Response): Promise<{ data: 
     if (!row || typeof row !== 'object') throw new Error('CATALOG_ERROR');
     const p = row as Record<string, unknown>;
     if (!Number.isSafeInteger(p.id) || Number(p.id) < 1 || typeof p.name !== 'string' || typeof p.slug !== 'string' ||
-        !Number.isSafeInteger(p.price) || Number(p.price) < 0 || !Number.isSafeInteger(p.stockAvailable) || Number(p.stockAvailable) < 0 ||
+        (p.price !== null && (!Number.isSafeInteger(p.price) || Number(p.price) < 0)) || !Number.isSafeInteger(p.stockAvailable) || Number(p.stockAvailable) < 0 ||
         typeof p.checkoutEnabled !== 'boolean') throw new Error('CATALOG_ERROR');
-    return { id: Number(p.id), name: p.name, slug: p.slug, price: Number(p.price), category: typeof p.category === 'string' ? p.category : '',
+    return { id: Number(p.id), name: p.name, slug: p.slug, price: p.price === null ? null : Number(p.price), category: typeof p.category === 'string' ? p.category : '',
       stockAvailable: Number(p.stockAvailable), checkoutEnabled: p.checkoutEnabled, appsConfig: parseAppsConfig(p.appsConfig),
       appsPolicyToken: typeof p.appsPolicyToken === 'string' ? p.appsPolicyToken : null };
   });
-  return { data, nextCursor: cursor };
+  const region = 'location' in body && body.location && typeof body.location === 'object' &&
+    'region' in body.location && body.location.region === 'ID' ? 'ID' : null;
+  return { data, nextCursor: cursor, region };
 }
 
 export function catalogFilters(params: URLSearchParams) {

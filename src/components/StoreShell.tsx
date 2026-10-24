@@ -136,13 +136,14 @@ export default function StoreShell({ children, wide = false }: { children: React
             <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl shadow-pink-900/30 border-3 sm:border-4 border-pink-300 max-w-xl bg-white/50 w-full transition-transform hover:scale-[1.02] duration-300">
               <img
                 src="/banner-logo.png"
-                alt="Cloudy Pink Store Banner"
+                alt="Banner Cloudy Pink Store"
                 className="w-full h-auto object-contain"
               />
             </div>
           </div>
         )}
       </header>
+      <p className="mb-6 rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold text-pink-900">{t.regional.indonesiaOnly}</p>
       {children}
       {!pathname.startsWith('/admin') && <footer className="mt-8 rounded-2xl border border-pink-200 bg-white px-5 py-5">
         <ServiceHelpLinks />
