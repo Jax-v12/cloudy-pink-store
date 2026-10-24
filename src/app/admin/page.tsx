@@ -1,6 +1,8 @@
 'use client';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import { refreshOrderPages } from '@/lib/adminOrderPages';
+import { parseAppsConfig, type AppsConfig } from '@/lib/appsProduct';
+import AdminDialog from '@/components/AdminDialog';
 
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -49,17 +51,47 @@ interface StockItem {
 interface ProductOption {
   id: number;
   name: string;
+  slug: string;
   price: number;
   category: string | null;
+  active: boolean;
+  appsConfig: AppsConfig | null;
+  updatedAt: string;
   stockAvailable: number;
 }
 
-interface EditingProduct {
-  id: number;
+const APPS_CONFIG_FIELDS = [
+  'appGroup',
+  'accountType',
+  'durationDays',
+  'devices',
+  'regionRules',
+  'included',
+  'usageRules',
+  'instructions',
+  'warrantyDays',
+  'warrantyTerms',
+] as const;
+
+interface AppsProductDraft {
+  id?: number;
   name: string;
+  slug: string;
   price: string;
   category: string;
+  active: boolean;
+  updatedAt?: string;
+  config: Record<string, string>;
 }
+
+const createBlankDraft = (): AppsProductDraft => ({
+  name: '',
+  slug: '',
+  price: '',
+  category: 'Apps Premium',
+  active: false,
+  config: {},
+});
 
 interface OrderItem {
   id: number;
@@ -102,9 +134,6 @@ export default function AdminPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Single form state
-  const [productName, setProductName] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Apps Premium');
   const [emailAccount, setEmailAccount] = useState('');
   const [passwordAccount, setPasswordAccount] = useState('');
   const [profileName, setProfileName] = useState('');
@@ -114,23 +143,22 @@ export default function AdminPage() {
   const [formMessage, setFormMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Batch form state
+  // Batch & shared product selection state
   const [batchText, setBatchText] = useState('');
-  const [batchProductMode, setBatchProductMode] = useState<'existing' | 'new'>('existing');
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [batchNewProductName, setBatchNewProductName] = useState('');
-  const [batchNewProductPrice, setBatchNewProductPrice] = useState('');
-  const [batchNewCategory, setBatchNewCategory] = useState('Apps Premium');
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchMessage, setBatchMessage] = useState('');
   const [batchIsSuccess, setBatchIsSuccess] = useState(false);
 
-  // Product management state
-  const [editingProduct, setEditingProduct] = useState<EditingProduct | null>(null);
+  // Unified Apps Product management state
+  const [productDraft, setProductDraft] = useState<AppsProductDraft | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editMessage, setEditMessage] = useState('');
   const [editIsSuccess, setEditIsSuccess] = useState(false);
+  const [reauthOpen, setReauthOpen] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState('');
 
   // Orders state
   const [orders, setOrders] = useState<OrderItem[]>([]);
@@ -195,18 +223,22 @@ export default function AdminPage() {
   }, []);
 
   const loadProductOptions = useCallback(async () => {
+    setProductsLoading(true);
     try {
-      const res = await fetch('/api/products', {
-        headers: { 'ngrok-skip-browser-warning': 'true' },
-      });
+      const res = await fetch('/api/admin/apps/products');
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
       if (Array.isArray(json.data)) {
         setProductOptions(json.data);
-        if (json.data.length > 0) setSelectedProductId(String(json.data[0].id));
+        setSelectedProductId(prev => {
+          if (prev && json.data.some((p: ProductOption) => String(p.id) === prev)) return prev;
+          return json.data.length > 0 ? String(json.data[0].id) : '';
+        });
       }
     } catch (err: unknown) {
       console.error('Gagal memuat produk:', err);
+    } finally {
+      setProductsLoading(false);
     }
   }, []);
 
@@ -459,14 +491,23 @@ export default function AdminPage() {
     setFormLoading(true);
     setFormMessage('');
 
+    const found = productOptions.find((p) => String(p.id) === selectedProductId);
+    if (!found) {
+      setIsSuccess(false);
+      setFormMessage(t.batchErrorEmpty);
+      setFormLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/admin/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productName,
-          price: Number(price),
-          category,
+          productId: found.id,
+          productName: found.name,
+          price: Math.max(1, found.price),
+          category: found.category || 'Apps Premium',
           emailAccount,
           passwordAccount,
           profileName,
@@ -486,7 +527,7 @@ export default function AdminPage() {
       setProfileName('');
       setPin('');
       setAdditionalInfo('');
-      await refreshStocks();
+      await Promise.all([refreshStocks(), loadProductOptions()]);
     } catch (err: unknown) {
       setIsSuccess(false);
       setFormMessage(err instanceof Error ? err.message : t.errSystem);
@@ -534,30 +575,11 @@ export default function AdminPage() {
       });
     }
 
-    // Resolve product info
-    let resolvedProductName: string;
-    let resolvedPrice: number;
-    let resolvedCategory: string;
-
-    if (batchProductMode === 'existing') {
-      const found = productOptions.find((p) => String(p.id) === selectedProductId);
-      if (!found) {
-        setBatchMessage(t.batchErrorEmpty);
-        setBatchLoading(false);
-        return;
-      }
-      resolvedProductName = found.name;
-      resolvedPrice = found.price;
-      resolvedCategory = 'Apps Premium';
-    } else {
-      if (!batchNewProductName || !batchNewProductPrice) {
-        setBatchMessage(t.batchErrorEmpty);
-        setBatchLoading(false);
-        return;
-      }
-      resolvedProductName = batchNewProductName;
-      resolvedPrice = Number(batchNewProductPrice);
-      resolvedCategory = batchNewCategory;
+    const found = productOptions.find((p) => String(p.id) === selectedProductId);
+    if (!found) {
+      setBatchMessage(t.batchErrorEmpty);
+      setBatchLoading(false);
+      return;
     }
 
     try {
@@ -565,10 +587,10 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: batchProductMode === 'existing' ? Number(selectedProductId) : undefined,
-          productName: resolvedProductName,
-          price: resolvedPrice,
-          category: resolvedCategory,
+          productId: found.id,
+          productName: found.name,
+          price: Math.max(1, found.price),
+          category: found.category || 'Apps Premium',
           stocks: parsedStocks,
         }),
       });
@@ -580,8 +602,7 @@ export default function AdminPage() {
       setBatchIsSuccess(true);
       setBatchMessage(t.batchSuccess.replace('{count}', String(json.data?.insertedCount ?? parsedStocks.length)));
       setBatchText('');
-      await refreshStocks();
-      await loadProductOptions();
+      await Promise.all([refreshStocks(), loadProductOptions()]);
     } catch (err: unknown) {
       setBatchIsSuccess(false);
       setBatchMessage(err instanceof Error ? err.message : t.errSystem);
@@ -598,33 +619,80 @@ export default function AdminPage() {
     }).format(val);
   };
 
-  const handleSaveProduct = async () => {
-    if (!editingProduct) return;
+  const handleSaveAppsProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productDraft || editLoading) return;
     setEditLoading(true);
     setEditMessage('');
 
     try {
-      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
-        method: 'PUT',
+      const hasConfig = Object.values(productDraft.config).some(Boolean);
+      const config = hasConfig
+        ? parseAppsConfig({
+            ...productDraft.config,
+            version: 1,
+            durationDays: Number(productDraft.config.durationDays),
+            warrantyDays: Number(productDraft.config.warrantyDays),
+            activationMethod:
+              productDraft.config.fulfillmentMode === 'ACTIVATION'
+                ? productDraft.config.activationMethod
+                : null,
+          })
+        : null;
+      const res = await fetch('/api/admin/apps/products', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: editingProduct.name,
-          price: Number(editingProduct.price),
-          category: editingProduct.category,
+          id: productDraft.id,
+          name: productDraft.name,
+          slug: productDraft.slug,
+          category: productDraft.category,
+          price: Number(productDraft.price),
+          active: productDraft.active,
+          appsConfig: config,
+          updatedAt: productDraft.updatedAt,
         }),
       });
       const json = await res.json();
+      if (json.errorCode === 'REAUTH_REQUIRED') {
+        setReauthOpen(true);
+        throw new Error(t.apps.reauth);
+      }
       if (!res.ok || !json.success) {
-        throw new Error(json.message || t.editError);
+        throw new Error(json.message || t.apps.error);
       }
       setEditIsSuccess(true);
-      setEditMessage(t.editSuccess);
-      setEditingProduct(null);
-      await loadProductOptions();
-      await refreshStocks();
+      setEditMessage(t.apps.saved);
+      setProductDraft(null);
+      await Promise.all([loadProductOptions(), refreshStocks()]);
     } catch (err: unknown) {
       setEditIsSuccess(false);
-      setEditMessage(err instanceof Error ? err.message : t.editError);
+      setEditMessage(err instanceof Error ? err.message : t.apps.error);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleReauth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editLoading) return;
+    setEditLoading(true);
+    setEditMessage('');
+    try {
+      const res = await fetch('/api/admin/reauth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: reauthPassword }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(t.apps.error);
+      setReauthPassword('');
+      setReauthOpen(false);
+      setEditIsSuccess(true);
+      setEditMessage(t.apps.saved);
+    } catch (err: unknown) {
+      setEditIsSuccess(false);
+      setEditMessage(err instanceof Error ? err.message : t.apps.error);
     } finally {
       setEditLoading(false);
     }
@@ -758,9 +826,12 @@ export default function AdminPage() {
         {/* Card Form Tambah Stok */}
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl">
           {/* Tab Selector */}
-          <div className="flex items-center gap-3 pb-4 mb-5 border-b-2 border-pink-100">
-            <div className="inline-flex bg-pink-50 p-1 rounded-2xl border border-pink-200 gap-1 overflow-x-auto max-w-full hide-scrollbar">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b-2 border-pink-100">
+            <div role="tablist" className="flex flex-wrap bg-pink-50 p-1.5 rounded-2xl border border-pink-200 gap-1">
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'overview'}
                 onClick={() => { setActiveTab('overview'); loadAnalytics(); }}
                 className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'overview'
@@ -771,6 +842,9 @@ export default function AdminPage() {
                 {t.tabOverview}
               </button>
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'single'}
                 onClick={() => setActiveTab('single')}
                 className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'single'
@@ -781,6 +855,9 @@ export default function AdminPage() {
                 {t.tabSingle}
               </button>
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'batch'}
                 onClick={() => setActiveTab('batch')}
                 className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'batch'
@@ -791,7 +868,10 @@ export default function AdminPage() {
                 {t.tabBatch}
               </button>
               <button
-                onClick={() => { setActiveTab('products'); setEditMessage(''); setEditingProduct(null); }}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'products'}
+                onClick={() => { setActiveTab('products'); setEditMessage(''); setProductDraft(null); }}
                 className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'products'
                     ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
@@ -801,6 +881,9 @@ export default function AdminPage() {
                 {t.tabProducts}
               </button>
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'orders'}
                 onClick={() => { setActiveTab('orders'); loadOrders(); }}
                 className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
                   activeTab === 'orders'
@@ -899,49 +982,35 @@ export default function AdminPage() {
           {/* === SINGLE INPUT FORM === */}
           {activeTab === 'single' && (
             <form onSubmit={handleAddStock} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProductName}</label>
-                <input
-                  type="text"
+              <div className="sm:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <label htmlFor="single-product-select" className="block text-xs font-bold text-neutral-700">
+                    {t.batchProductSelect}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('products'); setEditMessage(''); }}
+                    className="text-xs font-bold text-pink-600 hover:text-pink-700 hover:underline cursor-pointer"
+                  >
+                    {t.apps.manage} →
+                  </button>
+                </div>
+                <select
+                  id="single-product-select"
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
                   required
-                  placeholder="Contoh: Netflix Premium 1 Bulan"
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
                   className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPrice}</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="Contoh: 35000"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminCategory}</label>
-                <input
-                  type="text"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Anya / Profil 1"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                />
+                >
+                  {productOptions.length === 0 && (
+                    <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
+                  )}
+                  {productOptions.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}: {p.stockAvailable})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -969,6 +1038,17 @@ export default function AdminPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Anya / Profil 1"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPin}</label>
                 <input
                   type="text"
@@ -979,7 +1059,7 @@ export default function AdminPage() {
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminNotes}</label>
                 <input
                   type="text"
@@ -1005,7 +1085,7 @@ export default function AdminPage() {
 
                 <button
                   type="submit"
-                  disabled={formLoading}
+                  disabled={formLoading || productOptions.length === 0}
                   className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   {formLoading ? t.btnSaving : t.btnSaveStock}
@@ -1018,83 +1098,35 @@ export default function AdminPage() {
           {activeTab === 'batch' && (
             <form onSubmit={handleBatchUpload} className="space-y-5">
               {/* Product Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <div className="inline-flex bg-pink-50 p-1 rounded-xl border border-pink-200 gap-1 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setBatchProductMode('existing')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        batchProductMode === 'existing'
-                          ? 'bg-pink-500 text-white'
-                          : 'text-neutral-600 hover:text-pink-600'
-                      }`}
-                    >
-                      {t.batchProductSelect}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBatchProductMode('new')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        batchProductMode === 'new'
-                          ? 'bg-pink-500 text-white'
-                          : 'text-neutral-600 hover:text-pink-600'
-                      }`}
-                    >
-                      {t.batchProductNew}
-                    </button>
-                  </div>
-
-                  {batchProductMode === 'existing' ? (
-                    <select
-                      value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
-                      required
-                      className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                    >
-                      {productOptions.length === 0 && (
-                        <option value="">{t.batchProductNew}</option>
-                      )}
-                      {productOptions.map((p) => (
-                        <option key={p.id} value={String(p.id)}>
-                          {p.name} — {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p.price)}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="sm:col-span-1">
-                        <input
-                          type="text"
-                          required
-                          placeholder={t.adminProductName}
-                          value={batchNewProductName}
-                          onChange={(e) => setBatchNewProductName(e.target.value)}
-                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          required
-                          placeholder={t.adminPrice}
-                          value={batchNewProductPrice}
-                          onChange={(e) => setBatchNewProductPrice(e.target.value)}
-                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          placeholder={t.adminCategory}
-                          value={batchNewCategory}
-                          onChange={(e) => setBatchNewCategory(e.target.value)}
-                          className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                        />
-                      </div>
-                    </div>
-                  )}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <label htmlFor="batch-product-select" className="block text-xs font-bold text-neutral-700">
+                    {t.batchProductSelect}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('products'); setEditMessage(''); }}
+                    className="text-xs font-bold text-pink-600 hover:text-pink-700 hover:underline cursor-pointer"
+                  >
+                    {t.apps.manage} →
+                  </button>
                 </div>
+                <select
+                  id="batch-product-select"
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  required
+                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                >
+                  {productOptions.length === 0 && (
+                    <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
+                  )}
+                  {productOptions.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}: {p.stockAvailable})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Textarea */}
@@ -1136,7 +1168,7 @@ export default function AdminPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={batchLoading}
+                  disabled={batchLoading || productOptions.length === 0}
                   className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   {batchLoading ? t.btnProcessingBatch : t.btnProcessBatch}
@@ -1147,12 +1179,80 @@ export default function AdminPage() {
 
           {/* === PRODUCT MANAGEMENT TAB === */}
           {activeTab === 'products' && (
-            <div>
-              <Link href="/admin/apps" className="mb-5 inline-block rounded-xl border-2 border-pink-300 bg-white px-4 py-3 font-bold text-pink-900">{t.apps.manage}</Link>
-            <div className="space-y-4">
-              {/* Global feedback message */}
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setProductDraft(createBlankDraft()); setEditMessage(''); }}
+                    className="rounded-xl bg-pink-500 hover:bg-pink-600 px-4 py-2.5 text-xs font-black text-white shadow-sm shadow-pink-200 transition active:scale-95 cursor-pointer"
+                  >
+                    + {t.apps.newProduct}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const existing = productOptions.find(p => p.slug === 'capcut-pro-private-1-bulan');
+                      if (existing) {
+                        setProductDraft({
+                          id: existing.id,
+                          name: existing.name,
+                          slug: existing.slug,
+                          price: String(existing.price),
+                          category: existing.category || 'Apps Premium',
+                          active: existing.active,
+                          updatedAt: existing.updatedAt,
+                          config: existing.appsConfig
+                            ? Object.fromEntries(Object.entries(existing.appsConfig).filter(([key]) => key !== 'version').map(([key, val]) => [key, val === null ? '' : String(val)]))
+                            : {},
+                        });
+                      } else {
+                        setProductDraft({ ...createBlankDraft(), name: 'CapCut Pro Private 1 bulan', slug: 'capcut-pro-private-1-bulan' });
+                      }
+                      setEditMessage('');
+                    }}
+                    className="rounded-xl border border-pink-300 bg-pink-50/60 hover:bg-pink-100 px-3.5 py-2 text-xs font-bold text-pink-800 transition cursor-pointer"
+                  >
+                    CapCut Pro Private 1 bulan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const existing = productOptions.find(p => p.slug === 'capcut-pro-private-7-hari');
+                      if (existing) {
+                        setProductDraft({
+                          id: existing.id,
+                          name: existing.name,
+                          slug: existing.slug,
+                          price: String(existing.price),
+                          category: existing.category || 'Apps Premium',
+                          active: existing.active,
+                          updatedAt: existing.updatedAt,
+                          config: existing.appsConfig
+                            ? Object.fromEntries(Object.entries(existing.appsConfig).filter(([key]) => key !== 'version').map(([key, val]) => [key, val === null ? '' : String(val)]))
+                            : {},
+                        });
+                      } else {
+                        setProductDraft({ ...createBlankDraft(), name: 'CapCut Pro Private 7 hari', slug: 'capcut-pro-private-7-hari' });
+                      }
+                      setEditMessage('');
+                    }}
+                    className="rounded-xl border border-pink-300 bg-pink-50/60 hover:bg-pink-100 px-3.5 py-2 text-xs font-bold text-pink-800 transition cursor-pointer"
+                  >
+                    CapCut Pro Private 7 hari
+                  </button>
+                </div>
+                <Link
+                  href="/admin/apps"
+                  className="rounded-xl border border-pink-200 bg-white hover:bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 transition"
+                >
+                  {t.apps.services} · {t.apps.reminderReview} →
+                </Link>
+              </div>
+
               {editMessage && (
                 <div
+                  role="status"
                   className={`text-xs p-3 rounded-2xl border font-bold ${
                     editIsSuccess
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -1163,6 +1263,115 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {productDraft && (
+                <form
+                  onSubmit={handleSaveAppsProduct}
+                  className="grid gap-4 rounded-2xl border-2 border-pink-200 bg-pink-50/30 p-4 sm:p-5 sm:grid-cols-2"
+                >
+                  {(['name', 'slug', 'price', 'category'] as const).map((key) => (
+                    <label key={key} className="text-xs font-bold text-neutral-700">
+                      {t.apps[key]}
+                      <input
+                        required={key !== 'price'}
+                        type={key === 'price' ? 'number' : 'text'}
+                        min={0}
+                        max={key === 'price' ? 2147483647 : undefined}
+                        maxLength={key === 'category' ? 50 : 100}
+                        value={productDraft[key]}
+                        onChange={(e) => setProductDraft({ ...productDraft, [key]: e.target.value })}
+                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                      />
+                    </label>
+                  ))}
+                  {APPS_CONFIG_FIELDS.map((key) => (
+                    <label key={key} className="text-xs font-bold text-neutral-700">
+                      {t.apps[key]}
+                      <textarea
+                        rows={2}
+                        maxLength={['usageRules', 'instructions', 'warrantyTerms'].includes(key) ? 2000 : key === 'included' ? 1000 : 300}
+                        value={productDraft.config[key] || ''}
+                        onChange={(e) =>
+                          setProductDraft({
+                            ...productDraft,
+                            config: { ...productDraft.config, [key]: e.target.value },
+                          })
+                        }
+                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-normal text-neutral-800 focus:border-pink-500 focus:outline-none"
+                      />
+                    </label>
+                  ))}
+                  <label className="text-xs font-bold text-neutral-700">
+                    {t.apps.fulfillmentMode}
+                    <select
+                      value={productDraft.config.fulfillmentMode || ''}
+                      onChange={(e) =>
+                        setProductDraft({
+                          ...productDraft,
+                          config: { ...productDraft.config, fulfillmentMode: e.target.value, activationMethod: '' },
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                    >
+                      <option value="">{t.apps.select}</option>
+                      {(['READY_ACCOUNT', 'ACTIVATION'] as const).map((key) => (
+                        <option key={key} value={key}>
+                          {t.apps[key]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {productDraft.config.fulfillmentMode === 'ACTIVATION' && (
+                    <label className="text-xs font-bold text-neutral-700">
+                      {t.apps.activationMethod}
+                      <select
+                        required
+                        value={productDraft.config.activationMethod || ''}
+                        onChange={(e) =>
+                          setProductDraft({
+                            ...productDraft,
+                            config: { ...productDraft.config, activationMethod: e.target.value },
+                          })
+                        }
+                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                      >
+                        <option value="">{t.apps.select}</option>
+                        {(['INVITATION', 'LINK', 'VOUCHER'] as const).map((key) => (
+                          <option key={key} value={key}>
+                            {t.apps[key]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <label className="flex items-center gap-2.5 text-xs font-bold text-neutral-800 sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={productDraft.active}
+                      onChange={(e) => setProductDraft({ ...productDraft, active: e.target.checked })}
+                      className="h-4 w-4 accent-pink-600"
+                    />
+                    {t.apps.active}
+                  </label>
+                  <div className="flex gap-3 sm:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={editLoading}
+                      className="rounded-xl bg-pink-500 hover:bg-pink-600 px-5 py-2.5 text-xs font-black text-white shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                      {editLoading ? t.btnSavingEdit : t.apps.save}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={editLoading}
+                      onClick={() => setProductDraft(null)}
+                      className="rounded-xl border border-pink-200 bg-white hover:bg-neutral-50 px-4 py-2.5 text-xs font-bold text-neutral-700 transition cursor-pointer"
+                    >
+                      {t.apps.cancel}
+                    </button>
+                  </div>
+                </form>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -1170,6 +1379,7 @@ export default function AdminPage() {
                       <th className="py-3 px-3 rounded-l-xl">{t.colProductName}</th>
                       <th className="py-3 px-3">{t.colProductPrice}</th>
                       <th className="py-3 px-3">{t.colProductCategory}</th>
+                      <th className="py-3 px-3 text-center">{t.tblStatus}</th>
                       <th className="py-3 px-3 text-center">{t.colProductStock}</th>
                       <th className="py-3 px-3 rounded-r-xl text-center">{t.colActions}</th>
                     </tr>
@@ -1177,50 +1387,43 @@ export default function AdminPage() {
                   <tbody className="divide-y divide-pink-100">
                     {productOptions.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-neutral-400 font-medium">
-                          {t.loadingProducts}
+                        <td colSpan={6} className="py-8 text-center text-neutral-400 font-medium">
+                          {productsLoading ? t.loadingProducts : t.emptyCatalog}
                         </td>
                       </tr>
                     ) : (
                       productOptions.map((product) => {
-                        const isEditing = editingProduct?.id === product.id;
+                        const isEditing = productDraft?.id === product.id;
                         return (
                           <tr key={product.id} className={`transition ${isEditing ? 'bg-pink-50/60' : 'hover:bg-pink-50/30'}`}>
                             <td className="py-3 px-3">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editingProduct.name}
-                                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                                />
-                              ) : (
-                                <span className="font-bold text-neutral-800">{product.name}</span>
+                              <div className="font-bold text-neutral-800">{product.name}</div>
+                              <div className="text-[11px] font-mono text-neutral-400">{product.slug}</div>
+                              {product.appsConfig && (
+                                <div className="text-[11px] text-neutral-500 mt-0.5">
+                                  {product.appsConfig.accountType} · {t.apps.days.replace('{days}', String(product.appsConfig.durationDays))}
+                                </div>
                               )}
                             </td>
                             <td className="py-3 px-3">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={editingProduct.price}
-                                  onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
-                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                                />
-                              ) : (
-                                <span className="font-black text-pink-600">{formatRupiah(product.price)}</span>
-                              )}
+                              <span className="font-black text-pink-600">{formatRupiah(product.price)}</span>
                             </td>
                             <td className="py-3 px-3">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editingProduct.category}
-                                  onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
-                                  className="w-full bg-white border-2 border-pink-300 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
-                                />
-                              ) : (
-                                <span className="text-neutral-500">{product.category || '-'}</span>
-                              )}
+                              <div className="text-neutral-700 font-medium">{product.category || '-'}</div>
+                              <div className="text-[11px] text-neutral-400">
+                                {product.appsConfig ? t.apps[product.appsConfig.fulfillmentMode] : t.apps.READY_ACCOUNT}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black ${
+                                  product.active
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                }`}
+                              >
+                                {product.active ? t.apps.active : t.commerce.unavailable}
+                              </span>
                             </td>
                             <td className="py-3 px-3 text-center">
                               <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300">
@@ -1228,39 +1431,31 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="py-3 px-3 text-center">
-                              {isEditing ? (
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={handleSaveProduct}
-                                    disabled={editLoading}
-                                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-[10px] transition active:scale-95 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {editLoading ? t.btnSavingEdit : t.btnSave}
-                                  </button>
-                                  <button
-                                    onClick={() => { setEditingProduct(null); setEditMessage(''); }}
-                                    disabled={editLoading}
-                                    className="px-3 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-bold rounded-lg text-[10px] transition active:scale-95 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {t.btnCancel}
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setEditingProduct({
-                                      id: product.id,
-                                      name: product.name,
-                                      price: String(product.price),
-                                      category: product.category || '',
-                                    });
-                                    setEditMessage('');
-                                  }}
-                                  className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-[10px] border border-pink-200 transition active:scale-95 cursor-pointer"
-                                >
-                                  {t.btnEdit}
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProductDraft({
+                                    id: product.id,
+                                    name: product.name,
+                                    slug: product.slug,
+                                    price: String(product.price),
+                                    category: product.category || 'Apps Premium',
+                                    active: product.active,
+                                    updatedAt: product.updatedAt,
+                                    config: product.appsConfig
+                                      ? Object.fromEntries(
+                                          Object.entries(product.appsConfig)
+                                            .filter(([key]) => key !== 'version')
+                                            .map(([key, val]) => [key, val === null ? '' : String(val)])
+                                        )
+                                      : {},
+                                  });
+                                  setEditMessage('');
+                                }}
+                                className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-[10px] border border-pink-200 transition active:scale-95 cursor-pointer"
+                              >
+                                {t.btnEdit}
+                              </button>
                             </td>
                           </tr>
                         );
@@ -1269,7 +1464,6 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
             </div>
           )}
 
@@ -1479,6 +1673,34 @@ export default function AdminPage() {
             </table>
           </div>
         </div>
+        {reauthOpen && (
+          <AdminDialog
+            title={t.apps.reauth}
+            busy={editLoading}
+            onClose={() => { setReauthOpen(false); setReauthPassword(''); }}
+          >
+            <form onSubmit={handleReauth} className="space-y-4">
+              <label className="block text-xs font-bold text-neutral-700">
+                {t.apps.password}
+                <input
+                  required
+                  type="password"
+                  autoComplete="current-password"
+                  value={reauthPassword}
+                  onChange={(e) => setReauthPassword(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border-2 border-pink-200 px-3 py-2 text-xs text-neutral-800 focus:border-pink-500 focus:outline-none"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={editLoading}
+                className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-black text-white transition cursor-pointer"
+              >
+                {t.apps.reauth}
+              </button>
+            </form>
+          </AdminDialog>
+        )}
       </div>
     </main>
   );

@@ -12,8 +12,8 @@ export async function GET(req: Request) {
   try {
     await adminAccess(req); const { limit, cursor } = pagination(req);
     const rows = await prisma.product.findMany({ where: { type: 'APPS', ...(cursor ? { id: { lt: cursor } } : {}) }, take: limit + 1, orderBy: { id: 'desc' },
-      select: { id: true, name: true, slug: true, price: true, category: true, active: true, appsConfig: true, updatedAt: true } });
-    return NextResponse.json({ success: true, ...pageResult(rows, limit) }, { headers: privateHeaders });
+      select: { id: true, name: true, slug: true, price: true, category: true, active: true, appsConfig: true, updatedAt: true, _count: { select: { stocks: { where: { status: 'READY' } } } } } });
+    return NextResponse.json({ success: true, ...pageResult(rows.map(({ _count, ...row }) => ({ ...row, stockAvailable: _count.stocks })), limit) }, { headers: privateHeaders });
   } catch (e) { return apiError(e); }
 }
 
