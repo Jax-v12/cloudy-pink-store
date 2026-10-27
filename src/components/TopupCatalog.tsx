@@ -90,10 +90,10 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
 
   return <StoreShell>
     {!slug && (
-      <div className="mb-6 sm:mb-10 text-center bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-xl border-2 border-pink-200 mx-auto max-w-3xl">
-        <p className="mb-2 text-xs sm:text-sm font-bold text-pink-500 tracking-wider uppercase">{type === 'GAME' ? c.gameHeroEyebrow : c.robloxHeroEyebrow}</p>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-pink-800 mb-3">{type === 'GAME' ? c.gameHeroTitle : c.robloxHeroTitle}</h1>
-        <p className="text-sm sm:text-base text-neutral-600 font-medium">{type === 'GAME' ? c.gameDescription : f.intro}</p>
+      <div className="mb-3 sm:mb-6 text-center bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl px-4 py-3.5 sm:p-6 shadow-lg border-2 border-pink-200 mx-auto max-w-3xl">
+        <p className="mb-1 text-[11px] sm:text-xs font-bold text-pink-600 tracking-wider uppercase">{type === 'GAME' ? c.gameHeroEyebrow : c.robloxHeroEyebrow}</p>
+        <h1 className="text-xl sm:text-3xl font-black tracking-tight text-pink-800 mb-1 sm:mb-2">{type === 'GAME' ? c.gameHeroTitle : c.robloxHeroTitle}</h1>
+        <p className="text-xs sm:text-sm text-neutral-600 font-medium">{type === 'GAME' ? c.gameDescription : f.intro}</p>
       </div>
     )}
     {slug && (

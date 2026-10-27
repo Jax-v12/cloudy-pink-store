@@ -23,6 +23,7 @@ const en = {
   ],
   comparison: {
     title: 'Compare Roblox methods', intro: 'Check what each method needs before choosing. Availability and current prices are shown on each card.',
+    detailsSummary: 'Requirements, process & timing',
     requirements: 'What you need', process: 'How delivery works', timing: 'Processing time',
     GAMEPASS: { requirements: 'Roblox username and a public Gamepass link with the instructed price. No password or backup codes.', process: 'After verified payment and Gamepass checks, our team buys your Gamepass.', timing: 'Team processing is followed by Roblox’s pending period. See the Gamepass instructions before ordering.' },
     LOGIN: { requirements: 'Roblox username, password and five backup codes, plus order contact details. Submit only in the dedicated form.', process: 'After verified payment, the assigned admin uses the approved account access to perform this top-up.', timing: 'Depends on the queue and account verification. Extra verification may require your participation.' },
@@ -73,6 +74,7 @@ const id: Copy = {
   ],
   comparison: {
     title: 'Bandingkan metode Roblox', intro: 'Periksa kebutuhan setiap metode sebelum memilih. Ketersediaan dan harga terkini tampil di setiap kartu.',
+    detailsSummary: 'Syarat, cara kirim & waktu proses',
     requirements: 'Yang perlu disiapkan', process: 'Cara pengiriman', timing: 'Waktu pemrosesan',
     GAMEPASS: { requirements: 'Username Roblox dan tautan Gamepass publik dengan harga sesuai instruksi. Tanpa password atau kode backup.', process: 'Setelah pembayaran terverifikasi dan Gamepass diperiksa, tim membeli Gamepass kamu.', timing: 'Proses tim dilanjutkan masa pending Roblox. Baca panduan Gamepass sebelum memesan.' },
     LOGIN: { requirements: 'Username, password, dan lima kode backup Roblox, serta kontak pesanan. Masukkan hanya melalui formulir khusus.', process: 'Setelah pembayaran terverifikasi, admin yang ditugaskan memakai akses akun yang disetujui untuk top-up ini.', timing: 'Bergantung pada antrean dan verifikasi akun. Verifikasi tambahan mungkin memerlukan partisipasimu.' },
@@ -122,6 +124,7 @@ const my: Copy = {
   ],
   comparison: {
     title: 'Bandingkan kaedah Roblox', intro: 'Semak keperluan setiap kaedah sebelum memilih. Ketersediaan dan harga semasa dipaparkan pada setiap kad.',
+    detailsSummary: 'Syarat, cara penghantaran & masa proses',
     requirements: 'Perkara yang diperlukan', process: 'Cara penghantaran', timing: 'Masa pemprosesan',
     GAMEPASS: { requirements: 'Nama pengguna Roblox dan pautan Gamepass awam dengan harga mengikut arahan. Tanpa kata laluan atau kod sandaran.', process: 'Selepas bayaran disahkan dan Gamepass disemak, pasukan membeli Gamepass anda.', timing: 'Proses pasukan diikuti tempoh pending Roblox. Baca panduan Gamepass sebelum memesan.' },
     LOGIN: { requirements: 'Nama pengguna, kata laluan dan lima kod sandaran Roblox, serta maklumat hubungan pesanan. Masukkan hanya melalui borang khusus.', process: 'Selepas bayaran disahkan, pentadbir yang ditugaskan menggunakan akses akaun yang diluluskan untuk tambah nilai ini.', timing: 'Bergantung pada giliran dan pengesahan akaun. Pengesahan tambahan mungkin memerlukan penyertaan anda.' },

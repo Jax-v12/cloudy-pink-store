@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ASEAN_PHONE_COUNTRIES, getCountries, getCountryCallingCode } from '../src/lib/loginContact.ts';
 import { loginFlowTranslations } from '../src/lib/loginFlowTranslations.ts';
+import { serviceHelpTranslations } from '../src/lib/serviceHelpTranslations.ts';
+import { translations } from '../src/lib/translations.ts';
 
 test('ASEAN phone choices are complete, unique, supported and served by inert local flags', () => {
   assert.deepEqual(ASEAN_PHONE_COUNTRIES, ['ID', 'MY', 'PH', 'SG', 'TH', 'VN', 'BN', 'KH', 'LA', 'MM', 'TL']);
@@ -17,7 +19,8 @@ test('ASEAN phone choices are complete, unique, supported and served by inert lo
 });
 
 test('public username lookup and country group states are translated in all three locales', () => {
-  for (const locale of ['ID', 'EN', 'MY']) for (const key of ['checkUsername', 'usernameChecking', 'robloxUserId', 'usernameMissing', 'usernameRateLimit', 'usernameTimeout', 'usernameUnavailable', 'aseanCountries', 'otherCountries']) {
+  for (const locale of ['ID', 'EN', 'MY']) { assert.equal(loginFlowTranslations[locale].backupGuideSteps.length, 3); for (const step of loginFlowTranslations[locale].backupGuideSteps) assert.ok(step.trim()); assert.ok(serviceHelpTranslations[locale].comparison.detailsSummary.trim()); assert.match(translations[locale].whatsappRobloxMessage, /Robux/i); assert.doesNotMatch(translations[locale].whatsappRobloxMessage, /premium/i); assert.ok(translations[locale].whatsappGeneralMessage.trim()); }
+  for (const locale of ['ID', 'EN', 'MY']) for (const key of ['checkUsername', 'usernameChecking', 'robloxUserId', 'usernameMissing', 'usernameRateLimit', 'usernameTimeout', 'usernameUnavailable', 'aseanCountries', 'otherCountries', 'accountIntro', 'summaryIntro', 'backupGuideTitle']) {
     assert.equal(typeof loginFlowTranslations[locale][key], 'string');
     assert.ok(loginFlowTranslations[locale][key].trim());
   }
