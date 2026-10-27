@@ -12,11 +12,11 @@ type Copy = typeof en;
 const id: Copy = {
   queued: 'Pembayaran sudah diterima. Pesananmu masuk antrean pengiriman. Tidak perlu membayar lagi.',
   processing: 'Pembayaran sudah diterima. Tim sedang memproses pengiriman pesananmu.',
-  waitingCustomer: 'Pembayaran sudah diterima. Pengiriman menunggu tindakanmu. Ikuti petunjuk atau hubungi bantuan dengan nomor invoice.',
+  waitingCustomer: "Pembayaran sudah diterima. Pengiriman menunggu tindakanmu. Ikuti petunjuk atau hubungi bantuan dengan nomor bukti pesanan.",
   completed: 'Pembayaran sudah diterima dan pengiriman telah dikonfirmasi oleh tim.',
-  review: 'Pembayaran sudah diterima. Pesanan ini perlu ditinjau oleh tim. Hubungi bantuan dengan nomor invoice; jangan membayar ulang.',
-  accountReview: 'Pembayaran sudah diterima, tetapi detail akun belum tersedia. Hubungi bantuan dengan nomor invoice; jangan membayar ulang.',
-  refundRequired: 'Pesanan ini memerlukan pengembalian dana. Hubungi bantuan dengan nomor invoice untuk mengetahui perkembangannya.',
+  review: "Pembayaran sudah diterima. Pesanan ini perlu ditinjau oleh tim. Hubungi bantuan dengan nomor bukti pesanan; jangan membayar ulang.",
+  accountReview: "Pembayaran sudah diterima, tetapi detail akun belum tersedia. Hubungi bantuan dengan nomor bukti pesanan; jangan membayar ulang.",
+  refundRequired: "Pesanan ini memerlukan pengembalian dana. Hubungi bantuan dengan nomor bukti pesanan untuk mengetahui perkembangannya.",
   refundCompleted: 'Pengembalian dana untuk pesanan ini telah dicatat selesai.',
 };
 const my: Copy = {
