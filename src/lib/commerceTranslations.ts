@@ -62,6 +62,15 @@ const en = {
   filtersLabel: 'Filters', orderCustomer: 'Customer', orderItem: 'Item', nextAction: 'Next action', deliveryNotes: 'Delivery notes', historyLabel: 'History',
   readyToArchive: 'Ready to archive', ordersShown: '{count} orders shown', regionalInfo: 'Regional details',
   removeInvoice: 'Remove Invoice', restoreRemovedInvoice: 'Restore Invoice to Archive', invoiceRemoved: 'Invoice Removed', confirmRemove: 'Remove Invoice from Archive?', confirmRemoveDesc: 'This only hides the invoice from ordinary admin lists. Customer access, payment and delivery history remain intact. Find it under Removed and restore it to Archived at any time.', successfullyRemoved: 'Successfully removed', cannotRemove: 'Cannot be removed', removedView: 'Removed',
+  howItWorksTitle: 'How ordering works',
+  howItWorksSubtitle: 'Transparent steps from selecting a service to receiving your order.',
+  step1Title: '1. Choose service & package',
+  step1Desc: 'Pick Apps Premium, Game Top-up, or Roblox method (Gamepass, Username, or Login) and review regional pricing.',
+  step2Title: '2. Complete details & verify',
+  step2Desc: 'Enter your account details or Gamepass link. Prices and fees are calculated and verified on the server.',
+  step3Title: '3. Pay & track invoice',
+  step3Desc: 'Scan QRIS via Midtrans and monitor live payment and delivery status directly on your invoice page.',
+  exploreCta: 'Explore service',
 };
 type Copy = typeof en;
 const id: Copy = {
@@ -128,6 +137,15 @@ const id: Copy = {
   filtersLabel: 'Filter', orderCustomer: 'Pelanggan', orderItem: 'Item', nextAction: 'Langkah berikutnya', deliveryNotes: 'Catatan pengiriman', historyLabel: 'Riwayat',
   readyToArchive: 'Siap diarsipkan', ordersShown: '{count} pesanan ditampilkan', regionalInfo: 'Detail regional',
   removeInvoice: 'Hapus Invoice', restoreRemovedInvoice: 'Pulihkan Invoice ke Arsip', invoiceRemoved: 'Invoice Dihapus', confirmRemove: 'Hapus Invoice dari Arsip?', confirmRemoveDesc: 'Invoice hanya disembunyikan dari daftar admin biasa. Akses pelanggan, riwayat pembayaran, dan pengiriman tetap utuh. Temukan di filter Dihapus dan pulihkan ke Diarsipkan kapan saja.', successfullyRemoved: 'Berhasil dihapus', cannotRemove: 'Tidak dapat dihapus', removedView: 'Dihapus',
+  howItWorksTitle: 'Cara melakukan pembelian',
+  howItWorksSubtitle: 'Alur transparan mulai dari memilih layanan hingga pesanan diproses.',
+  step1Title: '1. Pilih layanan & paket',
+  step1Desc: 'Pilih Apps Premium, Top-up Game, atau metode Roblox (Gamepass, Username, atau Login) sesuai ketersediaan.',
+  step2Title: '2. Lengkapi data & verifikasi',
+  step2Desc: 'Isi data akun atau tautan Gamepass sesuai panduan. Harga dan biaya dihitung ulang serta diverifikasi di server.',
+  step3Title: '3. Bayar & pantau invoice',
+  step3Desc: 'Selesaikan pembayaran QRIS via Midtrans dan pantau status pembayaran serta pengiriman di halaman invoice.',
+  exploreCta: 'Buka layanan',
 };
 const my: Copy = {
   ...id,
@@ -188,5 +206,14 @@ const my: Copy = {
   filtersLabel: 'Penapis', orderCustomer: 'Pelanggan', orderItem: 'Item', nextAction: 'Langkah seterusnya', deliveryNotes: 'Catatan penghantaran', historyLabel: 'Sejarah',
   readyToArchive: 'Sedia diarkibkan', ordersShown: '{count} pesanan dipaparkan', regionalInfo: 'Butiran wilayah',
   removeInvoice: 'Padam Invois', restoreRemovedInvoice: 'Pulihkan Invois ke Arkib', invoiceRemoved: 'Invois Dipadamkan', confirmRemove: 'Padam Invois dari Arkib?', confirmRemoveDesc: 'Ini hanya menyembunyikan invois daripada senarai pentadbir biasa. Akses pelanggan, sejarah pembayaran dan penghantaran kekal utuh. Cari melalui penapis Dipadamkan dan pulihkan ke Diarkibkan pada bila-bila masa.', successfullyRemoved: 'Berjaya dipadamkan', cannotRemove: 'Tidak dapat dipadamkan', removedView: 'Dipadamkan',
+  howItWorksTitle: 'Cara membuat pembelian',
+  howItWorksSubtitle: 'Langkah telus daripada memilih perkhidmatan sehingga pesanan diproses.',
+  step1Title: '1. Pilih perkhidmatan & pakej',
+  step1Desc: 'Pilih Aplikasi Premium, Tambah Nilai Permainan, atau kaedah Roblox (Gamepass, Username, atau Log masuk) mengikut ketersediaan.',
+  step2Title: '2. Lengkapkan butiran & sahkan',
+  step2Desc: 'Masukkan butiran akaun atau pautan Gamepass mengikut panduan. Harga dan caj disahkan semula di pelayan.',
+  step3Title: '3. Bayar & jejak invois',
+  step3Desc: 'Selesaikan pembayaran QRIS melalui Midtrans dan pantau status pembayaran serta penghantaran di halaman invois.',
+  exploreCta: 'Buka perkhidmatan',
 };
 export const commerceTranslations = { ID: id, EN: en, MY: my };

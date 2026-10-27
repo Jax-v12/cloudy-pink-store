@@ -25,7 +25,11 @@ interface OrderDetail extends AppsOrder {
   robloxDetail: { method: 'GAMEPASS' | 'GIFT_USERNAME' | 'LOGIN'; username: string; gamepassPrice: number | null } | null;
   gameDetail: { userId: string; zoneId: string | null } | null;
   totalAmount: number;
-  currency: Currency; pricingRegion: Region; productSubtotal: number; paymentFee: number; discount: number;
+  currency: Currency;
+  pricingRegion: Region;
+  productSubtotal: number;
+  paymentFee: number;
+  discount: number;
   status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   paymentMethod: string;
   qrisUrl: string | null;
@@ -67,8 +71,15 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   useEffect(() => {
     if (!hasAppsDelivery || !appsDeliveredAt) return;
     const deadline = Date.parse(appsDeliveredAt) + APPS_DELIVERY_TTL_MS;
-    const timer = setTimeout(() => setOrder(current => current?.appsService?.deliveredAt === appsDeliveredAt
-      ? { ...current, appsService: { ...current.appsService, delivery: null } } : current), Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : 0);
+    const timer = setTimeout(
+      () =>
+        setOrder(current =>
+          current?.appsService?.deliveredAt === appsDeliveredAt
+            ? { ...current, appsService: { ...current.appsService, delivery: null } }
+            : current
+        ),
+      Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : 0
+    );
     return () => clearTimeout(timer);
   }, [appsDeliveredAt, hasAppsDelivery]);
 
@@ -96,7 +107,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       };
     }
   }, [orderStatus, orderExpiresAt]);
-  
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -107,7 +118,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         const token = localStorage.getItem(`token_${id}`);
         const headers: HeadersInit = token ? { 'x-order-token': token } : {};
         const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
-          headers, signal: controller.signal,
+          headers,
+          signal: controller.signal,
         });
         const json = await response.json();
         if (!response.ok || !json.success) {
@@ -116,12 +128,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         }
         if (cancelled) return;
         if (json.data.status === 'PENDING') {
-          void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, { method: 'POST', headers, signal: controller.signal }).catch(() => {});
+          void fetch(`/api/orders/${encodeURIComponent(id)}/payment`, {
+            method: 'POST',
+            headers,
+            signal: controller.signal,
+          }).catch(() => {});
         }
         setOrder(json.data);
         saveRecentOrder({ invoice: json.data.invoice });
         setError('');
-        poll = json.data.status === 'PENDING' ||
+        poll =
+          json.data.status === 'PENDING' ||
           (json.data.status === 'PAID' && json.data.fulfillmentStatus !== 'COMPLETED' && json.data.refundStatus !== 'COMPLETED') ||
           json.data.otp?.status === 'REQUESTED';
       } catch (error) {
@@ -134,7 +151,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       }
     }
     void loadOrder();
-    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [id, order?.otp?.status, appsRevision]);
 
   const formatRupiah = (amount: number) => formatMoney(amount, order?.currency ?? 'IDR', language);
@@ -165,7 +186,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       if (!res.ok || !json.success) {
         throw new Error(json.errorCode === 'RATE_LIMIT_EXCEEDED' ? t.rateLimited : t.errSystem);
       }
-      setOrder(prev => prev ? { ...prev, otp: json.data } : prev);
+      setOrder(prev => (prev ? { ...prev, otp: json.data } : prev));
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : t.errSystem);
     } finally {
@@ -227,20 +248,24 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-pink-50">
-        <div className="text-pink-600 font-bold animate-pulse">{t.loadingOrder}</div>
+      <main className="min-h-screen flex items-center justify-center bg-[#FFF9FC]">
+        <div className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs animate-pulse">
+          {t.loadingOrder}
+        </div>
       </main>
     );
   }
 
   if (error || !order) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-pink-50">
-        <div className="bg-white p-6 rounded-3xl border-2 border-pink-200 text-center max-w-md shadow-lg">
-          <p className="text-rose-600 font-bold mb-4">{error === 'ORDER_NOT_FOUND' ? t.orderAccessUnavailable : t.errSystem}</p>
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#FFF9FC]">
+        <div className="bg-white p-7 rounded-3xl border border-[#F1E4ED] text-center max-w-md shadow-[0_14px_36px_-12px_rgba(157,23,77,0.1)]">
+          <p className="text-rose-700 font-bold text-sm sm:text-base mb-5">
+            {error === 'ORDER_NOT_FOUND' ? t.orderAccessUnavailable : t.errSystem}
+          </p>
           <Link
             href="/"
-            className="px-4 py-2 bg-pink-500 text-white font-bold rounded-xl text-xs hover:bg-pink-600"
+            className="inline-block px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 transition"
           >
             {t.btnBackHome}
           </Link>
@@ -258,60 +283,53 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const hasValidPaidAt = Number.isFinite(paidAtMs);
   const warrantyExpiryMs = hasValidPaidAt ? paidAtMs + 25 * 24 * 60 * 60 * 1000 : NaN;
   const isWarrantyActive = hasValidPaidAt && now < warrantyExpiryMs;
-  const warrantyDaysRemaining = isWarrantyActive
-    ? Math.max(1, Math.ceil((warrantyExpiryMs - now) / (24 * 60 * 60 * 1000)))
-    : 0;
+  const warrantyDaysRemaining = isWarrantyActive ? Math.max(1, Math.ceil((warrantyExpiryMs - now) / (24 * 60 * 60 * 1000))) : 0;
 
   const otpExpiresAtMs = order.otp?.expiresAt ? Date.parse(order.otp.expiresAt) : NaN;
-  const effectiveOtp =
-    order.otp && (!Number.isFinite(otpExpiresAtMs) || now < otpExpiresAtMs)
-      ? order.otp
-      : null;
+  const effectiveOtp = order.otp && (!Number.isFinite(otpExpiresAtMs) || now < otpExpiresAtMs) ? order.otp : null;
 
   return (
-    <main
-      className="min-h-screen p-4 md:p-10 font-sans relative bg-fixed bg-cover bg-center"
-      style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-    >
-      <div className="fixed inset-0 bg-pink-950/40 backdrop-blur-[2px] pointer-events-none"></div>
+    <main className="relative min-h-screen bg-[#FFF9FC] p-4 sm:p-8 md:p-10 font-sans text-[#251D2C] overflow-x-clip">
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.05] mix-blend-multiply"
+          style={{ backgroundImage: "url('/bg-anya.jpg')" }}
+        />
+        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/40 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-purple-200/35 blur-3xl" />
+      </div>
 
       <div className="relative z-10 max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <Link
             href="/"
-            className="text-xs font-bold text-white bg-pink-700/80 hover:bg-pink-700 px-3 py-1.5 rounded-xl backdrop-blur-sm transition"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#251D2C] bg-white border border-[#F1E4ED] hover:border-pink-300 hover:bg-pink-50 px-3.5 py-2 rounded-xl shadow-2xs transition"
           >
             ← {t.btnBackHome}
           </Link>
 
           {/* Switch Bahasa: ID | MY | EN */}
-          <div className="inline-flex bg-white/90 backdrop-blur-sm p-1 rounded-2xl border-2 border-pink-300 shadow-md">
+          <div className="inline-flex bg-white p-1 rounded-xl border border-[#F1E4ED] shadow-2xs">
             <button
               onClick={() => setLanguage('ID')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                language === 'ID'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
               }`}
             >
               ID
             </button>
             <button
               onClick={() => setLanguage('MY')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                language === 'MY'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
               }`}
             >
               MY
             </button>
             <button
               onClick={() => setLanguage('EN')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                language === 'EN'
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-neutral-600 hover:text-pink-600'
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
               }`}
             >
               EN
@@ -319,49 +337,57 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
 
-        <div className="bg-white/95 text-slate-700 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-2xl border-4 border-pink-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b-2 border-pink-100 gap-2 mb-6">
+        <div className="bg-white text-[#251D2C] rounded-3xl p-5 sm:p-8 shadow-[0_16px_40px_-14px_rgba(157,23,77,0.1)] border border-[#F1E4ED]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1E4ED] gap-2.5 mb-6">
             <div>
-              <h1 className="text-xl font-black text-pink-700">{t.orderTitle}</h1>
-              <p className="text-xs text-neutral-500">{order.type === 'APPS' ? order.appsSnapshot?.fulfillmentMode === 'ACTIVATION' ? t.apps.ACTIVATION : t.orderSubtitle : order.type === 'GAME' ? t.commerce.gameDescription : t.commerce.robloxDescription}</p>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#251D2C]">{t.orderTitle}</h1>
+              <p className="text-xs sm:text-sm text-[#756C7D] mt-0.5">
+                {order.type === 'APPS'
+                  ? order.appsSnapshot?.fulfillmentMode === 'ACTIVATION'
+                    ? t.apps.ACTIVATION
+                    : t.orderSubtitle
+                  : order.type === 'GAME'
+                    ? t.commerce.gameDescription
+                    : t.commerce.robloxDescription}
+              </p>
             </div>
             <span
-              className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase self-start sm:self-auto ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wider uppercase self-start sm:self-auto border ${
                 order.status === 'PAID'
-                  ? 'bg-emerald-100 text-emerald-700'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : order.status === 'PENDING'
-                  ? 'bg-amber-100 text-amber-700 animate-pulse'
-                  : order.status === 'CANCELLED'
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-neutral-200 text-neutral-600'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800 animate-pulse'
+                    : order.status === 'CANCELLED'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                      : 'border-neutral-200 bg-neutral-100 text-neutral-600'
               }`}
             >
               {order.status === 'PAID'
                 ? t.statusPaid
                 : order.status === 'PENDING'
-                ? t.statusWaiting
-                : order.status === 'CANCELLED'
-                ? t.statusCancelled
-                : t.statusExpired}
+                  ? t.statusWaiting
+                  : order.status === 'CANCELLED'
+                    ? t.statusCancelled
+                    : t.statusExpired}
             </span>
           </div>
 
-          <div className="bg-pink-50/70 p-4 rounded-2xl border border-pink-100 space-y-2 mb-6 text-xs">
-            <div className="flex flex-col gap-1 sm:flex-row sm:gap-4">
-              <span className="text-neutral-500">{t.invoiceLabel}</span>
-              <span className="min-w-0 break-all sm:text-right font-mono font-bold text-neutral-800">{order.invoice}</span>
+          <div className="bg-[#FFF9FC] p-4 sm:p-5 rounded-2xl border border-[#F1E4ED] space-y-2.5 mb-6 text-xs sm:text-sm">
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+              <span className="text-[#756C7D] font-medium">{t.invoiceLabel}</span>
+              <span className="min-w-0 break-all sm:text-right font-mono font-bold text-[#251D2C]">{order.invoice}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500">{t.productLabel}</span>
-              <span className="font-bold text-neutral-800">{order.product.name}</span>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#756C7D] font-medium">{t.productLabel}</span>
+              <span className="font-bold text-[#251D2C] text-right">{order.product.name}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500">{t.paymentMethodLabel}</span>
-              <span className="font-bold text-neutral-800">{order.paymentMethod}</span>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#756C7D] font-medium">{t.paymentMethodLabel}</span>
+              <span className="font-bold text-[#251D2C]">{order.paymentMethod}</span>
             </div>
-            <div className="flex justify-between pt-2 border-t border-pink-200 text-sm">
-              <span className="font-bold text-neutral-700">{t.totalPayLabel}</span>
-              <span className="font-black text-pink-600">{formatRupiah(order.totalAmount)}</span>
+            <div className="flex justify-between items-baseline pt-3 border-t border-[#F1E4ED] text-sm sm:text-base">
+              <span className="font-bold text-[#251D2C]">{t.totalPayLabel}</span>
+              <span className="text-lg sm:text-xl font-extrabold text-pink-600">{formatRupiah(order.totalAmount)}</span>
             </div>
             {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
@@ -370,117 +396,139 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           {order.type === 'APPS' && <AppsOrderPanel order={order} now={now} refresh={() => setAppsRevision(n => n + 1)} />}
 
           {showFulfillmentDetails(order) && (
-            <section className="bg-white text-slate-700 border border-pink-200 rounded-2xl p-5 mb-6 space-y-2 break-words" aria-live="polite">
-              <p>{t.commerce.fulfillment}: <strong>{t.commerce[order.fulfillmentStatus]}</strong></p>
-              {order.variantName && <p>{t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}</p>}
-              {order.robloxDetail && <p>{t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}</p>}
-              {order.robloxDetail && order.status !== 'EXPIRED' && order.status !== 'CANCELLED' && order.refundStatus === 'NONE' && order.fulfillmentStatus !== 'COMPLETED' && <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />}
-              {order.robloxDetail?.method === 'GAMEPASS' && order.status === 'PAID' && order.fulfillmentStatus === 'COMPLETED' && order.refundStatus === 'NONE' && <p className="text-sm text-slate-600">{t.roblox.pendingNotice}</p>}
-              {order.gameDetail && <p>{t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}</p>}
-              {order.refundStatus !== 'NONE' && <p>{t.commerce.refund}: {t.commerce[order.refundStatus]}</p>}
+            <section
+              className="bg-white text-[#251D2C] border border-[#F1E4ED] rounded-2xl p-5 mb-6 space-y-2 break-words text-sm"
+              aria-live="polite"
+            >
+              <p>
+                {t.commerce.fulfillment}: <strong className="font-extrabold">{t.commerce[order.fulfillmentStatus]}</strong>
+              </p>
+              {order.variantName && (
+                <p>
+                  {t.commerce.package}: {order.variantName} · {t.commerce.units}: {order.units}
+                </p>
+              )}
+              {order.robloxDetail && (
+                <p>
+                  {t.commerce.method}: {t.commerce[order.robloxDetail.method]} · {t.commerce.username}: {order.robloxDetail.username}
+                </p>
+              )}
+              {order.robloxDetail &&
+                order.status !== 'EXPIRED' &&
+                order.status !== 'CANCELLED' &&
+                order.refundStatus === 'NONE' &&
+                order.fulfillmentStatus !== 'COMPLETED' && (
+                  <RobloxInstructions method={order.robloxDetail.method} gamepassPrice={order.robloxDetail.gamepassPrice} />
+                )}
+              {order.robloxDetail?.method === 'GAMEPASS' &&
+                order.status === 'PAID' &&
+                order.fulfillmentStatus === 'COMPLETED' &&
+                order.refundStatus === 'NONE' && <p className="text-sm text-[#756C7D]">{t.roblox.pendingNotice}</p>}
+              {order.gameDetail && (
+                <p>
+                  {t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}
+                </p>
+              )}
+              {order.refundStatus !== 'NONE' && (
+                <p>
+                  {t.commerce.refund}: {t.commerce[order.refundStatus]}
+                </p>
+              )}
               {order.type !== 'APPS' && order.fulfillmentStatus === 'WAITING_CUSTOMER' && <p>{t.commerce.waitingHelp}</p>}
             </section>
           )}
 
           {/* PENDING QRIS */}
-          {order.status === 'PENDING' && (
-            order.qrisUrl ? (
-              <div className="text-center space-y-4">
+          {order.status === 'PENDING' &&
+            (order.qrisUrl ? (
+              <div className="text-center space-y-4 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-5">
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-800">{t.scanNoticeTitle}</h3>
-                  <p className="text-xs text-neutral-500 max-w-md mx-auto mt-1">
-                    {t.scanNoticeSubtitle}
-                  </p>
+                  <h3 className="text-sm sm:text-base font-extrabold text-[#251D2C]">{t.scanNoticeTitle}</h3>
+                  <p className="text-xs text-[#756C7D] max-w-md mx-auto mt-1">{t.scanNoticeSubtitle}</p>
                   {formatQrCountdown(order.expiresAt, now) && (
-                    <div className="mt-2">
+                    <div className="mt-2.5">
                       <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold">
-                        ⏱️ {t.qrActiveTimer}: <span className="font-mono text-pink-700">{formatQrCountdown(order.expiresAt, now)}</span>
+                        ⏱️ {t.qrActiveTimer}:{' '}
+                        <span className="font-mono text-pink-700">{formatQrCountdown(order.expiresAt, now)}</span>
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="inline-block p-4 bg-white rounded-3xl border-4 border-pink-200 shadow-lg">
-                  <img
-                    src={order.qrisUrl}
-                    alt="QRIS Barcode"
-                    className="w-56 h-56 mx-auto rounded-xl"
-                  />
+                <div className="inline-block p-4 bg-white rounded-3xl border border-[#F1E4ED] shadow-md">
+                  <img src={order.qrisUrl} alt="QRIS Barcode" className="w-56 h-56 mx-auto rounded-xl" />
                 </div>
 
                 <div className="flex justify-center max-w-xs mx-auto">
                   <button
                     disabled={downloading}
                     onClick={downloadQrisImage}
-                    className="w-full py-2.5 px-4 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-4 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {downloading ? t.btnProcessing : t.btnDownloadQris}
                   </button>
                 </div>
 
-                {downloadError && (
-                  <p className="text-xs text-rose-500 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>
-                )}
+                {downloadError && <p className="text-xs text-rose-600 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>}
 
-                <p className="text-xs text-neutral-500 italic mt-2">{t.autoCheckNotice}</p>
+                <p className="text-xs text-[#756C7D] italic mt-2">{t.autoCheckNotice}</p>
               </div>
             ) : (
-              <div className="text-center p-6 bg-sky-50 border border-sky-200 rounded-3xl space-y-2 mb-6" role="status">
-                <p className="text-xs font-bold text-sky-800 uppercase tracking-wide">{t.statusWaiting}</p>
+              <div className="text-center p-6 bg-sky-50 border border-sky-200 rounded-2xl space-y-2 mb-6" role="status">
+                <p className="text-xs font-extrabold text-sky-800 uppercase tracking-wide">{t.statusWaiting}</p>
                 <p className="text-xs text-sky-950 leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
               </div>
-            )
-          )}
+            ))}
 
           {/* PAID: Akun Diserahkan */}
           {order.type === 'APPS' && order.status === 'PAID' && order.account && (
             <div className="space-y-4">
-              <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4">
-                <h3 className="text-sm font-bold text-emerald-800 mb-1">{t.accountReadyTitle}</h3>
-                <p className="text-[11px] text-emerald-600 mb-3">{t.accountReadySubtitle}</p>
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 sm:p-5">
+                <h3 className="text-sm sm:text-base font-extrabold text-emerald-900 mb-1">{t.accountReadyTitle}</h3>
+                <p className="text-xs text-emerald-700 mb-3.5">{t.accountReadySubtitle}</p>
 
-                <div className="break-all bg-white rounded-xl p-3 border border-emerald-100 space-y-2 text-xs font-mono">
+                <div className="break-all bg-white rounded-xl p-3.5 border border-emerald-200 space-y-2.5 text-xs font-mono">
                   <div>
-                    <span className="text-neutral-400 block text-[10px]">{t.fieldEmail}</span>
-                    <span className="font-bold text-neutral-800">{order.account.emailAccount}</span>
+                    <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldEmail}</span>
+                    <span className="font-bold text-[#251D2C]">{order.account.emailAccount}</span>
                   </div>
                   <div>
-                    <span className="text-neutral-400 block text-[10px]">{t.fieldPassword}</span>
-                    <span className="font-bold text-neutral-800">{order.account.passwordAccount}</span>
+                    <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldPassword}</span>
+                    <span className="font-bold text-[#251D2C]">{order.account.passwordAccount}</span>
                   </div>
                   {order.account.profileName && (
                     <div>
-                      <span className="text-neutral-400 block text-[10px]">{t.fieldProfile}</span>
-                      <span className="font-bold text-neutral-800">{order.account.profileName}</span>
+                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldProfile}</span>
+                      <span className="font-bold text-[#251D2C]">{order.account.profileName}</span>
                     </div>
                   )}
                   {order.account.pin && (
                     <div>
-                      <span className="text-neutral-400 block text-[10px]">PIN:</span>
-                      <span className="font-bold text-neutral-800">{order.account.pin}</span>
+                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">PIN:</span>
+                      <span className="font-bold text-[#251D2C]">{order.account.pin}</span>
                     </div>
                   )}
                   {order.account.additionalInfo && (
                     <div>
-                      <span className="text-neutral-400 block text-[10px]">Info:</span>
-                      <span className="font-bold text-neutral-800">{order.account.additionalInfo}</span>
+                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">Info:</span>
+                      <span className="font-bold text-[#251D2C]">{order.account.additionalInfo}</span>
                     </div>
                   )}
                 </div>
 
                 <button
                   onClick={handleCopyAccount}
-                  className="mt-3 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer"
+                  className="mt-3.5 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer"
                 >
                   {copiedAccount ? t.accountCopied : t.btnCopyAccount}
                 </button>
               </div>
 
-              <div className="bg-pink-50/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3" aria-live="polite">
+              <div className="bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl p-4 sm:p-5 space-y-3" aria-live="polite">
                 <div>
-                  <h4 className="text-xs font-black text-pink-800">{t.otpHelpTitle}</h4>
-                  <p className="text-[11px] text-neutral-600 mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
-                  <div className="flex items-center gap-1.5 pt-1 text-[10px] font-bold">
+                  <h4 className="text-xs sm:text-sm font-extrabold text-[#251D2C]">{t.otpHelpTitle}</h4>
+                  <p className="text-xs text-[#756C7D] mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
+                  <div className="flex items-center gap-1.5 pt-1.5 text-[11px] font-bold">
                     <span className={isOperational ? 'text-emerald-700' : 'text-amber-700'}>
                       {isOperational ? t.adminOnlineStatus : t.adminOfflineStatus}
                     </span>
@@ -488,15 +536,15 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 </div>
 
                 {effectiveOtp?.status === 'DELIVERED' && effectiveOtp.code && (
-                  <div className="bg-white border-2 border-emerald-300 rounded-xl p-3 flex items-center justify-between gap-3">
+                  <div className="bg-white border border-emerald-300 rounded-xl p-3.5 flex items-center justify-between gap-3">
                     <div>
                       <span className="text-[10px] font-bold text-emerald-700 block">{t.otpDeliveredLabel}</span>
-                      <span className="text-base font-mono font-black tracking-widest text-neutral-900">{effectiveOtp.code}</span>
+                      <span className="text-base font-mono font-extrabold tracking-widest text-[#251D2C]">{effectiveOtp.code}</span>
                     </div>
                     <button
                       type="button"
                       onClick={handleCopyOtp}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer"
                     >
                       {copiedOtp ? t.copiedNotice : t.btnCopyOtp}
                     </button>
@@ -510,29 +558,37 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 )}
 
                 {otpError && (
-                  <p role="alert" className="text-xs font-bold text-rose-600">{otpError}</p>
+                  <p role="alert" className="text-xs font-bold text-rose-600">
+                    {otpError}
+                  </p>
                 )}
 
-                <div className="grid sm:grid-cols-2 gap-2">
+                <div className="grid sm:grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     disabled={requestingOtp}
                     onClick={handleRequestOtp}
-                    className="w-full py-2.5 px-3 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-3 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {requestingOtp
                       ? t.btnProcessing
                       : effectiveOtp?.status === 'REQUESTED'
-                      ? t.btnRetryOtpNotification
-                      : effectiveOtp?.status === 'DELIVERED'
-                      ? t.btnRequestOtpAgain
-                      : t.btnRequestOtp}
+                        ? t.btnRetryOtpNotification
+                        : effectiveOtp?.status === 'DELIVERED'
+                          ? t.btnRequestOtpAgain
+                          : t.btnRequestOtp}
                   </button>
                   <a
-                    href={buildAppsOtpWhatsappUrl('6287867395872', order.invoice, order.product.name, order.account.profileName, t.otpWhatsappTemplate)}
+                    href={buildAppsOtpWhatsappUrl(
+                      '6287867395872',
+                      order.invoice,
+                      order.product.name,
+                      order.account.profileName,
+                      t.otpWhatsappTemplate
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition active:scale-95 text-center flex items-center justify-center"
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 text-center flex items-center justify-center"
                   >
                     💬 {t.btnOtpWhatsapp}
                   </a>
@@ -540,81 +596,85 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               </div>
 
               {/* Garansi 25 Hari berdasarkan paidAt */}
-              {!order.appsSnapshot && (hasValidPaidAt ? (
-                isWarrantyActive ? (
-                  <div className="bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm" aria-hidden="true">🛡️</span>
-                        <h4 className="text-xs font-black text-emerald-800">{t.warrantyBadgeTitle}</h4>
+              {!order.appsSnapshot &&
+                (hasValidPaidAt ? (
+                  isWarrantyActive ? (
+                    <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm" aria-hidden="true">
+                            🛡️
+                          </span>
+                          <h4 className="text-xs font-extrabold text-emerald-900">{t.warrantyBadgeTitle}</h4>
+                        </div>
+                        <p className="text-[11px] text-emerald-700 mt-0.5">
+                          {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-emerald-700 mt-0.5">
-                        {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
-                      </p>
+                      <span className="bg-emerald-600 text-white font-extrabold text-[11px] px-2.5 py-1 rounded-xl shrink-0">
+                        {t.warrantyDurationLabel}
+                      </span>
                     </div>
-                    <span className="bg-emerald-600 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
-                      {t.warrantyDurationLabel}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="bg-neutral-100 border border-neutral-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm" aria-hidden="true">
+                            🛡️
+                          </span>
+                          <h4 className="text-xs font-extrabold text-neutral-700">{t.warrantyExpiredTitle}</h4>
+                        </div>
+                        <p className="text-[11px] text-neutral-600 mt-0.5">{t.warrantyExpiredBody}</p>
+                      </div>
+                      <span className="bg-neutral-500 text-white font-extrabold text-[11px] px-2.5 py-1 rounded-xl shrink-0">
+                        {t.warrantyExpiredBadge}
+                      </span>
+                    </div>
+                  )
                 ) : (
-                  <div className="bg-neutral-100 border-2 border-neutral-300 rounded-2xl p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm" aria-hidden="true">🛡️</span>
-                        <h4 className="text-xs font-black text-neutral-700">{t.warrantyExpiredTitle}</h4>
-                      </div>
-                      <p className="text-[11px] text-neutral-600 mt-0.5">
-                        {t.warrantyExpiredBody}
-                      </p>
+                  <div className="bg-sky-50/90 border border-sky-200 rounded-2xl p-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm" aria-hidden="true">
+                        🛡️
+                      </span>
+                      <h4 className="text-xs font-extrabold text-sky-900">{t.warrantyInfoTitle}</h4>
                     </div>
-                    <span className="bg-neutral-500 text-white font-black text-[11px] px-2.5 py-1 rounded-xl shrink-0">
-                      {t.warrantyExpiredBadge}
-                    </span>
+                    <p className="text-[11px] text-sky-800 mt-0.5">{t.warrantyInfoBody}</p>
                   </div>
-                )
-              ) : (
-                <div className="bg-sky-50/90 border-2 border-sky-200 rounded-2xl p-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm" aria-hidden="true">🛡️</span>
-                    <h4 className="text-xs font-black text-sky-900">{t.warrantyInfoTitle}</h4>
-                  </div>
-                  <p className="text-[11px] text-sky-800 mt-0.5">
-                    {t.warrantyInfoBody}
-                  </p>
-                </div>
-              ))}
+                ))}
+
               {/* FAQ / Panduan Login Accordion */}
-              <div className="bg-white/90 border-2 border-pink-200 rounded-2xl p-4 space-y-3">
-                <h4 className="text-xs font-black text-pink-800 flex items-center gap-1.5">
+              <div className="bg-white border border-[#F1E4ED] rounded-2xl p-4 space-y-3">
+                <h4 className="text-xs font-extrabold text-[#251D2C] flex items-center gap-1.5">
                   <span>💡</span> {t.faqTitle}
                 </h4>
                 <div className="space-y-2 text-xs">
-                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
-                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>📺 {t.faqTvTitle}</span>
-                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqTvBody}
                     </p>
                   </details>
 
-                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
-                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>🏠 {t.faqHouseholdTitle}</span>
-                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqHouseholdBody}
                     </p>
                   </details>
 
-                  <details className="group border border-pink-100 rounded-xl p-2.5 bg-pink-50/40 cursor-pointer">
-                    <summary className="font-bold text-neutral-800 group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>🔒 {t.faqRulesTitle}</span>
-                      <span className="text-neutral-400 group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-neutral-600 leading-relaxed border-t border-pink-100/60 pt-2">
+                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqRulesBody}
                     </p>
                   </details>
@@ -623,15 +683,21 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </div>
           )}
 
-          {notice && notice !== 'paymentPending' && <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">{t.invoiceStatus[notice]}</p>}
+          {notice && notice !== 'paymentPending' && (
+            <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">
+              {t.invoiceStatus[notice]}
+            </p>
+          )}
 
           {/* EXPIRED atau CANCELLED */}
           {(order.status === 'EXPIRED' || order.status === 'CANCELLED') && (
             <div className="text-center py-6">
-              <p className="text-xs text-rose-600 font-bold mb-3">{order.status === 'EXPIRED' ? t.expiredNotice : t.orderCancelled}</p>
+              <p className="text-xs sm:text-sm text-rose-700 font-bold mb-3">
+                {order.status === 'EXPIRED' ? t.expiredNotice : t.orderCancelled}
+              </p>
               <Link
                 href="/"
-                className="px-4 py-2 bg-pink-500 text-white font-bold rounded-xl text-xs hover:bg-pink-600 inline-block"
+                className="px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 inline-block transition"
               >
                 {t.btnBackHome}
               </Link>

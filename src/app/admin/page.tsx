@@ -212,14 +212,16 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
       if (Array.isArray(json.data)) {
-        setStocks(previous => cursor ? [...previous, ...json.data] : json.data);
+        setStocks(previous => (cursor ? [...previous, ...json.data] : json.data));
         setStockCursor(json.pagination.nextCursor);
         setPageError(false);
       }
     } catch (err: unknown) {
       console.error('Gagal memuat data stok:', err);
       setPageError(true);
-    } finally { setStocksLoading(false); }
+    } finally {
+      setStocksLoading(false);
+    }
   }, []);
 
   const loadProductOptions = useCallback(async () => {
@@ -379,7 +381,7 @@ export default function AdminPage() {
         delete next[draftKey];
         return next;
       });
-      setOrders(prev => prev.map(row => row.id === orderId ? { ...row, otp: { status: 'DELIVERED', requestId } } : row));
+      setOrders(prev => prev.map(row => (row.id === orderId ? { ...row, otp: { status: 'DELIVERED', requestId } } : row)));
     } catch (err: unknown) {
       setOrdersError(err instanceof Error ? err.message : 'LOAD_FAILED');
     } finally {
@@ -439,7 +441,6 @@ export default function AdminPage() {
     };
   }, [refreshStocks, loadProductOptions, loadOrders, loadAnalytics]);
 
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -452,8 +453,10 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         const messages: Record<string, string> = {
-          INVALID_CREDENTIALS: t.loginFailed, RATE_LIMIT_EXCEEDED: t.rateLimited,
-          DATABASE_SCHEMA_OUTDATED: t.loginDatabaseError, CSRF_REJECTED: t.loginOriginError,
+          INVALID_CREDENTIALS: t.loginFailed,
+          RATE_LIMIT_EXCEEDED: t.rateLimited,
+          DATABASE_SCHEMA_OUTDATED: t.loginDatabaseError,
+          CSRF_REJECTED: t.loginOriginError,
           ADMIN_NOT_CONFIGURED: t.loginConfigError,
         };
         throw new Error(messages[json.errorCode] || t.loginSystemError);
@@ -491,7 +494,7 @@ export default function AdminPage() {
     setFormLoading(true);
     setFormMessage('');
 
-    const found = productOptions.find((p) => String(p.id) === selectedProductId);
+    const found = productOptions.find(p => String(p.id) === selectedProductId);
     if (!found) {
       setIsSuccess(false);
       setFormMessage(t.batchErrorEmpty);
@@ -542,11 +545,10 @@ export default function AdminPage() {
     setBatchMessage('');
     setBatchIsSuccess(false);
 
-    // Parse textarea — flexible: 2 to 4 pipe-separated parts per line
     const lines = batchText
       .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
 
     if (lines.length === 0) {
       setBatchMessage(t.batchErrorEmpty);
@@ -575,7 +577,7 @@ export default function AdminPage() {
       });
     }
 
-    const found = productOptions.find((p) => String(p.id) === selectedProductId);
+    const found = productOptions.find(p => String(p.id) === selectedProductId);
     if (!found) {
       setBatchMessage(t.batchErrorEmpty);
       setBatchLoading(false);
@@ -634,9 +636,7 @@ export default function AdminPage() {
             durationDays: Number(productDraft.config.durationDays),
             warrantyDays: Number(productDraft.config.warrantyDays),
             activationMethod:
-              productDraft.config.fulfillmentMode === 'ACTIVATION'
-                ? productDraft.config.activationMethod
-                : null,
+              productDraft.config.fulfillmentMode === 'ACTIVATION' ? productDraft.config.activationMethod : null,
           })
         : null;
       const res = await fetch('/api/admin/apps/products', {
@@ -700,12 +700,8 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <main
-        className="min-h-screen flex items-center justify-center font-sans relative bg-fixed bg-cover bg-center"
-        style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-      >
-        <div className="fixed inset-0 bg-pink-950/40 backdrop-blur-[2px] pointer-events-none"></div>
-        <div className="relative z-10 bg-white/95 backdrop-blur-md px-6 py-4 rounded-2xl border-2 border-pink-300 shadow-xl text-pink-700 font-black animate-pulse text-sm">
+      <main className="min-h-screen flex items-center justify-center font-sans bg-[#FFF9FC]">
+        <div className="bg-white px-6 py-4 rounded-2xl border border-[#F1E4ED] shadow-xs text-pink-600 font-extrabold animate-pulse text-sm">
           Memeriksa izin akses admin...
         </div>
       </main>
@@ -714,49 +710,49 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <main
-        className="min-h-screen flex items-center justify-center p-4 font-sans relative bg-fixed bg-cover bg-center"
-        style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-      >
-        <div className="fixed inset-0 bg-pink-950/50 backdrop-blur-[3px] pointer-events-none"></div>
+      <main className="relative min-h-screen flex items-center justify-center p-4 font-sans bg-[#FFF9FC] text-[#251D2C] overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
+          <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/40 blur-3xl" />
+          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-purple-200/35 blur-3xl" />
+        </div>
 
-        <div className="relative z-10 bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border-4 border-pink-300">
+        <div className="relative z-10 bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-[0_18px_40px_-14px_rgba(157,23,77,0.14)] border border-[#F1E4ED]">
           <div className="text-center mb-6">
-            <span className="inline-block px-3 py-1 bg-pink-100 text-pink-700 text-[10px] font-black rounded-full mb-2 border border-pink-200 uppercase tracking-wider">
+            <span className="inline-block px-3 py-1 bg-pink-50 text-pink-700 text-[10px] font-extrabold rounded-full mb-2.5 border border-pink-200 uppercase tracking-wider">
               Secret Control Room
             </span>
-            <h1 className="text-2xl font-black text-pink-700">Admin Login</h1>
-            <p className="text-xs text-neutral-500 mt-1">Masukkan kata sandi untuk mengelola stok akun</p>
+            <h1 className="text-2xl font-extrabold text-[#251D2C]">Admin Login</h1>
+            <p className="text-xs text-[#756C7D] mt-1">Masukkan kata sandi untuk mengelola stok akun</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Kata Sandi Admin</label>
+              <label className="block text-xs font-bold text-[#251D2C] mb-1.5">Kata Sandi Admin</label>
               <input
                 type="password"
                 required
                 placeholder="••••••••••••"
                 value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-pink-500 font-mono transition"
+                onChange={e => setPasswordInput(e.target.value)}
+                className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-sm text-[#251D2C] placeholder-[#756C7D]/60 focus:outline-none focus:border-pink-500 focus:bg-white font-mono transition"
               />
             </div>
 
             {loginError && (
-              <div className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-semibold">
+              <div className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-semibold">
                 {loginError}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-xl text-sm shadow-md shadow-pink-300 transition active:scale-95 cursor-pointer"
+              className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-extrabold rounded-xl text-sm shadow-sm shadow-pink-600/20 transition active:scale-[0.98] cursor-pointer"
             >
               Masuk Dashboard
             </button>
 
             <div className="text-center pt-2">
-              <Link href="/" className="text-xs font-bold text-pink-600 hover:underline">
+              <Link href="/" className="text-xs font-bold text-pink-700 hover:underline">
                 ← Kembali ke Toko
               </Link>
             </div>
@@ -767,41 +763,67 @@ export default function AdminPage() {
   }
 
   return (
-    <main
-      className="min-h-screen p-3 sm:p-6 md:p-10 font-sans relative bg-fixed bg-cover bg-center pb-24"
-      style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-    >
-      <div className="fixed inset-0 bg-pink-950/45 backdrop-blur-[2px] pointer-events-none"></div>
+    <main className="relative min-h-screen p-3 sm:p-6 md:p-8 font-sans bg-[#FFF9FC] text-[#251D2C] pb-24">
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/35 blur-3xl" />
+        <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-purple-200/25 blur-3xl" />
+      </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto space-y-6">
-        <a href="/admin/commerce" className="inline-block rounded-xl bg-white text-pink-700 p-3 font-bold">{t.commerce.fulfillmentAdmin} · {t.commerce.catalogAdmin}</a>
+      <div className="relative z-10 max-w-6xl mx-auto space-y-6">
         {/* Top Bar Dashboard */}
-        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-6 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] flex flex-col lg:flex-row justify-between lg:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[10px] font-black bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full border border-pink-200 uppercase tracking-wide">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200 uppercase tracking-wide">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Admin Panel Active
               </span>
+              <a
+                href="/admin/commerce"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50 px-3 py-0.5 text-[11px] font-bold text-pink-700 transition"
+              >
+                {t.commerce.fulfillmentAdmin} · {t.commerce.catalogAdmin} ↗
+              </a>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-pink-700">{t.adminTitle}</h1>
-            <p className="text-xs text-neutral-500">{t.encryptionNote}</p>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#251D2C]">{t.adminTitle}</h1>
+            <p className="text-xs text-[#756C7D] mt-0.5">{t.encryptionNote}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Language switcher */}
-            <div className="inline-flex bg-white/95 backdrop-blur-sm p-1 rounded-2xl border border-pink-300 shadow-sm mr-1">
-              <button onClick={() => setLanguage('ID')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'ID' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>ID</button>
-              <button onClick={() => setLanguage('MY')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'MY' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>MY</button>
-              <button onClick={() => setLanguage('EN')} className={`px-2 py-1 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${language === 'EN' ? 'bg-pink-500 text-white' : 'text-neutral-600 hover:text-pink-600'}`}>EN</button>
+            <div className="inline-flex bg-[#FFF9FC] p-1 rounded-xl border border-[#F1E4ED]">
+              <button
+                onClick={() => setLanguage('ID')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                }`}
+              >
+                ID
+              </button>
+              <button
+                onClick={() => setLanguage('MY')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                }`}
+              >
+                MY
+              </button>
+              <button
+                onClick={() => setLanguage('EN')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                }`}
+              >
+                EN
+              </button>
             </div>
             <button
               type="button"
               onClick={toggleSound}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer ${
                 soundEnabled
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                  : 'bg-neutral-100 border-neutral-300 text-neutral-500'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-[#FFF9FC] border-[#F1E4ED] text-[#756C7D]'
               }`}
               title={`${t.adminSoundToggle}: ${soundEnabled ? t.adminSoundOn : t.adminSoundOff}`}
             >
@@ -810,33 +832,36 @@ export default function AdminPage() {
             </button>
             <Link
               href="/"
-              className="px-3.5 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-xl text-xs transition border border-pink-200"
+              className="px-3.5 py-2 bg-[#FFF9FC] hover:bg-pink-50 text-[#251D2C] font-bold rounded-xl text-xs transition border border-[#F1E4ED]"
             >
               Lihat Toko
             </Link>
             <button
               onClick={handleLogout}
-              className="px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-300 transition active:scale-95 cursor-pointer"
+              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition cursor-pointer"
             >
               Keluar (Logout)
             </button>
           </div>
         </div>
 
-        {/* Card Form Tambah Stok */}
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl">
+        {/* Main Workspace Card */}
+        <div className="bg-white p-5 sm:p-8 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)]">
           {/* Tab Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b-2 border-pink-100">
-            <div role="tablist" className="flex flex-wrap bg-pink-50 p-1.5 rounded-2xl border border-pink-200 gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-6 border-b border-[#F1E4ED]">
+            <div role="tablist" className="flex flex-wrap bg-[#FFF9FC] p-1 rounded-2xl border border-[#F1E4ED] gap-1">
               <button
                 type="button"
                 role="tab"
                 aria-selected={activeTab === 'overview'}
-                onClick={() => { setActiveTab('overview'); loadAnalytics(); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                onClick={() => {
+                  setActiveTab('overview');
+                  loadAnalytics();
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer whitespace-nowrap ${
                   activeTab === 'overview'
-                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
-                    : 'text-neutral-600 hover:text-pink-600'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 {t.tabOverview}
@@ -846,10 +871,10 @@ export default function AdminPage() {
                 role="tab"
                 aria-selected={activeTab === 'single'}
                 onClick={() => setActiveTab('single')}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer whitespace-nowrap ${
                   activeTab === 'single'
-                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
-                    : 'text-neutral-600 hover:text-pink-600'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 {t.tabSingle}
@@ -859,10 +884,10 @@ export default function AdminPage() {
                 role="tab"
                 aria-selected={activeTab === 'batch'}
                 onClick={() => setActiveTab('batch')}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer whitespace-nowrap ${
                   activeTab === 'batch'
-                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
-                    : 'text-neutral-600 hover:text-pink-600'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 {t.tabBatch}
@@ -871,11 +896,15 @@ export default function AdminPage() {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === 'products'}
-                onClick={() => { setActiveTab('products'); setEditMessage(''); setProductDraft(null); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                onClick={() => {
+                  setActiveTab('products');
+                  setEditMessage('');
+                  setProductDraft(null);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer whitespace-nowrap ${
                   activeTab === 'products'
-                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
-                    : 'text-neutral-600 hover:text-pink-600'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 {t.tabProducts}
@@ -884,18 +913,21 @@ export default function AdminPage() {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === 'orders'}
-                onClick={() => { setActiveTab('orders'); loadOrders(); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 cursor-pointer whitespace-nowrap ${
+                onClick={() => {
+                  setActiveTab('orders');
+                  loadOrders();
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer whitespace-nowrap ${
                   activeTab === 'orders'
-                    ? 'bg-pink-500 text-white shadow-sm shadow-pink-300'
-                    : 'text-neutral-600 hover:text-pink-600'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 {t.tabOrders}
               </button>
             </div>
             <div>
-              <p className="text-[10px] text-neutral-400 font-medium">{t.encryptionNote}</p>
+              <p className="text-[11px] text-[#756C7D] font-medium">{t.encryptionNote}</p>
             </div>
           </div>
 
@@ -903,68 +935,70 @@ export default function AdminPage() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {analyticsLoading && !analyticsData ? (
-                <div className="text-center py-10 text-neutral-400 font-medium animate-pulse">
+                <div className="text-center py-10 text-[#756C7D] font-semibold animate-pulse">
                   {t.loadingAnalytics || 'Loading analytics...'}
                 </div>
               ) : analyticsData ? (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-pink-500 to-rose-500 p-5 rounded-2xl shadow-lg text-white">
+                    <div className="bg-gradient-to-br from-pink-600 to-rose-500 p-5 sm:p-6 rounded-2xl shadow-md shadow-pink-500/15 text-white">
                       <p className="text-xs font-bold text-pink-100 uppercase tracking-wider mb-1">
                         {t.statTotalRevenue || 'Total Revenue'}
                       </p>
-                      <h3 className="text-2xl sm:text-3xl font-black">
-                        {formatRupiah(analyticsData.totalRevenue)}
-                      </h3>
+                      <h3 className="text-2xl sm:text-3xl font-extrabold">{formatRupiah(analyticsData.totalRevenue)}</h3>
                     </div>
-                    <div className="bg-gradient-to-br from-indigo-500 to-violet-500 p-5 rounded-2xl shadow-lg text-white">
-                      <p className="text-xs font-bold text-indigo-100 uppercase tracking-wider mb-1">
+                    <div className="bg-gradient-to-br from-purple-600 to-indigo-600 p-5 sm:p-6 rounded-2xl shadow-md shadow-purple-500/15 text-white">
+                      <p className="text-xs font-bold text-purple-100 uppercase tracking-wider mb-1">
                         {t.statTotalSold || 'Total Sold'}
                       </p>
-                      <h3 className="text-2xl sm:text-3xl font-black">
-                        {analyticsData.totalSold} <span className="text-sm font-semibold text-indigo-200">Akun</span>
+                      <h3 className="text-2xl sm:text-3xl font-extrabold">
+                        {analyticsData.totalSold} <span className="text-sm font-semibold text-purple-200">Akun</span>
                       </h3>
                     </div>
                   </div>
 
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-neutral-100 shadow-sm">
-                    <h4 className="text-sm font-bold text-neutral-800 mb-4">{t.chartTitle || 'Last 7 Days Revenue'}</h4>
+                  <div className="bg-[#FFF9FC] p-4 sm:p-6 rounded-2xl border border-[#F1E4ED]">
+                    <h4 className="text-sm font-extrabold text-[#251D2C] mb-4">{t.chartTitle || 'Last 7 Days Revenue'}</h4>
                     <div className="h-[250px] sm:h-[300px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analyticsData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8}/>
-                              <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#EC4899" stopOpacity={0.6} />
+                              <stop offset="95%" stopColor="#EC4899" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <XAxis 
-                            dataKey="date" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} 
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#756C7D', fontWeight: 600 }}
                             dy={10}
                           />
-                          <YAxis 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} 
-                            tickFormatter={(value) => `Rp${(value / 1000)}k`}
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#756C7D', fontWeight: 600 }}
+                            tickFormatter={value => `Rp${value / 1000}k`}
                           />
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1E4ED" />
                           <Tooltip
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                            labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+                            contentStyle={{
+                              borderRadius: '12px',
+                              border: '1px solid #F1E4ED',
+                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.08)',
+                            }}
+                            labelStyle={{ fontWeight: 'bold', color: '#251D2C', marginBottom: '4px' }}
                             /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                             formatter={(value: any) => [formatRupiah(Number(value) || 0), t.statTotalRevenue || 'Revenue']}
                           />
-                          <Area 
-                            type="monotone" 
-                            dataKey="revenue" 
-                            stroke="#ec4899" 
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="#EC4899"
                             strokeWidth={3}
-                            fillOpacity={1} 
-                            fill="url(#colorRevenue)" 
+                            fillOpacity={1}
+                            fill="url(#colorRevenue)"
                           />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -972,7 +1006,7 @@ export default function AdminPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-center py-10 text-rose-500 font-medium">
+                <div className="text-center py-10 text-rose-600 font-semibold">
                   {t.errAnalytics || 'Failed to load analytics.'}
                 </div>
               )}
@@ -984,12 +1018,15 @@ export default function AdminPage() {
             <form onSubmit={handleAddStock} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                  <label htmlFor="single-product-select" className="block text-xs font-bold text-neutral-700">
+                  <label htmlFor="single-product-select" className="block text-xs font-bold text-[#251D2C]">
                     {t.batchProductSelect}
                   </label>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('products'); setEditMessage(''); }}
+                    onClick={() => {
+                      setActiveTab('products');
+                      setEditMessage('');
+                    }}
                     className="text-xs font-bold text-pink-600 hover:text-pink-700 hover:underline cursor-pointer"
                   >
                     {t.apps.manage} →
@@ -998,75 +1035,76 @@ export default function AdminPage() {
                 <select
                   id="single-product-select"
                   value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  onChange={e => setSelectedProductId(e.target.value)}
                   required
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-semibold"
                 >
                   {productOptions.length === 0 && (
                     <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
                   )}
-                  {productOptions.map((p) => (
+                  {productOptions.map(p => (
                     <option key={p.id} value={String(p.id)}>
-                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}: {p.stockAvailable})
+                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}:{' '}
+                      {p.stockAvailable})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminEmail}</label>
+                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminEmail}</label>
                 <input
                   type="text"
                   required
                   placeholder="user.netflix@gmail.com"
                   value={emailAccount}
-                  onChange={(e) => setEmailAccount(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                  onChange={e => setEmailAccount(e.target.value)}
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPassword}</label>
+                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPassword}</label>
                 <input
                   type="text"
                   required
                   placeholder="PasswordRahasia123!"
                   value={passwordAccount}
-                  onChange={(e) => setPasswordAccount(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                  onChange={e => setPasswordAccount(e.target.value)}
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminProfileName}</label>
+                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminProfileName}</label>
                 <input
                   type="text"
                   placeholder="Contoh: Anya / Profil 1"
                   value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                  onChange={e => setProfileName(e.target.value)}
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminPin}</label>
+                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPin}</label>
                 <input
                   type="text"
                   placeholder="Contoh: 1234"
                   value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono"
+                  onChange={e => setPin(e.target.value)}
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-neutral-700 mb-1">{t.adminNotes}</label>
+                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminNotes}</label>
                 <input
                   type="text"
                   placeholder="Contoh: Dilarang mengganti password"
                   value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                  onChange={e => setAdditionalInfo(e.target.value)}
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-medium"
                 />
               </div>
 
@@ -1086,7 +1124,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={formLoading || productOptions.length === 0}
-                  className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-sm shadow-pink-600/20 transition disabled:opacity-50 cursor-pointer"
                 >
                   {formLoading ? t.btnSaving : t.btnSaveStock}
                 </button>
@@ -1097,15 +1135,17 @@ export default function AdminPage() {
           {/* === BATCH UPLOAD FORM === */}
           {activeTab === 'batch' && (
             <form onSubmit={handleBatchUpload} className="space-y-5">
-              {/* Product Selection */}
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                  <label htmlFor="batch-product-select" className="block text-xs font-bold text-neutral-700">
+                  <label htmlFor="batch-product-select" className="block text-xs font-bold text-[#251D2C]">
                     {t.batchProductSelect}
                   </label>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('products'); setEditMessage(''); }}
+                    onClick={() => {
+                      setActiveTab('products');
+                      setEditMessage('');
+                    }}
                     className="text-xs font-bold text-pink-600 hover:text-pink-700 hover:underline cursor-pointer"
                   >
                     {t.apps.manage} →
@@ -1114,46 +1154,45 @@ export default function AdminPage() {
                 <select
                   id="batch-product-select"
                   value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  onChange={e => setSelectedProductId(e.target.value)}
                   required
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-medium"
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-semibold"
                 >
                   {productOptions.length === 0 && (
                     <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
                   )}
-                  {productOptions.map((p) => (
+                  {productOptions.map(p => (
                     <option key={p.id} value={String(p.id)}>
-                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}: {p.stockAvailable})
+                      {p.name} — {formatRupiah(p.price)} ({p.active ? t.apps.active : t.commerce.unavailable} · {t.colProductStock}:{' '}
+                      {p.stockAvailable})
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Textarea */}
               <div>
                 <div className="flex items-start justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-neutral-700">{t.batchInstruction}</label>
+                  <label className="block text-xs font-bold text-[#251D2C]">{t.batchInstruction}</label>
                 </div>
                 <div className="mb-2 flex flex-wrap gap-2 items-center">
-                  <code className="text-[10px] bg-neutral-100 text-neutral-700 px-2 py-1 rounded-lg border border-neutral-200 font-mono">
+                  <code className="text-[10px] bg-[#FFF9FC] text-pink-700 px-2.5 py-1 rounded-lg border border-[#F1E4ED] font-mono font-bold">
                     {t.batchFormat}
                   </code>
-                  <span className="text-[10px] text-neutral-400">{t.batchFormatNote}</span>
+                  <span className="text-[11px] text-[#756C7D]">{t.batchFormatNote}</span>
                 </div>
                 <textarea
                   required
                   rows={8}
                   value={batchText}
-                  onChange={(e) => setBatchText(e.target.value)}
+                  onChange={e => setBatchText(e.target.value)}
                   placeholder={t.batchPlaceholder}
-                  className="w-full bg-pink-50/50 border-2 border-pink-200 rounded-2xl px-3.5 py-3 text-xs text-neutral-800 focus:outline-none focus:border-pink-500 font-mono resize-y placeholder-neutral-400 leading-relaxed"
+                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl px-3.5 py-3 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono resize-y placeholder-[#756C7D]/60 leading-relaxed"
                 />
-                <p className="text-[10px] text-neutral-400 mt-1">
-                  {batchText.split('\n').filter((l) => l.trim()).length} {t.totalData.toLowerCase()} baris
+                <p className="text-[11px] text-[#756C7D] mt-1">
+                  {batchText.split('\n').filter(l => l.trim()).length} {t.totalData.toLowerCase()} baris
                 </p>
               </div>
 
-              {/* Feedback & Submit */}
               <div>
                 {batchMessage && (
                   <div
@@ -1169,7 +1208,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={batchLoading || productOptions.length === 0}
-                  className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md shadow-pink-300 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-sm shadow-pink-600/20 transition disabled:opacity-50 cursor-pointer"
                 >
                   {batchLoading ? t.btnProcessingBatch : t.btnProcessBatch}
                 </button>
@@ -1184,8 +1223,11 @@ export default function AdminPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => { setProductDraft(createBlankDraft()); setEditMessage(''); }}
-                    className="rounded-xl bg-pink-500 hover:bg-pink-600 px-4 py-2.5 text-xs font-black text-white shadow-sm shadow-pink-200 transition active:scale-95 cursor-pointer"
+                    onClick={() => {
+                      setProductDraft(createBlankDraft());
+                      setEditMessage('');
+                    }}
+                    className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-xs transition cursor-pointer"
                   >
                     + {t.apps.newProduct}
                   </button>
@@ -1203,15 +1245,23 @@ export default function AdminPage() {
                           active: existing.active,
                           updatedAt: existing.updatedAt,
                           config: existing.appsConfig
-                            ? Object.fromEntries(Object.entries(existing.appsConfig).filter(([key]) => key !== 'version').map(([key, val]) => [key, val === null ? '' : String(val)]))
+                            ? Object.fromEntries(
+                                Object.entries(existing.appsConfig)
+                                  .filter(([key]) => key !== 'version')
+                                  .map(([key, val]) => [key, val === null ? '' : String(val)])
+                              )
                             : {},
                         });
                       } else {
-                        setProductDraft({ ...createBlankDraft(), name: 'CapCut Pro Private 1 bulan', slug: 'capcut-pro-private-1-bulan' });
+                        setProductDraft({
+                          ...createBlankDraft(),
+                          name: 'CapCut Pro Private 1 bulan',
+                          slug: 'capcut-pro-private-1-bulan',
+                        });
                       }
                       setEditMessage('');
                     }}
-                    className="rounded-xl border border-pink-300 bg-pink-50/60 hover:bg-pink-100 px-3.5 py-2 text-xs font-bold text-pink-800 transition cursor-pointer"
+                    className="rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50 px-3.5 py-2 text-xs font-bold text-[#251D2C] transition cursor-pointer"
                   >
                     CapCut Pro Private 1 bulan
                   </button>
@@ -1229,22 +1279,30 @@ export default function AdminPage() {
                           active: existing.active,
                           updatedAt: existing.updatedAt,
                           config: existing.appsConfig
-                            ? Object.fromEntries(Object.entries(existing.appsConfig).filter(([key]) => key !== 'version').map(([key, val]) => [key, val === null ? '' : String(val)]))
+                            ? Object.fromEntries(
+                                Object.entries(existing.appsConfig)
+                                  .filter(([key]) => key !== 'version')
+                                  .map(([key, val]) => [key, val === null ? '' : String(val)])
+                              )
                             : {},
                         });
                       } else {
-                        setProductDraft({ ...createBlankDraft(), name: 'CapCut Pro Private 7 hari', slug: 'capcut-pro-private-7-hari' });
+                        setProductDraft({
+                          ...createBlankDraft(),
+                          name: 'CapCut Pro Private 7 hari',
+                          slug: 'capcut-pro-private-7-hari',
+                        });
                       }
                       setEditMessage('');
                     }}
-                    className="rounded-xl border border-pink-300 bg-pink-50/60 hover:bg-pink-100 px-3.5 py-2 text-xs font-bold text-pink-800 transition cursor-pointer"
+                    className="rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50 px-3.5 py-2 text-xs font-bold text-[#251D2C] transition cursor-pointer"
                   >
                     CapCut Pro Private 7 hari
                   </button>
                 </div>
                 <Link
                   href="/admin/apps"
-                  className="rounded-xl border border-pink-200 bg-white hover:bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 transition"
+                  className="rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 transition"
                 >
                   {t.apps.services} · {t.apps.reminderReview} →
                 </Link>
@@ -1266,10 +1324,10 @@ export default function AdminPage() {
               {productDraft && (
                 <form
                   onSubmit={handleSaveAppsProduct}
-                  className="grid gap-4 rounded-2xl border-2 border-pink-200 bg-pink-50/30 p-4 sm:p-5 sm:grid-cols-2"
+                  className="grid gap-4 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5 sm:grid-cols-2"
                 >
-                  {(['name', 'slug', 'price', 'category'] as const).map((key) => (
-                    <label key={key} className="text-xs font-bold text-neutral-700">
+                  {(['name', 'slug', 'price', 'category'] as const).map(key => (
+                    <label key={key} className="text-xs font-bold text-[#251D2C]">
                       {t.apps[key]}
                       <input
                         required={key !== 'price'}
@@ -1278,42 +1336,48 @@ export default function AdminPage() {
                         max={key === 'price' ? 2147483647 : undefined}
                         maxLength={key === 'category' ? 50 : 100}
                         value={productDraft[key]}
-                        onChange={(e) => setProductDraft({ ...productDraft, [key]: e.target.value })}
-                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                        onChange={e => setProductDraft({ ...productDraft, [key]: e.target.value })}
+                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                       />
                     </label>
                   ))}
-                  {APPS_CONFIG_FIELDS.map((key) => (
-                    <label key={key} className="text-xs font-bold text-neutral-700">
+                  {APPS_CONFIG_FIELDS.map(key => (
+                    <label key={key} className="text-xs font-bold text-[#251D2C]">
                       {t.apps[key]}
                       <textarea
                         rows={2}
-                        maxLength={['usageRules', 'instructions', 'warrantyTerms'].includes(key) ? 2000 : key === 'included' ? 1000 : 300}
+                        maxLength={
+                          ['usageRules', 'instructions', 'warrantyTerms'].includes(key)
+                            ? 2000
+                            : key === 'included'
+                              ? 1000
+                              : 300
+                        }
                         value={productDraft.config[key] || ''}
-                        onChange={(e) =>
+                        onChange={e =>
                           setProductDraft({
                             ...productDraft,
                             config: { ...productDraft.config, [key]: e.target.value },
                           })
                         }
-                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-normal text-neutral-800 focus:border-pink-500 focus:outline-none"
+                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-normal text-[#251D2C] focus:border-pink-500 focus:outline-none"
                       />
                     </label>
                   ))}
-                  <label className="text-xs font-bold text-neutral-700">
+                  <label className="text-xs font-bold text-[#251D2C]">
                     {t.apps.fulfillmentMode}
                     <select
                       value={productDraft.config.fulfillmentMode || ''}
-                      onChange={(e) =>
+                      onChange={e =>
                         setProductDraft({
                           ...productDraft,
                           config: { ...productDraft.config, fulfillmentMode: e.target.value, activationMethod: '' },
                         })
                       }
-                      className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                      className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                     >
                       <option value="">{t.apps.select}</option>
-                      {(['READY_ACCOUNT', 'ACTIVATION'] as const).map((key) => (
+                      {(['READY_ACCOUNT', 'ACTIVATION'] as const).map(key => (
                         <option key={key} value={key}>
                           {t.apps[key]}
                         </option>
@@ -1321,21 +1385,21 @@ export default function AdminPage() {
                     </select>
                   </label>
                   {productDraft.config.fulfillmentMode === 'ACTIVATION' && (
-                    <label className="text-xs font-bold text-neutral-700">
+                    <label className="text-xs font-bold text-[#251D2C]">
                       {t.apps.activationMethod}
                       <select
                         required
                         value={productDraft.config.activationMethod || ''}
-                        onChange={(e) =>
+                        onChange={e =>
                           setProductDraft({
                             ...productDraft,
                             config: { ...productDraft.config, activationMethod: e.target.value },
                           })
                         }
-                        className="mt-1 w-full rounded-xl border-2 border-pink-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 focus:border-pink-500 focus:outline-none"
+                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                       >
                         <option value="">{t.apps.select}</option>
-                        {(['INVITATION', 'LINK', 'VOUCHER'] as const).map((key) => (
+                        {(['INVITATION', 'LINK', 'VOUCHER'] as const).map(key => (
                           <option key={key} value={key}>
                             {t.apps[key]}
                           </option>
@@ -1343,11 +1407,11 @@ export default function AdminPage() {
                       </select>
                     </label>
                   )}
-                  <label className="flex items-center gap-2.5 text-xs font-bold text-neutral-800 sm:col-span-2">
+                  <label className="flex items-center gap-2.5 text-xs font-bold text-[#251D2C] sm:col-span-2">
                     <input
                       type="checkbox"
                       checked={productDraft.active}
-                      onChange={(e) => setProductDraft({ ...productDraft, active: e.target.checked })}
+                      onChange={e => setProductDraft({ ...productDraft, active: e.target.checked })}
                       className="h-4 w-4 accent-pink-600"
                     />
                     {t.apps.active}
@@ -1356,7 +1420,7 @@ export default function AdminPage() {
                     <button
                       type="submit"
                       disabled={editLoading}
-                      className="rounded-xl bg-pink-500 hover:bg-pink-600 px-5 py-2.5 text-xs font-black text-white shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                      className="rounded-xl bg-pink-600 hover:bg-pink-700 px-5 py-2.5 text-xs font-extrabold text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
                     >
                       {editLoading ? t.btnSavingEdit : t.apps.save}
                     </button>
@@ -1364,7 +1428,7 @@ export default function AdminPage() {
                       type="button"
                       disabled={editLoading}
                       onClick={() => setProductDraft(null)}
-                      className="rounded-xl border border-pink-200 bg-white hover:bg-neutral-50 px-4 py-2.5 text-xs font-bold text-neutral-700 transition cursor-pointer"
+                      className="rounded-xl border border-[#F1E4ED] bg-white hover:bg-pink-50 px-4 py-2.5 text-xs font-bold text-[#251D2C] transition cursor-pointer"
                     >
                       {t.apps.cancel}
                     </button>
@@ -1375,7 +1439,7 @@ export default function AdminPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
+                    <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
                       <th className="py-3 px-3 rounded-l-xl">{t.colProductName}</th>
                       <th className="py-3 px-3">{t.colProductPrice}</th>
                       <th className="py-3 px-3">{t.colProductCategory}</th>
@@ -1384,49 +1448,50 @@ export default function AdminPage() {
                       <th className="py-3 px-3 rounded-r-xl text-center">{t.colActions}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-pink-100">
+                  <tbody className="divide-y divide-[#F1E4ED]">
                     {productOptions.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-neutral-400 font-medium">
+                        <td colSpan={6} className="py-8 text-center text-[#756C7D] font-medium">
                           {productsLoading ? t.loadingProducts : t.emptyCatalog}
                         </td>
                       </tr>
                     ) : (
-                      productOptions.map((product) => {
+                      productOptions.map(product => {
                         const isEditing = productDraft?.id === product.id;
                         return (
-                          <tr key={product.id} className={`transition ${isEditing ? 'bg-pink-50/60' : 'hover:bg-pink-50/30'}`}>
+                          <tr key={product.id} className={`transition ${isEditing ? 'bg-pink-50/60' : 'hover:bg-[#FFF9FC]'}`}>
                             <td className="py-3 px-3">
-                              <div className="font-bold text-neutral-800">{product.name}</div>
-                              <div className="text-[11px] font-mono text-neutral-400">{product.slug}</div>
+                              <div className="font-bold text-[#251D2C]">{product.name}</div>
+                              <div className="text-[11px] font-mono text-[#756C7D]">{product.slug}</div>
                               {product.appsConfig && (
-                                <div className="text-[11px] text-neutral-500 mt-0.5">
-                                  {product.appsConfig.accountType} · {t.apps.days.replace('{days}', String(product.appsConfig.durationDays))}
+                                <div className="text-[11px] text-[#756C7D] mt-0.5">
+                                  {product.appsConfig.accountType} ·{' '}
+                                  {t.apps.days.replace('{days}', String(product.appsConfig.durationDays))}
                                 </div>
                               )}
                             </td>
                             <td className="py-3 px-3">
-                              <span className="font-black text-pink-600">{formatRupiah(product.price)}</span>
+                              <span className="font-extrabold text-pink-600">{formatRupiah(product.price)}</span>
                             </td>
                             <td className="py-3 px-3">
-                              <div className="text-neutral-700 font-medium">{product.category || '-'}</div>
-                              <div className="text-[11px] text-neutral-400">
+                              <div className="text-[#251D2C] font-medium">{product.category || '-'}</div>
+                              <div className="text-[11px] text-[#756C7D]">
                                 {product.appsConfig ? t.apps[product.appsConfig.fulfillmentMode] : t.apps.READY_ACCOUNT}
                               </div>
                             </td>
                             <td className="py-3 px-3 text-center">
                               <span
-                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black ${
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
                                   product.active
-                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-amber-50 text-amber-800 border border-amber-200'
                                 }`}
                               >
                                 {product.active ? t.apps.active : t.commerce.unavailable}
                               </span>
                             </td>
                             <td className="py-3 px-3 text-center">
-                              <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300">
+                              <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 {product.stockAvailable}
                               </span>
                             </td>
@@ -1452,7 +1517,7 @@ export default function AdminPage() {
                                   });
                                   setEditMessage('');
                                 }}
-                                className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-[10px] border border-pink-200 transition active:scale-95 cursor-pointer"
+                                className="px-3 py-1.5 bg-[#FFF9FC] hover:bg-pink-50 text-pink-700 font-bold rounded-lg text-[10px] border border-[#F1E4ED] transition cursor-pointer"
                               >
                                 {t.btnEdit}
                               </button>
@@ -1471,11 +1536,15 @@ export default function AdminPage() {
           {activeTab === 'orders' && (
             <div className="space-y-4">
               <div className="flex justify-end mb-2 gap-2">
-                {orderCursor !== null && <button disabled={ordersLoading} onClick={() => loadOrders(orderCursor)} className="text-xs font-bold text-pink-600">{t.loadMore}</button>}
+                {orderCursor !== null && (
+                  <button disabled={ordersLoading} onClick={() => loadOrders(orderCursor)} className="text-xs font-bold text-pink-600">
+                    {t.loadMore}
+                  </button>
+                )}
                 <button
                   onClick={() => loadOrders()}
                   disabled={ordersLoading}
-                  className="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold rounded-lg text-xs border border-pink-200 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="px-3.5 py-1.5 bg-[#FFF9FC] hover:bg-pink-50 text-pink-700 font-bold rounded-xl text-xs border border-[#F1E4ED] transition disabled:opacity-50 cursor-pointer"
                 >
                   {ordersLoading ? t.loadingOrders : t.btnRefreshTable}
                 </button>
@@ -1483,7 +1552,7 @@ export default function AdminPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
+                    <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
                       <th className="py-3 px-3 rounded-l-xl">{t.tblOrderInvoice}</th>
                       <th className="py-3 px-3">{t.tblOrderDate}</th>
                       <th className="py-3 px-3">{t.tblOrderCustomer}</th>
@@ -1492,98 +1561,100 @@ export default function AdminPage() {
                       <th className="py-3 px-3 rounded-r-xl text-center">{t.tblOrderStatus}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-pink-100">
+                  <tbody className="divide-y divide-[#F1E4ED]">
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-neutral-400 font-medium">
+                        <td colSpan={6} className="py-8 text-center text-[#756C7D] font-medium">
                           {ordersLoading ? t.loadingOrders : t.tblOrderEmpty}
                         </td>
                       </tr>
                     ) : (
-                      orders.map((order) => {
+                      orders.map(order => {
                         const otpDraftKey =
                           order.otp?.status === 'REQUESTED' && order.otp.requestId !== null
                             ? `${order.id}:${order.otp.requestId}`
                             : null;
                         return (
-                        <tr key={order.id} className="hover:bg-pink-50/30 transition">
-                          <td className="py-3 px-3 font-mono font-bold text-neutral-800">
-                            <div>{order.invoice}</div>
-                            <div className="text-[11px] font-normal text-neutral-500 mt-0.5">
-                              {t.regional.region}: {order.pricingRegion ? (t.regional[order.pricingRegion as Region] || order.pricingRegion) : t.regional.notAvailable} · {order.paymentMethod || t.regional.notAvailable}
-                            </div>
-                            <div className="text-[11px] font-normal text-neutral-400">
-                              {t.regional.payerCountry}: {t.regional.payerCountryUnavailable} · {t.regional.vpnCheck}: {t.regional.vpnUnassessed}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-neutral-500 whitespace-nowrap">
-                            {new Date(order.createdAt).toLocaleDateString('id-ID', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </td>
-                          <td className="py-3 px-3 text-neutral-700 font-medium">
-                            {order.customerEmail}
-                          </td>
-                          <td className="py-3 px-3 text-neutral-800 font-bold">
-                            {order.product?.name || '-'}
-                          </td>
-                          <td className="py-3 px-3 font-black text-pink-600">
-                            {formatMoney(order.totalAmount, order.currency, language)}
-                          </td>
-                          <td className="py-3 px-3 text-center space-y-1.5">
-                            <span
-                              className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase ${
-                                order.status === 'PAID'
-                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                  : order.status === 'PENDING'
-                                  ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                                  : 'bg-rose-100 text-rose-700 border border-rose-300'
-                              }`}
-                            >
-                              {order.status}
-                            </span>
-                            {order.otp && order.status === 'PAID' && (
-                              <div className="flex flex-col items-center gap-1 pt-1">
-                                {order.otp.status === 'REQUESTED' && (
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                                    ⏳ {t.adminOtpRequested}{order.otp.requestId ? ` #${order.otp.requestId}` : ''}
-                                  </span>
-                                )}
-                                {order.otp.status === 'DELIVERED' && (
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    ✓ {t.adminOtpDelivered}
-                                  </span>
-                                )}
-                                {otpDraftKey !== null && (
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      key={otpDraftKey}
-                                      type="text"
-                                      maxLength={24}
-                                      aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
-                                      placeholder={t.adminOtpPlaceholder}
-                                      value={otpInputs[otpDraftKey] || ''}
-                                      onChange={(e) => setOtpInputs(prev => ({ ...prev, [otpDraftKey]: e.target.value }))}
-                                      className="w-28 bg-white border border-pink-300 rounded-lg px-2 py-1 text-[11px] font-mono text-neutral-800 focus:outline-none focus:border-pink-500"
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={otpSendingId === order.id || !(otpInputs[otpDraftKey] || '').trim()}
-                                      onClick={() => handleSendOtp(order)}
-                                      className="px-2 py-1 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition active:scale-95 cursor-pointer"
-                                    >
-                                      {t.adminBtnSendOtp}
-                                    </button>
-                                  </div>
-                                )}
+                          <tr key={order.id} className="hover:bg-[#FFF9FC] transition">
+                            <td className="py-3 px-3 font-mono font-bold text-[#251D2C]">
+                              <div>{order.invoice}</div>
+                              <div className="text-[11px] font-sans font-normal text-[#756C7D] mt-0.5">
+                                {t.regional.region}:{' '}
+                                {order.pricingRegion
+                                  ? t.regional[order.pricingRegion as Region] || order.pricingRegion
+                                  : t.regional.notAvailable}{' '}
+                                · {order.paymentMethod || t.regional.notAvailable}
                               </div>
-                            )}
-                          </td>
-                        </tr>
+                              <div className="text-[11px] font-sans font-normal text-[#756C7D]">
+                                {t.regional.payerCountry}: {t.regional.payerCountryUnavailable} · {t.regional.vpnCheck}:{' '}
+                                {t.regional.vpnUnassessed}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-[#756C7D] whitespace-nowrap">
+                              {new Date(order.createdAt).toLocaleDateString('id-ID', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </td>
+                            <td className="py-3 px-3 text-[#251D2C] font-medium">{order.customerEmail}</td>
+                            <td className="py-3 px-3 text-[#251D2C] font-bold">{order.product?.name || '-'}</td>
+                            <td className="py-3 px-3 font-extrabold text-pink-600">
+                              {formatMoney(order.totalAmount, order.currency, language)}
+                            </td>
+                            <td className="py-3 px-3 text-center space-y-1.5">
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase ${
+                                  order.status === 'PAID'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : order.status === 'PENDING'
+                                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {order.status}
+                              </span>
+                              {order.otp && order.status === 'PAID' && (
+                                <div className="flex flex-col items-center gap-1 pt-1">
+                                  {order.otp.status === 'REQUESTED' && (
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                      ⏳ {t.adminOtpRequested}
+                                      {order.otp.requestId ? ` #${order.otp.requestId}` : ''}
+                                    </span>
+                                  )}
+                                  {order.otp.status === 'DELIVERED' && (
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      ✓ {t.adminOtpDelivered}
+                                    </span>
+                                  )}
+                                  {otpDraftKey !== null && (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        key={otpDraftKey}
+                                        type="text"
+                                        maxLength={24}
+                                        aria-label={`${t.adminOtpPlaceholder} ${order.invoice}`}
+                                        placeholder={t.adminOtpPlaceholder}
+                                        value={otpInputs[otpDraftKey] || ''}
+                                        onChange={e => setOtpInputs(prev => ({ ...prev, [otpDraftKey]: e.target.value }))}
+                                        className="w-28 bg-white border border-[#F1E4ED] rounded-lg px-2 py-1 text-[11px] font-mono text-[#251D2C] focus:outline-none focus:border-pink-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={otpSendingId === order.id || !(otpInputs[otpDraftKey] || '').trim()}
+                                        onClick={() => handleSendOtp(order)}
+                                        className="px-2.5 py-1 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bold rounded-lg text-[10px] transition cursor-pointer"
+                                      >
+                                        {t.adminBtnSendOtp}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
                         );
                       })
                     )}
@@ -1595,27 +1666,38 @@ export default function AdminPage() {
         </div>
 
         {ordersError && (
-          <p role="alert" className="text-rose-700 bg-white p-3">
+          <p role="alert" className="text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs font-bold">
             {ordersError === 'UNAUTHORIZED'
               ? t.regional.adminSessionExpired
               : ordersError === 'OTP_REFRESH_REQUIRED'
-              ? t.adminOtpRefreshRequired
-              : t.regional.adminLoadError}
+                ? t.adminOtpRefreshRequired
+                : t.regional.adminLoadError}
           </p>
         )}
-        {pageError && <p role="alert" className="text-rose-700 bg-white p-3">{t.errSystem}</p>}
+        {pageError && (
+          <p role="alert" className="text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs font-bold">
+            {t.errSystem}
+          </p>
+        )}
+
         {/* Card Tabel Stok */}
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-8 rounded-3xl border-3 sm:border-4 border-pink-300 shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-pink-100">
+        <div className="bg-white p-5 sm:p-8 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] overflow-hidden">
+          <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-[#F1E4ED]">
             <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-800">{t.adminTitle}</h2>
-              <p className="text-[11px] text-neutral-400">{t.totalData} {stocks.length}</p>
-              {stockCursor !== null && <button disabled={stocksLoading} onClick={() => refreshStocks(stockCursor)} className="text-xs font-bold text-pink-600">{t.loadMore}</button>}
+              <h2 className="text-base sm:text-lg font-extrabold text-[#251D2C]">{t.adminTitle}</h2>
+              <p className="text-[11px] text-[#756C7D]">
+                {t.totalData} {stocks.length}
+              </p>
+              {stockCursor !== null && (
+                <button disabled={stocksLoading} onClick={() => refreshStocks(stockCursor)} className="text-xs font-bold text-pink-600">
+                  {t.loadMore}
+                </button>
+              )}
             </div>
             <button
               disabled={stocksLoading}
               onClick={() => refreshStocks()}
-              className="text-xs font-bold text-pink-600 hover:text-pink-700 bg-pink-50 px-3 py-1 rounded-xl border border-pink-200 transition"
+              className="text-xs font-bold text-pink-700 hover:bg-pink-50 bg-[#FFF9FC] px-3.5 py-1.5 rounded-xl border border-[#F1E4ED] transition cursor-pointer"
             >
               {t.btnRefreshTable}
             </button>
@@ -1624,43 +1706,37 @@ export default function AdminPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b-2 border-pink-100 text-pink-800 uppercase text-[10px] tracking-wider bg-pink-50/60">
+                <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
                   <th className="py-3 px-3 rounded-l-xl">{t.tblProduct}</th>
                   <th className="py-3 px-3">{t.tblEmail}</th>
                   <th className="py-3 px-3">{t.tblProfile}</th>
                   <th className="py-3 px-3 rounded-r-xl text-center">{t.tblStatus}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-pink-100">
+              <tbody className="divide-y divide-[#F1E4ED]">
                 {stocks.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-neutral-400 font-medium">
+                    <td colSpan={4} className="py-8 text-center text-[#756C7D] font-medium">
                       {t.tblEmpty}
                     </td>
                   </tr>
                 ) : (
-                  stocks.map((item) => (
-                    <tr key={item.id} className="hover:bg-pink-50/40 transition">
+                  stocks.map(item => (
+                    <tr key={item.id} className="hover:bg-[#FFF9FC] transition">
                       <td className="py-3 px-3">
-                        <div className="font-bold text-neutral-800">{item.product.name}</div>
-                        <div className="text-[11px] font-black text-pink-600">
-                          {formatRupiah(item.product.price)}
-                        </div>
+                        <div className="font-bold text-[#251D2C]">{item.product.name}</div>
+                        <div className="text-[11px] font-extrabold text-pink-600">{formatRupiah(item.product.price)}</div>
                       </td>
-                      <td className="py-3 px-3 font-mono text-neutral-700 font-medium">
-                        {t.credentialsHidden}
-                      </td>
-                      <td className="py-3 px-3 text-neutral-600">
-                        {item.profileName || '-'}
-                      </td>
+                      <td className="py-3 px-3 font-mono text-[#756C7D] font-medium">{t.credentialsHidden}</td>
+                      <td className="py-3 px-3 text-[#756C7D]">{item.profileName || '-'}</td>
                       <td className="py-3 px-3 text-center">
                         <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase ${
+                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase ${
                             item.status === 'READY'
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : item.status === 'LOCKED'
-                              ? 'bg-amber-100 text-amber-700 border border-amber-300 animate-pulse'
-                              : 'bg-neutral-100 text-neutral-500 border border-neutral-300'
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200 animate-pulse'
+                                : 'bg-neutral-100 text-neutral-500 border border-neutral-200'
                           }`}
                         >
                           {item.status}
@@ -1673,28 +1749,32 @@ export default function AdminPage() {
             </table>
           </div>
         </div>
+
         {reauthOpen && (
           <AdminDialog
             title={t.apps.reauth}
             busy={editLoading}
-            onClose={() => { setReauthOpen(false); setReauthPassword(''); }}
+            onClose={() => {
+              setReauthOpen(false);
+              setReauthPassword('');
+            }}
           >
             <form onSubmit={handleReauth} className="space-y-4">
-              <label className="block text-xs font-bold text-neutral-700">
+              <label className="block text-xs font-bold text-[#251D2C]">
                 {t.apps.password}
                 <input
                   required
                   type="password"
                   autoComplete="current-password"
                   value={reauthPassword}
-                  onChange={(e) => setReauthPassword(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border-2 border-pink-200 px-3 py-2 text-xs text-neutral-800 focus:border-pink-500 focus:outline-none"
+                  onChange={e => setReauthPassword(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-3 py-2.5 text-xs text-[#251D2C] focus:border-pink-500 focus:outline-none"
                 />
               </label>
               <button
                 type="submit"
                 disabled={editLoading}
-                className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-black text-white transition cursor-pointer"
+                className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-extrabold text-white transition cursor-pointer"
               >
                 {t.apps.reauth}
               </button>
