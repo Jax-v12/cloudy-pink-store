@@ -19,7 +19,7 @@ function ServiceArt({ method }: { method: RobloxMethodKey }) {
     LOGIN: 'M8 10V7a4 4 0 0 1 8 0v3 M6 10h12v11H6z M12 14v3',
     GIFT_USERNAME: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
   };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" className="h-9 w-9 shrink-0 text-[#756C7D]"><path d={paths[method]} /></svg>;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" className="h-9 w-9 shrink-0 text-[var(--text-secondary)]"><path d={paths[method]} /></svg>;
 }
 
 export default function RobloxServiceCards({ products, region }: { products: Product[]; region: Region | null }) {
@@ -35,7 +35,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
         <h2 id="method-comparison-title" className="text-base sm:text-xl font-extrabold text-[#251D2C]">
           {comparison.title}
         </h2>
-        <p className="text-xs sm:text-sm leading-relaxed text-[#756C7D]">{comparison.intro}</p>
+        <p className="text-xs sm:text-sm leading-relaxed text-[var(--text-secondary)]">{comparison.intro}</p>
       </div>
 
       <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-3">
@@ -58,19 +58,17 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                   : 'border-[#F1E4ED] bg-white/95 opacity-95'
               }`}
             >
-              <div className="relative flex items-center justify-between gap-3 border-b border-[#F1E4ED]/70 bg-white px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-block rounded-lg border border-pink-200 bg-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-600">
-                      {t.roblox[method]}
-                    </span>
-                    <span className="text-xs font-semibold text-[#756C7D]">· {tag[method]}</span>
-                  </div>
-                  <h3 className="mt-1.5 text-lg font-extrabold leading-tight text-[#251D2C] sm:text-2xl">
+              <div className="relative flex items-start justify-between gap-3 border-b border-[#F1E4ED]/70 bg-white px-4 pt-4 pb-3 sm:px-5 sm:pt-5 lg:min-h-32">
+                <div className="min-w-0 flex-1">
+                  <span className="inline-block rounded-lg border border-pink-200 bg-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-600">
+                    {t.roblox[method]}
+                  </span>
+                  <h3 className="mt-1.5 text-lg font-extrabold leading-tight text-[#251D2C] sm:text-xl">
                     {f[method]}
                   </h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">{tag[method]}</p>
                 </div>
-                <div className="-mr-1 shrink-0 transition duration-200 group-hover:scale-105">
+                <div className="-mr-1 shrink-0 pt-1">
                   <ServiceArt method={method} />
                 </div>
               </div>
@@ -78,7 +76,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
               <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5">
                 <div className="space-y-3">
                   {eligible.length > 1 && (
-                    <label className="block text-xs font-bold text-[#756C7D]">
+                    <label className="block text-xs font-bold text-[var(--text-secondary)]">
                       {t.commerce.product}
                       <select
                         className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-2.5 text-sm font-semibold text-[#251D2C] focus:border-pink-500 focus:outline-none"
@@ -102,7 +100,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                         </p>
                         <p className="mt-0.5 text-base sm:text-lg font-extrabold text-[#251D2C]">
                           {price}{' '}
-                          <span className="text-xs sm:text-sm font-semibold text-[#756C7D]">
+                          <span className="text-xs sm:text-sm font-semibold text-[var(--text-secondary)]">
                             / {rate.units} Robux
                           </span>
                         </p>
@@ -122,7 +120,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                   )}
 
                   {(!ready || !product) && (
-                    <div className="flex items-center gap-2.5 rounded-2xl border border-dashed border-[#F1E4ED] bg-[#FFF9FC] px-3.5 py-3 text-xs sm:text-sm font-medium text-[#756C7D]">
+                    <div className="flex items-center gap-2.5 rounded-2xl border border-dashed border-[#F1E4ED] bg-[#FFF9FC] px-3.5 py-3 text-xs sm:text-sm font-medium text-[var(--text-secondary)]">
                       <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" aria-hidden="true" />
                       <p>
                         {!region
@@ -137,7 +135,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                   )}
                 </div>
 
-                <details className="store-disclosure group/details mt-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/70 text-xs sm:text-sm text-[#756C7D]">
+                <details className="store-disclosure group/details mt-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/70 text-xs sm:text-sm text-[var(--text-secondary)]">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 font-bold text-[#251D2C] transition-colors hover:bg-pink-50 hover:text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
                     <span>{comparison.detailsSummary}</span>
                     <span
@@ -151,7 +149,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                     {(['requirements', 'process', 'timing'] as const).map(field => (
                       <div key={field}>
                         <dt className="font-bold text-[#251D2C]">{comparison[field]}</dt>
-                        <dd className="mt-0.5 text-[#756C7D]">{comparison[method][field]}</dd>
+                        <dd className="mt-0.5 text-[var(--text-secondary)]">{comparison[method][field]}</dd>
                       </div>
                     ))}
                   </dl>
@@ -162,7 +160,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
         })}
       </div>
 
-      <p className="mt-4 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:p-4 text-xs sm:text-sm leading-relaxed text-[#756C7D]">
+      <p className="mt-4 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:p-4 text-xs sm:text-sm leading-relaxed text-[var(--text-secondary)]">
         {comparison.notice}
       </p>
     </section>

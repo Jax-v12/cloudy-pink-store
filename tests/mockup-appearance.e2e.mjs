@@ -7,7 +7,8 @@ import { translations } from '../src/lib/translations.ts';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.TEST_RENDERER_URL || 'http://127.0.0.1:3144';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
-const output = path.resolve('.cache/mockup-implementation-20261028/browser');
+const output = path.resolve('.cache/storefront-polish-20261029/browser');
+const selectedCase = process.argv.find(arg => arg.startsWith('--case='))?.slice(7);
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const results = [];
@@ -17,10 +18,11 @@ const config = { version: 1, appGroup: 'Fixture App', accountType: 'Individual',
 const apps = [{ id: 10, name: 'Fixture Premium', slug: 'fixture-premium', category: 'Fixture', price: 15000,
   stockAvailable: 1, checkoutEnabled: true, appsConfig: config }];
 const products = [{ id: 1, slug: 'fixture', name: 'Fixture Roblox', checkoutEnabled: true,
-  variants: [100, 200, 400, 800].map((units, index) => ({ id: index + 1, name: `${units} Robux`, units, price: units * 85, method: 'LOGIN' })) }];
+  variants: [100, 200, 400, 800].map((units, index) => ({ id: index + 1, name: index === 3 ? 'Fixture special package' : `${units} Robux`, units, price: units * 85, method: 'LOGIN' })) }];
 const qr = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="224" height="224"><rect width="224" height="224" fill="white"/><rect x="20" y="20" width="184" height="184" fill="black"/><rect x="35" y="35" width="154" height="154" fill="white"/><text x="112" y="120" text-anchor="middle" font-size="24">FIXTURE</text></svg>');
 try {
   for (const [width, height] of [[375, 812], [810, 1080], [1440, 900]]) for (const locale of ['ID', 'EN', 'MY']) {
+    if (selectedCase && selectedCase !== `${width} ${locale}`) continue;
     const context = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' });
     await context.addInitScript(value => localStorage.setItem('store_lang', value), locale);
     const errors = [], unexpected = [];
@@ -56,6 +58,17 @@ try {
       assert.deepEqual(errors, [], 'browser errors');
       assert.deepEqual(unexpected, [], 'unexpected request');
       assert.equal(await page.locator('main img').evaluateAll(images => images.some(image => !image.complete || !image.naturalWidth)), false, 'broken image');
+      const contact = page.getByRole('link', { name: translations[locale].contactAdmin, exact: true });
+      if (width < 640 && await contact.count()) {
+        assert.equal(await contact.evaluate(el => {
+          const button = el.getBoundingClientRect();
+          return [...document.querySelectorAll('article, a.group')].some(card => {
+            const box = card.getBoundingClientRect();
+            return button.left < box.right && button.right > box.left && button.top < box.bottom && button.bottom > box.top;
+          });
+        }), false, 'mobile contact link must not cover product or service cards');
+        assert.ok((await contact.boundingBox()).height >= 44, 'contact touch target');
+      }
       await page.screenshot({ path: path.join(output, `${name}-${width}-${locale}.png`), fullPage: true });
       results.push({ name: `${name} ${width} ${locale}`, status: 'PASS' });
     };
@@ -65,10 +78,14 @@ try {
       await page.locator('form').getByRole('button').click();
       await page.waitForURL('**/order/INV-FIXTURE-DESIGN');
       await page.getByRole('button', { name: translations[locale].btnDownloadQris }).waitFor();
+      assert.equal(await page.locator('img[alt="QRIS Barcode"]').evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('#order-progress-title')) & Node.DOCUMENT_POSITION_FOLLOWING)), true, 'pending QRIS must precede delivery progress in reading order');
       await capture('invoice-pending');
       for (const state of ['PAID', 'COMPLETED']) {
         invoiceState = state; await page.reload();
         await page.getByRole('heading', { name: translations[locale].serviceHelp.progress.title }).waitFor();
+        const progressY = await page.locator('#order-progress-title').evaluate(el => el.getBoundingClientRect().top);
+        const invoiceY = await page.getByText('INV-FIXTURE-DESIGN', { exact: true }).evaluate(el => el.getBoundingClientRect().top);
+        assert.ok(progressY < invoiceY, 'paid delivery progress must precede invoice details');
         assert.equal(await page.getByRole('button', { name: translations[locale].btnDownloadQris }).count(), 0);
         await capture('invoice-' + state.toLowerCase());
       }
@@ -79,6 +96,8 @@ try {
       await page.goto(base + '/roblox/fixture?method=LOGIN');
       const packages = page.locator('input[name=package]'); await packages.first().waitFor();
       assert.equal(await packages.count(), 4);
+      assert.equal(await page.getByText('100 Robux', { exact: true }).count(), 1, 'package amount should appear once');
+      assert.equal(await page.getByText('Fixture special package', { exact: true }).count(), 1, 'distinct package names must remain visible');
       if (width >= 640) {
         const cards = await packages.evaluateAll(inputs => inputs.map(input => input.closest('label').getBoundingClientRect().top));
         assert.equal(cards[0], cards[1]); assert.equal(cards[1], cards[2]); assert.ok(cards[3] > cards[2], 'three columns');

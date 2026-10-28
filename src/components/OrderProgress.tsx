@@ -18,7 +18,7 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
   const needsAttention = progress.stage === null || progress.message === 'waitingCustomer';
 
   return (
-    <section aria-labelledby="order-progress-title" className="mb-6 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5">
+    <section aria-labelledby="order-progress-title" className="mb-6 border-b border-[#F1E4ED] pb-6">
       <h2 id="order-progress-title" className="text-sm sm:text-base font-extrabold text-[#251D2C]">
         {copy.title}
       </h2>
@@ -36,7 +36,7 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
                     ? 'border-pink-600 bg-white text-[#251D2C] ring-1 ring-pink-600 shadow-2xs'
                     : done
                       ? 'border-emerald-200 bg-emerald-50/80 text-emerald-900'
-                      : 'border-[#F1E4ED] bg-white/70 text-[#756C7D]'
+                      : 'border-[#F1E4ED] bg-white/70 text-[var(--text-secondary)]'
                 }`}
               >
                 <span
@@ -46,7 +46,7 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
                       ? 'bg-pink-600 text-white'
                       : done
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-[#F1E4ED] text-[#756C7D]'
+                        : 'bg-[#F1E4ED] text-[var(--text-secondary)]'
                   }`}
                 >
                   {done ? '✓' : index + 1}
@@ -62,10 +62,10 @@ export default function OrderProgress({ order }: { order: Parameters<typeof orde
       )}
       <p
         role="status"
-        className={`mt-3.5 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
+        className={`mt-3.5 text-sm leading-relaxed ${
           needsAttention
-            ? 'border-amber-200 bg-amber-50/90 text-amber-950 font-medium'
-            : 'border-[#F1E4ED] bg-white text-[#251D2C]'
+            ? 'rounded-xl border border-amber-200 bg-amber-50/90 p-3 text-amber-950 font-medium'
+            : 'text-[#251D2C]'
         }`}
       >
         {message}

@@ -168,7 +168,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
             {t.roblox.LOGIN}
           </span>
           <h1 className="mt-2.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">{l[stage]}</h1>
-          <p className="mt-2 text-sm sm:text-base text-[#756C7D]">
+          <p className="mt-2 text-sm sm:text-base text-[var(--text-secondary)]">
             {stage === 'account' ? l.accountIntro : stage === 'summary' ? l.summaryIntro : l.intro}
           </p>
           <ol aria-label={t.commerce.status} className="mt-5 grid grid-cols-3 gap-2 border-t border-[#F1E4ED] pt-4">
@@ -185,13 +185,13 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                       ? 'border-pink-600 bg-pink-50/80 font-extrabold text-[#251D2C] ring-1 ring-pink-600'
                       : done
                         ? 'border-pink-200 bg-[#FFF9FC] font-bold text-pink-800'
-                        : 'border-[#F1E4ED] bg-white text-[#756C7D]'
+                        : 'border-[#F1E4ED] bg-white text-[var(--text-secondary)]'
                   }`}
                 >
                   <span
                     aria-hidden="true"
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${
-                      current ? 'bg-pink-600 text-white' : done ? 'bg-pink-200 text-pink-800' : 'bg-[#F1E4ED] text-[#756C7D]'
+                      current ? 'bg-pink-600 text-white' : done ? 'bg-pink-200 text-pink-800' : 'bg-[#F1E4ED] text-[var(--text-secondary)]'
                     }`}
                   >
                     {done ? '✓' : index + 1}
@@ -292,7 +292,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
         ) : stage === 'packages' ? (
           <section className={panel}>
             {(!variants.some(v => v.price !== null) || !region) && (
-              <p role="status" className="mb-4 text-sm font-medium text-[#756C7D]">
+              <p role="status" className="mb-4 text-sm font-medium text-[var(--text-secondary)]">
                 {t.roblox.noPackages}
               </p>
             )}
@@ -315,9 +315,11 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                     disabled={busy || v.price === null || !region || (checkout.attempt?.selectionLocked && v.id !== checkout.attempt.variantId)}
                     onChange={() => setDraft(old => ({ ...old, variantId: v.id }))}
                   />
-                  <RobuxIcon className={`mb-3 h-7 w-7 ${v.id === draft.variantId ? 'text-pink-600' : 'text-[#756C7D]'}`} />
+                  <RobuxIcon className={`mb-3 h-7 w-7 ${v.id === draft.variantId ? 'text-pink-600' : 'text-[var(--text-secondary)]'}`} />
                   <span className="block text-xl font-extrabold text-[#251D2C]">{v.units} Robux</span>
-                  <span className="mt-1.5 block break-words text-xs sm:text-sm font-medium text-[#756C7D]">{v.name}</span>
+                  {v.name.trim().toLowerCase() !== `${v.units} robux` && (
+                    <span className="mt-1.5 block break-words text-sm font-medium text-[var(--text-secondary)]">{v.name}</span>
+                  )}
                   <strong className="mt-3 block break-words text-base sm:text-lg font-extrabold text-pink-600">
                     {v.price === null ? l.unavailable : money(v.price)}
                   </strong>
@@ -474,7 +476,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 )}
               </div>
             </div>
-            <p id="login-phone-help" className="text-xs sm:text-sm text-[#756C7D]">
+            <p id="login-phone-help" className="text-xs sm:text-sm text-[var(--text-secondary)]">
               {l.phoneHelp}
             </p>
             {fieldErrors.whatsapp && (
@@ -490,7 +492,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                   <span>{l.backupGuideTitle}</span>
                   <span aria-hidden="true" className="transition-transform duration-200 group-open/guide:rotate-180">▾</span>
                 </summary>
-                <ol className="mt-2.5 list-decimal space-y-1.5 pl-5 text-[#756C7D]">
+                <ol className="mt-2.5 list-decimal space-y-1.5 pl-5 text-[var(--text-secondary)]">
                   {l.backupGuideSteps.map(step => (
                     <li key={step}>{step}</li>
                   ))}
@@ -516,7 +518,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                   </label>
                 ))}
               </div>
-              <p id="login-backup-help" className="text-xs sm:text-sm text-[#756C7D]">
+              <p id="login-backup-help" className="text-xs sm:text-sm text-[var(--text-secondary)]">
                 {l.backupHelp}
               </p>
               {fieldErrors.backupCodes && (
@@ -526,7 +528,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               )}
             </fieldset>
 
-            <p className="text-xs sm:text-sm text-[#756C7D]">{l.contactPurpose}</p>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{l.contactPurpose}</p>
             <div className="flex flex-wrap gap-3">
               <Link
                 href={base + '?method=LOGIN'}
@@ -542,7 +544,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
         ) : (
           <section className={`${panel} space-y-5`}>
             <p className="rounded-2xl border border-pink-200 bg-pink-50/80 p-4 text-sm font-medium text-[#251D2C]">{l.accessSummary}</p>
-            <dl className="divide-y divide-[#F1E4ED] rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2 text-sm text-[#756C7D]">
+            <dl className="divide-y divide-[#F1E4ED] rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2 text-sm text-[var(--text-secondary)]">
               {[
                 [l.method, t.roblox.LOGIN],
                 [l.amount, `${variant.units} Robux`],
@@ -579,7 +581,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
             )}
             <RegionalPaymentSummary region={region} quote={quote.quote} />
             {quote.loading && (
-              <p role="status" className="text-sm text-[#756C7D]">
+              <p role="status" className="text-sm text-[var(--text-secondary)]">
                 {t.regional.quoteLoading}
               </p>
             )}

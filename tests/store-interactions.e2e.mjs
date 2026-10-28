@@ -97,6 +97,9 @@ try {
         assert.ok((await summary.boundingBox()).height >= 44, 'dropdown touch target must be at least 44px tall');
         // Focus can scroll an off-screen disclosure; compare document positions, not viewport positions.
         const before = await cards.evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().y + window.scrollY })));
+        if (viewport.width >= 1024) {
+          for (const index of [1, 2]) assert.ok(Math.abs(before[index].height - before[0].height) < 1, 'collapsed desktop cards must have equal height');
+        }
         await summary.focus(); await f.page.keyboard.press('Enter');
         await f.page.waitForFunction(() => document.querySelector('article details')?.open);
         await f.page.waitForTimeout(300);

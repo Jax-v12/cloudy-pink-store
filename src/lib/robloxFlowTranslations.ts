@@ -1,6 +1,6 @@
 const en = {
   choose: 'Choose your way to get Robux', intro: 'Three ways to top up. Pick the one that suits you.', buy: 'Get started',
-  GAMEPASS: 'Robux Gamepass', LOGIN: 'Robux via Login', GIFT_USERNAME: 'Robux Username',
+  GAMEPASS: 'Robux via Gamepass', LOGIN: 'Robux via Login', GIFT_USERNAME: 'Robux via Username',
   passTag: 'No account login', loginTag: 'Handled by our team', giftTag: 'Just your username',
   noPassword: 'No password needed', taxIncluded: 'Net Robux, with the fee calculated for you', pending: 'Roblox pending starts after the Gamepass purchase',
   verification: 'Support for account verification',
@@ -25,7 +25,7 @@ const en = {
 type Copy = typeof en;
 const id: Copy = {
   choose: 'Pilih cara kamu mendapatkan Robux', intro: 'Tiga cara top-up. Pilih yang paling cocok buat kamu.', buy: 'Beli sekarang',
-  GAMEPASS: 'Robux Gamepass', LOGIN: 'Robux Via Login', GIFT_USERNAME: "Robux Nama pengguna",
+  GAMEPASS: 'Robux via Gamepass', LOGIN: 'Robux via Login', GIFT_USERNAME: 'Robux via Username',
   passTag: 'Tanpa login akun', loginTag: 'Ditangani tim kami', giftTag: "Cukup nama pengguna",
   noPassword: "Tanpa kata sandi", taxIncluded: 'Robux bersih, pajak dihitung otomatis', pending: 'Pending Roblox dimulai setelah Gamepass dibeli',
   verification: 'Bantuan untuk verifikasi akun',
@@ -49,7 +49,7 @@ const id: Copy = {
 };
 const my: Copy = {
   choose: 'Pilih cara anda mendapatkan Robux', intro: 'Tiga cara tambah nilai. Pilih yang sesuai untuk anda.', buy: 'Beli sekarang',
-  GAMEPASS: 'Robux Gamepass', LOGIN: 'Robux Melalui Log Masuk', GIFT_USERNAME: 'Robux Nama Pengguna',
+  GAMEPASS: 'Robux via Gamepass', LOGIN: 'Robux via Login', GIFT_USERNAME: 'Robux via Username',
   passTag: 'Tanpa log masuk akaun', loginTag: 'Diurus pasukan kami', giftTag: 'Hanya nama pengguna',
   noPassword: 'Tanpa kata laluan', taxIncluded: 'Robux bersih, potongan dikira automatik', pending: 'Pending Roblox bermula selepas Gamepass dibeli',
   verification: 'Bantuan pengesahan akaun',

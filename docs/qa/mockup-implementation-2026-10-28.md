@@ -48,3 +48,18 @@ Use the existing external Playwright installation via `PLAYWRIGHT_MODULE`, set `
 ## Publication authorization
 
 After reviewing the implementation, the owner explicitly requested pushing this change to `main` for viewing. Release scope is the selected UI/source/assets/tests and this QA handoff on the existing Git origin and linked Vercel project. Preflight confirmed local and remote `main` at `f948e477e704923266fe90db9ef8f21083d2628c`, linked project `cloudy-pink-store`, and unchanged local verification evidence above. Other local files remain excluded. No DB/provider/configuration changes are authorized or required. Commit/push/deployment results must be verified separately after publication.
+
+## Verified publication result (local evidence follow-up)
+
+- Commit `7a40eedc14ab72823cb26329d1be8fc77c54ce3b` pushed successfully to `origin/main`; remote HEAD matches. Only 19 explicit task files were staged, reviewed and checked for whitespace/forbidden paths/high-confidence secret patterns. Existing unrelated work remains local.
+- GitHub reported the repository moved to `Jax-v12/cloudy-pink-store`; push through the configured origin succeeded. Remote configuration was not changed.
+- Production deployment `dpl_64eU95bAF6ngMnEwF8RveTPnt6C9` is **READY**, with the matching commit, expected project ID, and assigned primary alias [cloudy-pink-store.vercel.app](https://cloudy-pink-store.vercel.app).
+- Authenticated Vercel MCP returned scope HTTP 403. Existing Vercel CLI 65.4.0 confirmed the correct `jax-v12/cloudy-pink-store` project and read deployment metadata without changing configuration or creating another deployment.
+- Public read-only smoke: **18 PASS / 0 FAIL**, home/Apps/games/Roblox/help/privacy at all three required viewports. No page errors/overflow, current logo verified, Roblox disclosure keyboard checks passed. Non-read and off-origin requests were blocked; no customer order, provider transaction or direct DB access.
+- Release identity, logs and screenshots are under `.cache/mockup-implementation-20261028/`. This follow-up is local documentation after the source push, avoiding a redundant deployment for evidence alone.
+
+## Local card-alignment follow-up
+
+The owner's subsequent screenshot exposed unequal closed-card heights: the long Username heading and inline badge/tag wrapped differently. The added desktop equal-height regression reproduced the issue before the fix (1440 MY, 0 PASS / 1 FAIL). Header tags now have their own line, headings use a smaller size and desktop headers reserve a consistent minimum height without clipping text. Card containers still use `items-start`, so opening one disclosure does not stretch neighbouring cards.
+
+Final verification: interaction suite **20 PASS / 0 FAIL**, including ID/EN/MY and all three required viewports, isolated production build/typecheck PASS, focused ESLint PASS, whitespace PASS. Separate single-product fixture geometry at 1024 and 1440 confirms identical closed-card heights and buy-button document positions; 375 stacks without overflow. Screenshot `card-aligned-1440.png` and red/green/build logs are in the existing local evidence directory. This follow-up remains uncommitted and unpublished; Production remains at `7a40eed`.

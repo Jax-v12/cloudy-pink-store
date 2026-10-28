@@ -328,7 +328,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <button
               onClick={() => setLanguage('ID')}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
               ID
@@ -336,7 +336,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <button
               onClick={() => setLanguage('MY')}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
               MY
@@ -344,7 +344,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <button
               onClick={() => setLanguage('EN')}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
+                language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
               EN
@@ -356,7 +356,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1E4ED] gap-2.5 mb-6">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#251D2C]">{t.orderTitle}</h1>
-              <p className="text-xs sm:text-sm text-[#756C7D] mt-0.5">
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
                 {order.type === 'APPS'
                   ? order.appsSnapshot?.fulfillmentMode === 'ACTIVATION'
                     ? t.apps.ACTIVATION
@@ -387,17 +387,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </span>
           </div>
 
-          <div className="bg-[#FFF9FC] p-4 sm:p-5 rounded-2xl border border-[#F1E4ED] space-y-2.5 mb-6 text-xs sm:text-sm">
+          {order.status !== 'PENDING' && <OrderProgress order={order} />}
+
+          <div className="space-y-2.5 mb-6 text-sm">
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
-              <span className="text-[#756C7D] font-medium">{t.invoiceLabel}</span>
+              <span className="text-[var(--text-secondary)] font-medium">{t.invoiceLabel}</span>
               <span className="min-w-0 break-all sm:text-right font-mono font-bold text-[#251D2C]">{order.invoice}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-[#756C7D] font-medium">{t.productLabel}</span>
+              <span className="text-[var(--text-secondary)] font-medium">{t.productLabel}</span>
               <span className="font-bold text-[#251D2C] text-right">{order.product.name}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-[#756C7D] font-medium">{t.paymentMethodLabel}</span>
+              <span className="text-[var(--text-secondary)] font-medium">{t.paymentMethodLabel}</span>
               <span className="font-bold text-[#251D2C]">{order.paymentMethod}</span>
             </div>
             {order.type !== 'ROBLOX' && <div className="flex justify-between items-baseline pt-3 border-t border-[#F1E4ED] text-sm sm:text-base">
@@ -407,7 +409,49 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
 
-          <OrderProgress order={order} />
+          {/* PENDING QRIS */}
+          {order.status === 'PENDING' &&
+            (order.qrisUrl ? (
+              <div className="mb-6 border-y border-[#F1E4ED] py-5 text-center space-y-4">
+                <div>
+                  <h2 className="text-sm sm:text-base font-extrabold text-[#251D2C]">{t.scanNoticeTitle}</h2>
+                  <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto mt-1">{t.scanNoticeSubtitle}</p>
+                  {formatQrCountdown(order.expiresAt, now) && (
+                    <div className="mt-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold">
+                        ⏱️ {t.qrActiveTimer}:{' '}
+                        <span className="font-mono text-pink-700">{formatQrCountdown(order.expiresAt, now)}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="inline-block max-w-full bg-white p-3">
+                  <img src={order.qrisUrl} alt="QRIS Barcode" width={224} height={224} className="w-56 max-w-full h-auto aspect-square object-contain mx-auto" />
+                </div>
+
+                <div className="flex justify-center max-w-xs mx-auto">
+                  <button
+                    disabled={downloading}
+                    onClick={downloadQrisImage}
+                    className="w-full py-2.5 px-4 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {downloading ? t.btnProcessing : t.btnDownloadQris}
+                  </button>
+                </div>
+
+                {downloadError && <p className="text-xs text-rose-600 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>}
+
+                <p className="text-sm text-[var(--text-secondary)] mt-2">{t.autoCheckNotice}</p>
+              </div>
+            ) : (
+              <div className="text-center p-6 bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl space-y-2 mb-6" role="status">
+                <p className="text-xs font-extrabold text-[#251D2C] uppercase tracking-wide">{t.statusWaiting}</p>
+                <p className="text-xs text-[#251D2C] leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
+              </div>
+            ))}
+
+          {order.status === 'PENDING' && <OrderProgress order={order} />}
           {order.type === 'APPS' && <AppsOrderPanel order={order} now={now} refresh={() => setAppsRevision(n => n + 1)} />}
 
           {showFulfillmentDetails(order) && (
@@ -438,7 +482,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               {order.robloxDetail?.method === 'GAMEPASS' &&
                 order.status === 'PAID' &&
                 order.fulfillmentStatus === 'COMPLETED' &&
-                order.refundStatus === 'NONE' && <p className="text-sm text-[#756C7D]">{t.roblox.pendingNotice}</p>}
+                order.refundStatus === 'NONE' && <p className="text-sm text-[var(--text-secondary)]">{t.roblox.pendingNotice}</p>}
               {order.gameDetail && (
                 <p>
                   {t.commerce.userId}: {order.gameDetail.userId} · {t.commerce.zoneId}: {order.gameDetail.zoneId}
@@ -453,48 +497,6 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </section>
           )}
 
-          {/* PENDING QRIS */}
-          {order.status === 'PENDING' &&
-            (order.qrisUrl ? (
-              <div className="text-center space-y-4 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-5">
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-[#251D2C]">{t.scanNoticeTitle}</h3>
-                  <p className="text-xs text-[#756C7D] max-w-md mx-auto mt-1">{t.scanNoticeSubtitle}</p>
-                  {formatQrCountdown(order.expiresAt, now) && (
-                    <div className="mt-2.5">
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold">
-                        ⏱️ {t.qrActiveTimer}:{' '}
-                        <span className="font-mono text-pink-700">{formatQrCountdown(order.expiresAt, now)}</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="inline-block p-4 bg-white rounded-3xl border border-[#F1E4ED] shadow-md">
-                  <img src={order.qrisUrl} alt="QRIS Barcode" className="w-56 h-56 mx-auto rounded-xl" />
-                </div>
-
-                <div className="flex justify-center max-w-xs mx-auto">
-                  <button
-                    disabled={downloading}
-                    onClick={downloadQrisImage}
-                    className="w-full py-2.5 px-4 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    {downloading ? t.btnProcessing : t.btnDownloadQris}
-                  </button>
-                </div>
-
-                {downloadError && <p className="text-xs text-rose-600 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>}
-
-                <p className="text-xs text-[#756C7D] italic mt-2">{t.autoCheckNotice}</p>
-              </div>
-            ) : (
-              <div className="text-center p-6 bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl space-y-2 mb-6" role="status">
-                <p className="text-xs font-extrabold text-[#251D2C] uppercase tracking-wide">{t.statusWaiting}</p>
-                <p className="text-xs text-[#251D2C] leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
-              </div>
-            ))}
-
           {/* PAID: Akun Diserahkan */}
           {order.type === 'APPS' && order.status === 'PAID' && order.account && (
             <div className="space-y-4">
@@ -504,28 +506,28 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
                 <div className="break-all bg-white rounded-xl p-3.5 border border-emerald-200 space-y-2.5 text-xs font-mono">
                   <div>
-                    <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldEmail}</span>
+                    <span className="text-[var(--text-secondary)] block text-[10px] font-sans font-semibold">{t.fieldEmail}</span>
                     <span className="font-bold text-[#251D2C]">{order.account.emailAccount}</span>
                   </div>
                   <div>
-                    <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldPassword}</span>
+                    <span className="text-[var(--text-secondary)] block text-[10px] font-sans font-semibold">{t.fieldPassword}</span>
                     <span className="font-bold text-[#251D2C]">{order.account.passwordAccount}</span>
                   </div>
                   {order.account.profileName && (
                     <div>
-                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">{t.fieldProfile}</span>
+                      <span className="text-[var(--text-secondary)] block text-[10px] font-sans font-semibold">{t.fieldProfile}</span>
                       <span className="font-bold text-[#251D2C]">{order.account.profileName}</span>
                     </div>
                   )}
                   {order.account.pin && (
                     <div>
-                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">PIN:</span>
+                      <span className="text-[var(--text-secondary)] block text-[10px] font-sans font-semibold">PIN:</span>
                       <span className="font-bold text-[#251D2C]">{order.account.pin}</span>
                     </div>
                   )}
                   {order.account.additionalInfo && (
                     <div>
-                      <span className="text-[#756C7D] block text-[10px] font-sans font-semibold">Info:</span>
+                      <span className="text-[var(--text-secondary)] block text-[10px] font-sans font-semibold">Info:</span>
                       <span className="font-bold text-[#251D2C]">{order.account.additionalInfo}</span>
                     </div>
                   )}
@@ -543,7 +545,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <div className="bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl p-4 sm:p-5 space-y-3" aria-live="polite">
                 <div>
                   <h4 className="text-xs sm:text-sm font-extrabold text-[#251D2C]">{t.otpHelpTitle}</h4>
-                  <p className="text-xs text-[#756C7D] mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
                   <div className="flex items-center gap-1.5 pt-1.5 text-[11px] font-bold">
                     <span className={isOperational ? 'text-emerald-700' : 'text-amber-700'}>
                       {isOperational ? t.adminOnlineStatus : t.adminOfflineStatus}
@@ -669,9 +671,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>📺 {t.faqTvTitle}</span>
-                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
+                    <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqTvBody}
                     </p>
                   </details>
@@ -679,9 +681,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>🏠 {t.faqHouseholdTitle}</span>
-                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
+                    <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqHouseholdBody}
                     </p>
                   </details>
@@ -689,9 +691,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
                       <span>🔒 {t.faqRulesTitle}</span>
-                      <span className="text-[#756C7D] group-open:rotate-180 transition-transform">▾</span>
+                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-2 text-[11px] text-[#756C7D] leading-relaxed border-t border-[#F1E4ED] pt-2">
+                    <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqRulesBody}
                     </p>
                   </details>

@@ -203,9 +203,9 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
 
         {!slug && (
           <>
-            <p className="mt-2 text-sm leading-6 text-[#756C7D]">{t.catalogSubtitle}</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{t.catalogSubtitle}</p>
             <form
-              className="my-6 grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto] rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4"
+              className="my-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-b border-[#F1E4ED] pb-4 sm:my-6 sm:grid-cols-[1fr_1fr_auto]"
               onSubmit={event => {
                 event.preventDefault();
                 activeRequest.current?.abort();
@@ -217,7 +217,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                 setRevision(n => n + 1);
               }}
             >
-              <label className="text-xs sm:text-sm font-bold text-[#251D2C]">
+              <label className="col-span-2 text-sm font-bold text-[#251D2C] sm:col-span-1">
                 {t.searchPlaceholder}
                 <input
                   type="search"
@@ -227,7 +227,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                 />
               </label>
-              <label className="text-xs sm:text-sm font-bold text-[#251D2C]">
+              <label className="min-w-0 text-sm font-bold text-[#251D2C]">
                 {a.category}
                 <input
                   maxLength={50}
@@ -267,7 +267,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         )}
 
         {loading && (
-          <p role="status" className="min-h-24 py-6 text-sm font-semibold text-[#756C7D]">
+          <p role="status" className="min-h-24 py-6 text-sm font-semibold text-[var(--text-secondary)]">
             {t.loadingCatalog}
           </p>
         )}
@@ -309,12 +309,12 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                           [a.warrantyDays, String(p.appsConfig.warrantyDays)],
                         ]).map(([label, value]) => (
                           <div key={label} className="flex justify-between gap-3 py-2">
-                            <dt className="text-[#756C7D]">{label}</dt>
+                            <dt className="text-[var(--text-secondary)]">{label}</dt>
                             <dd className="min-w-0 break-words text-right font-medium text-[#251D2C]">{value}</dd>
                           </div>
                         ))}
                       </dl>
-                    ) : <p className="mt-2 text-xs text-[#756C7D]">{a.details}</p>}
+                    ) : <p className="mt-2 text-xs text-[var(--text-secondary)]">{a.details}</p>}
                     <p className="mt-1.5 text-xs font-bold text-[#251D2C]">{availability(p)}</p>
                   </div>
                   <Link
@@ -365,7 +365,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                 />
               </label>
-              <p className="text-xs sm:text-sm leading-6 text-[#756C7D]">{a.emailHint}</p>
+              <p className="text-xs sm:text-sm leading-6 text-[var(--text-secondary)]">{a.emailHint}</p>
               <label className="flex items-start gap-3 text-xs sm:text-sm leading-6 font-medium text-[#251D2C] cursor-pointer">
                 <input
                   type="checkbox"

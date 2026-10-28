@@ -22,11 +22,11 @@ export default function RegionalPaymentSummary({
     [r.discount, quote ? money(quote.discount) : '—'],
   ];
   return (
-    <div className="rounded-2xl border border-[#F1E4ED] bg-white p-4 sm:p-5 text-sm">
+    <div className="border-t border-[#F1E4ED] pt-4 text-sm">
       <dl className="space-y-2.5">
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3">
-            <dt className="text-[#756C7D] font-medium">{label}</dt>
+            <dt className="text-[var(--text-secondary)] font-medium">{label}</dt>
             <dd className="text-right font-bold text-[#251D2C]">{value}</dd>
           </div>
         ))}
