@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -85,19 +86,7 @@ export default function StoreShell({ children, wide = false }: { children: React
 
   return (
     <main className="relative min-h-screen bg-[#FFF9FC] text-[#251D2C] overflow-x-clip">
-      {/* Subtle atmospheric Soft Pink background with delicate Anya texture */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.055] mix-blend-multiply"
-          style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-        />
-        <div className="absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-pink-200/45 blur-3xl" />
-        <div className="absolute top-1/4 -right-32 h-[26rem] w-[26rem] rounded-full bg-purple-200/35 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-[24rem] w-[24rem] rounded-full bg-rose-100/50 blur-3xl" />
-      </div>
-
-      {/* Sticky Modern Navbar */}
-      <header className="sticky top-0 z-30 border-b border-[#F1E4ED] bg-white/85 backdrop-blur-xl shadow-[0_2px_20px_-8px_rgba(157,23,77,0.08)]">
+      <header className="sticky top-0 z-30 border-b border-[#F1E4ED] bg-white">
         <div className={`mx-auto px-4 sm:px-6 py-2.5 sm:py-3 ${wide ? 'max-w-7xl' : 'max-w-6xl'}`}>
           <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -105,12 +94,7 @@ export default function StoreShell({ children, wide = false }: { children: React
                 href="/"
                 className="group inline-flex items-center gap-2.5 rounded-xl py-1 pr-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-pink-200 bg-gradient-to-br from-pink-500 to-rose-500 text-sm font-black text-white shadow-sm shadow-pink-500/20 group-hover:scale-105 transition-transform">
-                  CP
-                </span>
-                <span className="truncate text-sm sm:text-base font-extrabold tracking-tight text-[#251D2C] group-hover:text-pink-600 transition-colors">
-                  {c.brand}
-                </span>
+                <Image src="/store/logo.png" alt={c.brand} width={180} height={60} sizes="(max-width: 639px) 128px, 180px" className="h-auto w-32 sm:w-45" />
               </Link>
               {pathname !== '/' && (
                 <Link
@@ -143,7 +127,7 @@ export default function StoreShell({ children, wide = false }: { children: React
                     aria-current={current ? 'page' : undefined}
                     className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 ${
                       current
-                        ? 'bg-pink-600 text-white shadow-sm shadow-pink-600/25'
+                        ? 'bg-pink-600 text-white '
                         : 'text-[#756C7D] hover:bg-pink-50/80 hover:text-[#251D2C]'
                     }`}
                   >
@@ -163,7 +147,7 @@ export default function StoreShell({ children, wide = false }: { children: React
                   setRecentOrders(getRecentOrders());
                   setShowRecentModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#F1E4ED] bg-white px-3 py-1.5 text-xs font-bold text-[#251D2C] shadow-xs hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 transition-all active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#F1E4ED] bg-white px-3 py-1.5 text-xs font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 transition-all active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600"
                 title={t.recentOrdersBtn}
               >
                 <svg className="h-3.5 w-3.5 text-pink-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -190,7 +174,7 @@ export default function StoreShell({ children, wide = false }: { children: React
                     onClick={() => setLanguage(l)}
                     className={`rounded-lg px-2.5 py-1 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600 ${
                       language === l
-                        ? 'bg-pink-600 text-white shadow-xs'
+                        ? 'bg-pink-600 text-white '
                         : 'text-[#756C7D] hover:text-[#251D2C]'
                     }`}
                   >
@@ -204,7 +188,7 @@ export default function StoreShell({ children, wide = false }: { children: React
       </header>
 
       <div className={`relative z-10 mx-auto px-4 pb-16 sm:px-6 pt-3 sm:pt-5 ${wide ? 'max-w-7xl' : 'max-w-6xl'}`}>
-        <div className="mb-3 sm:mb-5 flex items-center gap-2.5 rounded-2xl border border-[#F1E4ED] bg-white/90 px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-xs">
+        <div className="mb-3 sm:mb-5 flex items-center gap-2.5 rounded-2xl border border-[#F1E4ED] bg-white/90 px-3.5 py-2 sm:px-4 sm:py-2.5">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-600" aria-hidden="true">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -216,7 +200,7 @@ export default function StoreShell({ children, wide = false }: { children: React
         {children}
 
         {!pathname.startsWith('/admin') && (
-          <footer className="mt-12 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:px-8 sm:py-8 shadow-[0_10px_30px_-12px_rgba(157,23,77,0.06)]">
+          <footer className="mt-12 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:px-8 sm:py-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#F1E4ED] pb-5">
               <div>
                 <p className="text-base font-extrabold text-[#251D2C]">{c.brand}</p>

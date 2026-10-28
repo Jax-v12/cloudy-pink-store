@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, use } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import RobloxInstructions from '@/components/RobloxInstructions';
 import OrderProgress from '@/components/OrderProgress';
 import AppsOrderPanel, { type AppsOrder } from '@/components/AppsOrderPanel';
@@ -310,16 +311,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <main className="relative min-h-screen bg-[#FFF9FC] p-4 sm:p-8 md:p-10 font-sans text-[#251D2C] overflow-x-clip">
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.05] mix-blend-multiply"
-          style={{ backgroundImage: "url('/bg-anya.jpg')" }}
-        />
-        <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/40 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-purple-200/35 blur-3xl" />
-      </div>
-
       <div className="relative z-10 max-w-2xl mx-auto">
+        <Link href="/" className="mb-5 inline-block rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
+          <Image src="/store/logo.png" alt={t.commerce.brand} width={156} height={52} className="h-auto w-39" />
+        </Link>
         <div className="flex justify-between items-center mb-4">
           <Link
             href="/"
@@ -357,7 +352,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
 
-        <div className="bg-white text-[#251D2C] rounded-3xl p-5 sm:p-8 shadow-[0_16px_40px_-14px_rgba(157,23,77,0.1)] border border-[#F1E4ED]">
+        <div className="bg-white text-[#251D2C] rounded-3xl p-5 sm:p-8 border border-[#F1E4ED]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F1E4ED] gap-2.5 mb-6">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#251D2C]">{t.orderTitle}</h1>
@@ -405,10 +400,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <span className="text-[#756C7D] font-medium">{t.paymentMethodLabel}</span>
               <span className="font-bold text-[#251D2C]">{order.paymentMethod}</span>
             </div>
-            <div className="flex justify-between items-baseline pt-3 border-t border-[#F1E4ED] text-sm sm:text-base">
+            {order.type !== 'ROBLOX' && <div className="flex justify-between items-baseline pt-3 border-t border-[#F1E4ED] text-sm sm:text-base">
               <span className="font-bold text-[#251D2C]">{t.totalPayLabel}</span>
               <span className="text-lg sm:text-xl font-extrabold text-pink-600">{formatRupiah(order.totalAmount)}</span>
-            </div>
+            </div>}
             {order.type === 'ROBLOX' && <RegionalPaymentSummary region={order.pricingRegion} quote={order} />}
           </div>
 
@@ -494,9 +489,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <p className="text-xs text-[#756C7D] italic mt-2">{t.autoCheckNotice}</p>
               </div>
             ) : (
-              <div className="text-center p-6 bg-sky-50 border border-sky-200 rounded-2xl space-y-2 mb-6" role="status">
-                <p className="text-xs font-extrabold text-sky-800 uppercase tracking-wide">{t.statusWaiting}</p>
-                <p className="text-xs text-sky-950 leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
+              <div className="text-center p-6 bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl space-y-2 mb-6" role="status">
+                <p className="text-xs font-extrabold text-[#251D2C] uppercase tracking-wide">{t.statusWaiting}</p>
+                <p className="text-xs text-[#251D2C] leading-relaxed max-w-md mx-auto">{t.paymentNeedsHelp}</p>
               </div>
             ))}
 
@@ -654,14 +649,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                   )
                 ) : (
-                  <div className="bg-sky-50/90 border border-sky-200 rounded-2xl p-4">
+                  <div className="bg-[#FFF9FC]/90 border border-[#F1E4ED] rounded-2xl p-4">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm" aria-hidden="true">
                         🛡️
                       </span>
                       <h4 className="text-xs font-extrabold text-sky-900">{t.warrantyInfoTitle}</h4>
                     </div>
-                    <p className="text-[11px] text-sky-800 mt-0.5">{t.warrantyInfoBody}</p>
+                    <p className="text-[11px] text-[#251D2C] mt-0.5">{t.warrantyInfoBody}</p>
                   </div>
                 ))}
 
@@ -706,7 +701,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           )}
 
           {notice && notice !== 'paymentPending' && (
-            <p role="status" className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-sky-950">
+            <p role="status" className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 text-sm leading-relaxed text-[#251D2C]">
               {t.invoiceStatus[notice]}
             </p>
           )}

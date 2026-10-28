@@ -14,39 +14,12 @@ type Product = {
 };
 
 function ServiceArt({ method }: { method: RobloxMethodKey }) {
-  return (
-    <svg viewBox="0 0 160 150" aria-hidden="true" className="h-14 w-14 shrink-0 text-pink-300 sm:h-18 sm:w-18">
-      <circle cx="85" cy="80" r="60" fill="#FFF1F5" />
-      <circle cx="133" cy="24" r="8" fill="#FBCFE8" />
-      {method === 'GAMEPASS' ? (
-        <g transform="rotate(-12 80 75)">
-          <rect x="34" y="39" width="95" height="69" rx="15" fill="#FCE7F3" stroke="currentColor" strokeWidth="3" />
-          <path d="M59 40v68" stroke="currentColor" strokeWidth="3" strokeDasharray="5 5" />
-          <path d="m96 55 17 17-17 17-17-17z" fill="#EC4899" />
-          <circle cx="96" cy="72" r="6" fill="white" />
-        </g>
-      ) : method === 'LOGIN' ? (
-        <g>
-          <path d="M58 63V49a23 23 0 0 1 46 0v14" fill="none" stroke="#F472B6" strokeWidth="12" />
-          <rect x="43" y="62" width="75" height="60" rx="17" fill="#FCE7F3" stroke="currentColor" strokeWidth="3" />
-          <circle cx="80" cy="85" r="8" fill="#EC4899" />
-          <path d="M80 88v12" stroke="#EC4899" strokeWidth="7" strokeLinecap="round" />
-        </g>
-      ) : (
-        <g>
-          <rect x="40" y="65" width="85" height="56" rx="9" fill="#FCE7F3" stroke="currentColor" strokeWidth="3" />
-          <rect x="35" y="50" width="95" height="22" rx="7" fill="#F472B6" />
-          <path
-            d="M82 50v71M82 50c-35-3-29-39-11-24 8 7 11 24 11 24s4-18 12-24c17-14 25 21-12 24"
-            fill="none"
-            stroke="#EC4899"
-            strokeWidth="7"
-          />
-        </g>
-      )}
-      <path d="M20 110v14m-7-7h14M134 104v12m-6-6h12" stroke="#F472B6" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
+  const paths = {
+    GAMEPASS: 'M5 5h14v14H5z M10 10h4v4h-4z',
+    LOGIN: 'M8 10V7a4 4 0 0 1 8 0v3 M6 10h12v11H6z M12 14v3',
+    GIFT_USERNAME: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
+  };
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" className="h-9 w-9 shrink-0 text-[#756C7D]"><path d={paths[method]} /></svg>;
 }
 
 export default function RobloxServiceCards({ products, region }: { products: Product[]; region: Region | null }) {
@@ -58,7 +31,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
 
   return (
     <section aria-labelledby="method-comparison-title">
-      <div className="mb-3.5 sm:mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:px-5 sm:py-4 shadow-xs">
+      <div className="mb-3.5 sm:mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:px-5 sm:py-4">
         <h2 id="method-comparison-title" className="text-base sm:text-xl font-extrabold text-[#251D2C]">
           {comparison.title}
         </h2>
@@ -81,14 +54,14 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
               key={method}
               className={`group flex min-w-0 flex-col overflow-hidden rounded-3xl border bg-white transition-[border-color,box-shadow] duration-200 ${
                 ready
-                  ? 'border-[#F1E4ED] shadow-[0_10px_28px_-10px_rgba(157,23,77,0.1)] hover:border-pink-300 hover:shadow-[0_18px_36px_-12px_rgba(236,72,153,0.2)]'
-                  : 'border-[#F1E4ED] bg-white/95 opacity-95 shadow-xs'
+                  ? 'border-[#F1E4ED] hover:border-pink-300'
+                  : 'border-[#F1E4ED] bg-white/95 opacity-95'
               }`}
             >
-              <div className="relative flex items-center justify-between gap-3 border-b border-[#F1E4ED]/70 bg-gradient-to-br from-pink-50/70 via-[#FFF9FC] to-white px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
+              <div className="relative flex items-center justify-between gap-3 border-b border-[#F1E4ED]/70 bg-white px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-block rounded-lg border border-pink-200 bg-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-600 shadow-2xs">
+                    <span className="inline-block rounded-lg border border-pink-200 bg-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-600">
                       {t.roblox[method]}
                     </span>
                     <span className="text-xs font-semibold text-[#756C7D]">· {tag[method]}</span>
@@ -137,7 +110,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                       {ready && product && (
                         <Link
                           href={`/roblox/${product.slug}?method=${method}`}
-                          className="inline-flex items-center gap-2 rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm shadow-pink-600/20 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                          className="inline-flex items-center gap-2 rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                         >
                           <span>{f.buy}</span>
                           <span aria-hidden="true" className="transition group-hover:translate-x-0.5">
@@ -189,7 +162,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
         })}
       </div>
 
-      <p className="mt-4 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:p-4 text-xs sm:text-sm leading-relaxed text-[#756C7D] shadow-2xs">
+      <p className="mt-4 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:p-4 text-xs sm:text-sm leading-relaxed text-[#756C7D]">
         {comparison.notice}
       </p>
     </section>

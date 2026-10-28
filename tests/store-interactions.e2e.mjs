@@ -95,12 +95,13 @@ try {
         const cards = f.page.locator('article'), summary = cards.first().locator('summary');
         await summary.waitFor();
         assert.ok((await summary.boundingBox()).height >= 44, 'dropdown touch target must be at least 44px tall');
-        const before = await cards.evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().y })));
+        // Focus can scroll an off-screen disclosure; compare document positions, not viewport positions.
+        const before = await cards.evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().y + window.scrollY })));
         await summary.focus(); await f.page.keyboard.press('Enter');
         await f.page.waitForFunction(() => document.querySelector('article details')?.open);
         await f.page.waitForTimeout(300);
         if (viewport.width >= 1024) {
-          const after = await cards.evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().y })));
+          const after = await cards.evaluateAll(els => els.map(el => ({ height: el.getBoundingClientRect().height, y: el.getBoundingClientRect().y + window.scrollY })));
           for (const index of [1, 2]) assert.ok(Math.abs(after[index].height - before[index].height) < 1 && Math.abs(after[index].y - before[index].y) < 1, 'opening one card must not resize/move its neighbours');
         }
         await f.page.keyboard.press('Space');

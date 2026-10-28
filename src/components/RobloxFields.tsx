@@ -92,7 +92,7 @@ export default function RobloxFields({
           type="button"
           onClick={check}
           disabled={state === 'busy'}
-          className="mt-2.5 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs sm:text-sm font-bold text-pink-700 shadow-2xs hover:border-pink-300 hover:bg-pink-50 transition disabled:opacity-50 cursor-pointer"
+          className="mt-2.5 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs sm:text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 transition disabled:opacity-50 cursor-pointer"
         >
           {state === 'busy' ? r.checking : r.checkUser}
         </button>
@@ -139,11 +139,11 @@ export default function RobloxFields({
         </>
       )}
       {!identityOnly && method === 'GIFT_USERNAME' && (
-        <p className="rounded-2xl bg-sky-50/80 border border-sky-200 p-4 text-sm text-sky-950">{r.giftNotice}</p>
+        <p className="rounded-2xl bg-sky-50/80 border border-sky-200 p-4 text-sm text-[#251D2C]">{r.giftNotice}</p>
       )}
       {!identityOnly && method === 'LOGIN' && (
         <>
-          <p className="rounded-2xl bg-sky-50/80 border border-sky-200 p-4 text-sm text-sky-950">{t.robloxOps.loginNotice}</p>
+          <p className="rounded-2xl bg-sky-50/80 border border-sky-200 p-4 text-sm text-[#251D2C]">{t.robloxOps.loginNotice}</p>
           <p className="text-sm text-[#756C7D]">{t.robloxOps.loginNext}</p>
         </>
       )}

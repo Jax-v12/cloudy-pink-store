@@ -9,6 +9,7 @@ import type { PaymentMethod } from '@/lib/paymentProvider';
 import RegionalPaymentSummary from './RegionalPaymentSummary';
 import { useRegionalQuote } from './useRegionalQuote';
 import RobloxFields from './RobloxFields';
+import RobuxIcon from './RobuxIcon';
 import RobloxGamepassGuide from './RobloxGamepassGuide';
 
 type Rate = {
@@ -212,7 +213,7 @@ export default function RobloxCheckoutWizard({
       <ol
         style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
         aria-label={c.status}
-        className="mx-auto mb-6 grid max-w-2xl rounded-2xl border border-[#F1E4ED] bg-white px-2 py-3.5 shadow-xs sm:mb-8 sm:px-4"
+        className="mx-auto mb-6 grid max-w-2xl rounded-2xl border border-[#F1E4ED] bg-white px-2 py-3.5 sm:mb-8 sm:px-4"
       >
         {steps.map((label, i) => (
           <li key={label} className="relative min-w-0 text-center">
@@ -234,7 +235,7 @@ export default function RobloxCheckoutWizard({
               <span
                 className={`mx-auto flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-xs sm:text-sm font-extrabold transition-colors ${
                   i === step
-                    ? 'bg-pink-600 text-white ring-4 ring-pink-500/15 shadow-xs'
+                    ? 'bg-pink-600 text-white ring-4 ring-pink-500/15 '
                     : i < step
                       ? 'bg-pink-100 text-pink-800 border border-pink-300'
                       : 'bg-[#FFF9FC] text-[#756C7D] border border-[#F1E4ED]'
@@ -256,7 +257,7 @@ export default function RobloxCheckoutWizard({
 
       <form
         onSubmit={submit}
-        className="rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:p-10 shadow-[0_16px_40px_-14px_rgba(157,23,77,0.1)]"
+        className="rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:p-10"
       >
         <fieldset key={step} disabled={busy} className="store-step min-w-0">
           <header className="mx-auto mb-7 max-w-xl text-center">
@@ -307,9 +308,9 @@ export default function RobloxCheckoutWizard({
               <div className="flex items-center gap-4 rounded-2xl border border-pink-200/80 bg-[#FFF9FC] p-5">
                 <span
                   aria-hidden="true"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 text-2xl text-white shadow-sm shadow-pink-500/20"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FFF9FC] text-[#756C7D]"
                 >
-                  ◇
+                  <RobuxIcon />
                 </span>
                 <div>
                   <strong className="block text-lg sm:text-xl font-extrabold text-[#251D2C]">
@@ -328,7 +329,7 @@ export default function RobloxCheckoutWizard({
 
               <p className="text-xs sm:text-sm text-center text-[#756C7D]">{f.safeDraft}</p>
               {viaUsername && (
-                <p className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 text-xs sm:text-sm text-sky-950">
+                <p className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 text-xs sm:text-sm text-[#251D2C]">
                   {u.privacy}
                 </p>
               )}
@@ -397,7 +398,7 @@ export default function RobloxCheckoutWizard({
                   />
                   <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[#756C7D]">
                     <span>{rate.units} Robux</span>
-                    <span className="rounded-full border border-pink-200 bg-white px-3.5 py-1 text-xs sm:text-sm font-extrabold text-pink-700 shadow-2xs">
+                    <span className="rounded-full border border-pink-200 bg-white px-3.5 py-1 text-xs sm:text-sm font-extrabold text-pink-700">
                       {units} Robux
                     </span>
                     <span>{maximum} Robux</span>
@@ -444,7 +445,7 @@ export default function RobloxCheckoutWizard({
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-pink-200 bg-gradient-to-br from-pink-50/90 via-white to-purple-50/50 p-6 text-center shadow-xs">
+              <div className="rounded-3xl border border-pink-200 bg-[#FFF9FC] p-6 text-center">
                 <p className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-pink-700">{f.price}</p>
                 <p className="my-2.5 text-4xl font-extrabold text-pink-600">
                   {price} <span className="text-xl font-bold">Robux</span>
@@ -577,7 +578,7 @@ export default function RobloxCheckoutWizard({
             <button
               type="submit"
               disabled={busy || (step > 0 && !quote) || (phase >= 3 && (!enabled || !server.quote || !selectedMethod))}
-              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white shadow-sm shadow-pink-600/20 transition hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-40 cursor-pointer"
+              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-40 cursor-pointer"
             >
               {busy ? t.btnProcessing : phase === 4 ? f.confirm : f.next}
             </button>

@@ -185,7 +185,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
   return (
     <StoreShell>
       {!slug && (
-        <div className="mb-3.5 sm:mb-6 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-4 sm:p-7 shadow-[0_10px_28px_-10px_rgba(157,23,77,0.08)]">
+        <div className="mb-3.5 sm:mb-6 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-4 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-pink-200 bg-pink-50 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-700">
@@ -207,7 +207,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
         <div className="mb-6">
           <Link
             href={`/${type.toLowerCase() === 'game' ? 'games' : 'roblox'}`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] shadow-2xs hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 mb-4 transition focus-visible:outline-2 focus-visible:outline-pink-600"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 mb-4 transition focus-visible:outline-2 focus-visible:outline-pink-600"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -216,7 +216,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
           </Link>
 
           {type === 'ROBLOX' && method ? (
-            <div className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)]">
+            <div className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7">
               <div className="inline-block rounded-lg border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-pink-700 mb-2.5">
                 {r[method]}
               </div>
@@ -228,7 +228,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
               </p>
             </div>
           ) : type === 'ROBLOX' && !method ? (
-            <div className="rounded-3xl border border-amber-200 bg-amber-50/90 p-6 sm:p-8 shadow-xs">
+            <div className="rounded-3xl border border-amber-200 bg-amber-50/90 p-6 sm:p-8">
               <h2 className="text-lg font-extrabold text-amber-950 mb-2">{r.methodRequired}</h2>
               <Link
                 href="/roblox"
@@ -238,7 +238,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
               </Link>
             </div>
           ) : (
-            <div className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)]">
+            <div className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7">
               <h1 className="text-2xl sm:text-4xl font-extrabold text-[#251D2C] mb-2">{product?.name}</h1>
               <p className="text-sm sm:text-base text-[#756C7D] max-w-2xl">{c.gameDescription}</p>
             </div>
@@ -277,7 +277,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
         )}
 
         {!loading && products.length === 0 && (
-          <div className="rounded-3xl border border-[#F1E4ED] bg-white p-8 text-center shadow-xs">
+          <div className="rounded-3xl border border-[#F1E4ED] bg-white p-8 text-center">
             <p className="text-base font-bold text-[#251D2C]">{t.emptyCatalog}</p>
             <p className="mt-1 text-xs sm:text-sm text-[#756C7D]">{c.emptyCatalogHint}</p>
           </div>
@@ -294,11 +294,11 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                 <Link
                   key={p.id}
                   href={path + '/' + p.slug}
-                  className="group flex flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-6 shadow-[0_8px_24px_-8px_rgba(157,23,77,0.08)] hover:shadow-[0_18px_36px_-12px_rgba(236,72,153,0.18)] hover:border-pink-300 hover:-translate-y-1 transition-all duration-200"
+                  className="group flex flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-6 hover:border-pink-300 transition-all duration-200"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-sm shadow-pink-500/20">
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -376,7 +376,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
           <form onSubmit={checkout} className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
             <fieldset
               disabled={busy}
-              className="min-w-0 rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-8 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] space-y-8"
+              className="min-w-0 rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-8 space-y-8"
             >
               <div>
                 <h2 className="flex items-center gap-2.5 font-extrabold text-xl text-[#251D2C] mb-4">
@@ -397,7 +397,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                       className={
                         'relative cursor-pointer rounded-2xl border p-4 transition-all has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-pink-700 ' +
                         (variantId === String(v.id)
-                          ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 shadow-xs'
+                          ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 '
                           : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50/40')
                       }
                     >
@@ -468,7 +468,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
               )}
             </fieldset>
 
-            <aside className="rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-7 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] space-y-6 lg:sticky lg:top-20">
+            <aside className="rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-7 space-y-6 lg:sticky lg:top-20">
               <h2 className="text-xl font-extrabold text-[#251D2C] border-b border-[#F1E4ED] pb-4">{r.summary}</h2>
               {variant ? (
                 <dl className="space-y-4 text-sm">
@@ -496,7 +496,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                 </p>
               )}
               <button
-                className="w-full rounded-2xl bg-pink-600 hover:bg-pink-700 transition-all active:scale-[0.98] text-white py-3.5 font-extrabold shadow-sm shadow-pink-600/20 disabled:opacity-50 disabled:pointer-events-none mt-4 text-base cursor-pointer"
+                className="w-full rounded-2xl bg-pink-600 hover:bg-pink-700 transition-all active:scale-[0.98] text-white py-3.5 font-extrabold disabled:opacity-50 disabled:pointer-events-none mt-4 text-base cursor-pointer"
                 disabled={!variant || !product.checkoutEnabled || busy}
               >
                 {busy ? t.btnProcessing : t.btnPayNow}

@@ -188,7 +188,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
   return (
     <StoreShell>
       <DetectedLocation region={region} loading={loading} />
-      <section className="rounded-3xl border border-[#F1E4ED] bg-white p-5 shadow-[0_14px_36px_-12px_rgba(157,23,77,0.09)] sm:p-8">
+      <section className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-pink-200 bg-pink-50 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-pink-700 mb-2">
@@ -236,7 +236,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                 />
               </label>
-              <button className="rounded-xl bg-pink-600 hover:bg-pink-700 px-5 py-2.5 text-sm font-extrabold text-white shadow-xs transition cursor-pointer">
+              <button className="rounded-xl bg-pink-600 hover:bg-pink-700 px-5 py-2.5 text-sm font-extrabold text-white transition cursor-pointer">
                 {t.searchButton}
               </button>
             </form>
@@ -279,13 +279,13 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         )}
 
         {!slug && (
-          <div className="grid gap-4 min-[360px]:grid-cols-2 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {products.map(p => {
               const isReady = ready(p);
               return (
                 <article
                   key={p.id}
-                  className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5 transition hover:-translate-y-0.5 hover:border-pink-300 hover:bg-white hover:shadow-md"
+                  className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5 transition hover:border-pink-300 hover:bg-white"
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
@@ -301,14 +301,25 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                       {p.name}
                     </h2>
                     <p className="mt-2.5 text-lg sm:text-xl font-extrabold text-pink-600">{money(p.price)}</p>
-                    <p className="mt-2 text-xs sm:text-sm text-[#756C7D]">
-                      {p.appsConfig ? a.days.replace('{days}', String(p.appsConfig.durationDays)) : a.details}
-                    </p>
+                    {p.appsConfig ? (
+                      <dl className="mt-4 divide-y divide-[#F1E4ED] text-xs sm:text-sm">
+                        {([
+                          [a.accountType, p.appsConfig.accountType],
+                          [a.durationDays, String(p.appsConfig.durationDays)],
+                          [a.warrantyDays, String(p.appsConfig.warrantyDays)],
+                        ]).map(([label, value]) => (
+                          <div key={label} className="flex justify-between gap-3 py-2">
+                            <dt className="text-[#756C7D]">{label}</dt>
+                            <dd className="min-w-0 break-words text-right font-medium text-[#251D2C]">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : <p className="mt-2 text-xs text-[#756C7D]">{a.details}</p>}
                     <p className="mt-1.5 text-xs font-bold text-[#251D2C]">{availability(p)}</p>
                   </div>
                   <Link
                     href={`/apps/${encodeURIComponent(p.slug)}`}
-                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white shadow-2xs transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
+                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
                   >
                     {a.details}
                   </Link>
@@ -368,7 +379,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
               </label>
               <button
                 disabled={busy || !agree || !ready(product)}
-                className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 p-3.5 text-sm font-extrabold text-white shadow-sm shadow-pink-600/20 disabled:opacity-50 transition cursor-pointer"
+                className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 p-3.5 text-sm font-extrabold text-white disabled:opacity-50 transition cursor-pointer"
               >
                 {busy ? a.processing : t.btnPayNow}
               </button>
@@ -379,7 +390,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
 
       {!slug && (
         <form
-          className="mt-6 rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-6 shadow-xs"
+          className="mt-6 rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-6"
           onSubmit={event => {
             event.preventDefault();
             if (invoice.trim()) router.push('/order/' + encodeURIComponent(invoice.trim()));

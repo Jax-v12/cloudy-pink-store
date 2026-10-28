@@ -22,7 +22,7 @@ export default function RegionalPaymentSummary({
     [r.discount, quote ? money(quote.discount) : '—'],
   ];
   return (
-    <div className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5 text-sm">
+    <div className="rounded-2xl border border-[#F1E4ED] bg-white p-4 sm:p-5 text-sm">
       <dl className="space-y-2.5">
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3">
@@ -31,7 +31,7 @@ export default function RegionalPaymentSummary({
           </div>
         ))}
       </dl>
-      <div className="mt-3.5 flex items-end justify-between gap-3 border-t border-dashed border-[#F1E4ED] pt-3.5">
+      <div className="mt-3.5 flex items-end justify-between gap-3 border-t border-[#F1E4ED] pt-3.5">
         <span className="font-bold text-[#251D2C]">{t.roblox.total}</span>
         <span className="text-right text-xl sm:text-2xl font-extrabold text-pink-600" aria-live="polite">
           {quote ? money(quote.totalAmount) : '—'}

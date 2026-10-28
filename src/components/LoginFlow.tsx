@@ -13,6 +13,7 @@ import DetectedLocation from './DetectedLocation';
 import RegionalPaymentSummary from './RegionalPaymentSummary';
 import { useRegionalQuote } from './useRegionalQuote';
 import LoginUsernameField from './LoginUsernameField';
+import RobuxIcon from './RobuxIcon';
 
 type Variant = { id: number; method: string; units: number; price: number | null; name: string };
 type Catalog = {
@@ -21,11 +22,11 @@ type Catalog = {
   paymentMethods: PaymentMethod[];
 };
 
-const panel = 'rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8 shadow-[0_14px_36px_-12px_rgba(157,23,77,0.09)]';
+const panel = 'rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8';
 const input =
   'mt-2 w-full min-w-0 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-500/10 transition-all';
 const button =
-  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white shadow-sm shadow-pink-600/20 hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-50 transition cursor-pointer';
+  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-50 transition cursor-pointer';
 const driftCodes = [
   'PRICE_CHANGED',
   'REGION_CHANGED',
@@ -157,7 +158,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
           onClick={event => {
             if (busy) event.preventDefault();
           }}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] shadow-2xs hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 transition"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 transition"
         >
           &larr; {t.commerce.backToCatalog}
         </Link>
@@ -295,13 +296,13 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 {t.roblox.noPackages}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {variants.map(v => (
                 <label
                   key={v.id}
                   className={`min-w-0 rounded-2xl border p-4 sm:p-5 transition focus-within:outline-2 focus-within:outline-pink-700 ${
                     v.id === draft.variantId
-                      ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 shadow-xs'
+                      ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 '
                       : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300'
                   } ${v.price === null || !region ? 'opacity-60' : 'cursor-pointer'}`}
                 >
@@ -314,6 +315,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                     disabled={busy || v.price === null || !region || (checkout.attempt?.selectionLocked && v.id !== checkout.attempt.variantId)}
                     onChange={() => setDraft(old => ({ ...old, variantId: v.id }))}
                   />
+                  <RobuxIcon className={`mb-3 h-7 w-7 ${v.id === draft.variantId ? 'text-pink-600' : 'text-[#756C7D]'}`} />
                   <span className="block text-xl font-extrabold text-[#251D2C]">{v.units} Robux</span>
                   <span className="mt-1.5 block break-words text-xs sm:text-sm font-medium text-[#756C7D]">{v.name}</span>
                   <strong className="mt-3 block break-words text-base sm:text-lg font-extrabold text-pink-600">
