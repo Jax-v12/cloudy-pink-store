@@ -30,6 +30,37 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.store-disclosure > summary {
+  min-block-size: 44px;
+}
+
+.store-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Unsupported browsers retain the native disclosure and keyboard behaviour. */
+@supports (interpolate-size: allow-keywords) and selector(::details-content) {
+  .store-disclosure::details-content {
+    interpolate-size: allow-keywords;
+    block-size: 0;
+    overflow: clip;
+    transition: block-size 220ms ease, content-visibility 220ms allow-discrete;
+  }
+
+  .store-disclosure[open]::details-content {
+    block-size: auto;
+  }
+}
+
+@keyframes store-step-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.store-step {
+  animation: store-step-enter 160ms ease-out;
+}
+
 /* Native keyboard-accessible Robux slider. */
 .gamepass-range {
   appearance: none;
@@ -73,6 +104,14 @@ body {
 
 /* Respect reduced motion preferences globally */
 @media (prefers-reduced-motion: reduce) {
+  .store-disclosure::details-content {
+    transition: none !important;
+  }
+
+  .store-step {
+    animation: none;
+  }
+
   *,
   ::before,
   ::after {

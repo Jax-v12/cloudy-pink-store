@@ -30,7 +30,7 @@ export default function HelpPage() {
           </h2>
           <div className="divide-y divide-[#F1E4ED]">
             {copy.questions.map(item => (
-              <details key={item.id} id={item.id} className="group scroll-mt-20 py-4 open:pb-5">
+              <details key={item.id} id={item.id} className="store-disclosure group scroll-mt-20 py-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-sm sm:text-base font-bold leading-relaxed text-[#251D2C] hover:text-pink-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-800">
                   <span>{item.question}</span>
                   <span

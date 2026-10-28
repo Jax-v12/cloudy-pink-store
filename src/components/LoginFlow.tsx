@@ -150,7 +150,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
 
   return (
     <StoreShell>
-      <div className="mx-auto max-w-4xl space-y-5">
+      <div className="store-step mx-auto max-w-4xl space-y-5">
         <Link
           href="/roblox"
           aria-disabled={busy}
@@ -483,9 +483,10 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
 
             <fieldset className="space-y-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5">
               <legend className="px-1 font-extrabold text-[#251D2C]">{l.backupTitle}</legend>
-              <details className="rounded-2xl border border-[#F1E4ED] bg-white p-3.5 text-sm text-[#251D2C]">
-                <summary className="cursor-pointer font-bold text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
-                  {l.backupGuideTitle}
+              <details className="store-disclosure group/guide rounded-2xl border border-[#F1E4ED] bg-white p-3.5 text-sm text-[#251D2C]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg font-bold text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
+                  <span>{l.backupGuideTitle}</span>
+                  <span aria-hidden="true" className="transition-transform duration-200 group-open/guide:rotate-180">▾</span>
                 </summary>
                 <ol className="mt-2.5 list-decimal space-y-1.5 pl-5 text-[#756C7D]">
                   {l.backupGuideSteps.map(step => (

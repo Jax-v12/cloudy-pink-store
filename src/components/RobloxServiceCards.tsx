@@ -65,7 +65,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
         <p className="text-xs sm:text-sm leading-relaxed text-[#756C7D]">{comparison.intro}</p>
       </div>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
+      <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-3">
         {(['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'] as const).map(method => {
           const eligible = products.filter(p => p.variants.some(v => v.method === method));
           const product = eligible.find(p => p.id === selection[method]) ?? eligible[0];
@@ -79,9 +79,9 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
           return (
             <article
               key={method}
-              className={`group flex flex-col overflow-hidden rounded-3xl border bg-white transition-all duration-200 ${
+              className={`group flex min-w-0 flex-col overflow-hidden rounded-3xl border bg-white transition-[border-color,box-shadow] duration-200 ${
                 ready
-                  ? 'border-[#F1E4ED] shadow-[0_10px_28px_-10px_rgba(157,23,77,0.1)] hover:-translate-y-1 hover:border-pink-300 hover:shadow-[0_18px_36px_-12px_rgba(236,72,153,0.2)]'
+                  ? 'border-[#F1E4ED] shadow-[0_10px_28px_-10px_rgba(157,23,77,0.1)] hover:border-pink-300 hover:shadow-[0_18px_36px_-12px_rgba(236,72,153,0.2)]'
                   : 'border-[#F1E4ED] bg-white/95 opacity-95 shadow-xs'
               }`}
             >
@@ -102,7 +102,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                 </div>
               </div>
 
-              <div className="flex flex-1 flex-col justify-between px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5">
+              <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5">
                 <div className="space-y-3">
                   {eligible.length > 1 && (
                     <label className="block text-xs font-bold text-[#756C7D]">
@@ -164,8 +164,8 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                   )}
                 </div>
 
-                <details className="group/details mt-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/70 px-3.5 py-2.5 text-xs sm:text-sm text-[#756C7D]">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-bold text-[#251D2C] hover:text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800 rounded">
+                <details className="store-disclosure group/details mt-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/70 text-xs sm:text-sm text-[#756C7D]">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 font-bold text-[#251D2C] transition-colors hover:bg-pink-50 hover:text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
                     <span>{comparison.detailsSummary}</span>
                     <span
                       aria-hidden="true"
@@ -174,7 +174,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                       ▾
                     </span>
                   </summary>
-                  <dl className="mt-3 space-y-2.5 border-t border-[#F1E4ED] pt-2.5 leading-relaxed">
+                  <dl className="mx-3.5 mb-3.5 space-y-2.5 border-t border-[#F1E4ED] pt-2.5 leading-relaxed">
                     {(['requirements', 'process', 'timing'] as const).map(field => (
                       <div key={field}>
                         <dt className="font-bold text-[#251D2C]">{comparison[field]}</dt>

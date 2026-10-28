@@ -272,7 +272,7 @@ export default function StoreShell({ children, wide = false }: { children: React
         >
           <div
             ref={dialogRef}
-            className="bg-white rounded-3xl border border-[#F1E4ED] p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            className="store-step bg-white rounded-3xl border border-[#F1E4ED] p-6 max-w-md w-full shadow-2xl space-y-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[#F1E4ED] pb-3.5">

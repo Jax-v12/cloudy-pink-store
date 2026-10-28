@@ -49,6 +49,7 @@ export default function RobloxCheckoutWizard({
   const router = useRouter();
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef(0);
   const [step, setStep] = useState(0);
   const phase = viaUsername && step >= 2 ? step + 1 : step;
   const finalStep = viaUsername ? 3 : 4;
@@ -64,7 +65,8 @@ export default function RobloxCheckoutWizard({
   const submitting = useRef(false);
 
   useEffect(() => {
-    if (step > 0) heading.current?.focus();
+    if (step !== previousStep.current) heading.current?.focus();
+    previousStep.current = step;
   }, [step]);
 
   const money = (n: number) => formatMoney(n, REGION_CURRENCY[region], language);
@@ -256,7 +258,7 @@ export default function RobloxCheckoutWizard({
         onSubmit={submit}
         className="rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:p-10 shadow-[0_16px_40px_-14px_rgba(157,23,77,0.1)]"
       >
-        <fieldset disabled={busy} className="min-w-0">
+        <fieldset key={step} disabled={busy} className="store-step min-w-0">
           <header className="mx-auto mb-7 max-w-xl text-center">
             {step === 0 && (
               <span className="inline-block rounded-full border border-pink-200 bg-pink-50 px-3.5 py-1 text-xs font-extrabold tracking-wider text-pink-700 mb-3">

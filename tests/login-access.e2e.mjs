@@ -20,7 +20,7 @@ async function run(name, fn) {
 }
 const labels = {
   EN: { open: 'Open account access', dialog: 'Login account access', unlock: 'Unlock for up to 60 seconds', admin: 'Your admin password', show: 'Show', close: 'Close' },
-  ID: { open: 'Buka akses akun', dialog: 'Akses akun Via Login', unlock: 'Buka maksimal 60 detik', admin: 'Password admin Anda', show: 'Tampilkan', close: 'Tutup' },
+  ID: { open: 'Buka akses akun', dialog: 'Akses akun Via Login', unlock: 'Buka maksimal 60 detik', admin: 'Kata sandi admin Anda', show: 'Tampilkan', close: 'Tutup' },
   MY: { open: 'Buka akses akaun', dialog: 'Akses akaun Log Masuk', unlock: 'Buka sehingga 60 saat', admin: 'Kata laluan pentadbir anda', show: 'Tunjukkan', close: 'Tutup' },
 };
 async function fixture(viewport = { width: 375, height: 812 }, locale = 'EN', mode = 'normal') {

@@ -193,10 +193,16 @@ try {
       assert.equal(await select.evaluate(element => element === document.activeElement), true);
       await select.selectOption('US'); assert.equal(await p.locator('[data-phone-flag]').count(), 0);
       await select.selectOption('ID'); await p.locator('[name=username]').fill('FixtureUser');
-      const lookupButton = f.button(p, { ID: 'Cek Username Roblox', EN: 'Check Roblox username', MY: 'Semak nama pengguna Roblox' }[locale]);
+      const lookupButton = f.button(p, { ID: 'Cek Nama pengguna Roblox', EN: 'Check Roblox username', MY: 'Semak nama pengguna Roblox' }[locale]);
       await lookupButton.focus(); await p.keyboard.press('Enter');
       await p.locator('#login-username-lookup').getByText('Fixture Public Name', { exact: true }).waitFor();
       assert.ok((await p.locator('#login-username-lookup').innerText()).includes('42'));
+      const guide = p.locator('details');
+      await guide.locator('summary').focus(); await p.keyboard.press('Enter');
+      await p.waitForFunction(() => document.querySelector('details')?.open);
+      assert.equal(await guide.locator('li').count(), 3);
+      await p.keyboard.press('Space');
+      await p.waitForFunction(() => !document.querySelector('details')?.open);
       await p.locator('[name=whatsapp]').fill('081234567890'); await p.locator('[name=email]').fill('fixture@example.invalid');
       await f.fillSecrets(p);
       assert.equal(f.state.orders, 0); assert.equal(f.state.confirmations, 0);

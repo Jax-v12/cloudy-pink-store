@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useRef, useState, use } from 'react';
 import Link from 'next/link';
 import RobloxInstructions from '@/components/RobloxInstructions';
 import OrderProgress from '@/components/OrderProgress';
@@ -60,6 +60,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState('');
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState(false);
+  const [copyError, setCopyError] = useState<'account' | 'otp' | null>(null);
+  const copyRequest = useRef(0);
   const [requestingOtp, setRequestingOtp] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -68,6 +70,15 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [appsRevision, setAppsRevision] = useState(0);
   const appsDeliveredAt = order?.appsService?.deliveredAt;
   const hasAppsDelivery = Boolean(order?.appsService?.delivery);
+  useEffect(() => () => { copyRequest.current++; }, [id]);
+  useEffect(() => {
+    if (!copiedAccount && !copiedOtp) return;
+    const timer = setTimeout(() => {
+      setCopiedAccount(false);
+      setCopiedOtp(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [copiedAccount, copiedOtp]);
   useEffect(() => {
     if (!hasAppsDelivery || !appsDeliveredAt) return;
     const deadline = Date.parse(appsDeliveredAt) + APPS_DELIVERY_TTL_MS;
@@ -160,6 +171,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   const formatRupiah = (amount: number) => formatMoney(amount, order?.currency ?? 'IDR', language);
 
+  async function copyText(text: string, kind: 'account' | 'otp') {
+    const request = ++copyRequest.current;
+    const setCopied = kind === 'account' ? setCopiedAccount : setCopiedOtp;
+    setCopied(false);
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      if (request === copyRequest.current) setCopied(true);
+    } catch {
+      if (request === copyRequest.current) setCopyError(kind);
+    }
+  }
+
   const handleCopyAccount = () => {
     if (!order?.account) return;
     const text = `Email: ${order.account.emailAccount}\nPassword: ${order.account.passwordAccount}${
@@ -167,9 +191,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     }${order.account.pin ? `\nPIN: ${order.account.pin}` : ''}${
       order.account.additionalInfo ? `\nInfo: ${order.account.additionalInfo}` : ''
     }`;
-    navigator.clipboard.writeText(text);
-    setCopiedAccount(true);
-    setTimeout(() => setCopiedAccount(false), 2000);
+    void copyText(text, 'account');
   };
 
   const handleRequestOtp = async () => {
@@ -196,9 +218,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   const handleCopyOtp = () => {
     if (!order?.otp?.code) return;
-    navigator.clipboard.writeText(order.otp.code);
-    setCopiedOtp(true);
-    setTimeout(() => setCopiedOtp(false), 2000);
+    void copyText(order.otp.code, 'otp');
   };
 
   const downloadQrisImage = async () => {
@@ -522,6 +542,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 >
                   {copiedAccount ? t.accountCopied : t.btnCopyAccount}
                 </button>
+                {copyError === 'account' && <p role="alert" className="mt-2 text-xs font-bold text-rose-700">{t.copyFailed}</p>}
               </div>
 
               <div className="bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl p-4 sm:p-5 space-y-3" aria-live="polite">
@@ -562,6 +583,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     {otpError}
                   </p>
                 )}
+                {copyError === 'otp' && <p role="alert" className="text-xs font-bold text-rose-700">{t.copyFailed}</p>}
 
                 <div className="grid sm:grid-cols-2 gap-2.5">
                   <button

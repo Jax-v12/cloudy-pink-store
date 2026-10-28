@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { translations } from '../src/lib/translations.ts';
-import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const renderer = process.env.TEST_RENDERER_URL || 'http://127.0.0.1:3178';
-const origin = 'https://store.invalid';
+assert.ok(['127.0.0.1', 'localhost'].includes(new URL(renderer).hostname));
+const origin = renderer;
 const output = '.cache/indonesia-copy-20261025/browser';
 await fs.mkdir(output, { recursive: true });
 const invoice = 'INV-SYNTHETIC-COPY';
@@ -35,7 +35,7 @@ try {
       if (url.pathname === '/api/orders/' + invoice) return route.fulfill({ json: { success: true, data: order } });
       if (url.pathname === '/api/orders/' + invoice + '/payment') return route.fulfill({ json: { success: true, data: { status: 'PENDING' } } });
       if (url.pathname.startsWith('/api/')) { errors.push('UNEXPECTED_API ' + url.pathname); return route.abort(); }
-      return fulfillFixtureRead(route, renderer);
+      return route.continue();
     });
     try {
       await page.goto(origin);
@@ -57,6 +57,12 @@ try {
         await page.getByText(t.scanNoticeTitle, { exact: true }).waitFor();
         await page.getByText(t.scanNoticeSubtitle, { exact: true }).waitFor();
         await page.getByRole('button', { name: t.btnDownloadQris, exact: true }).waitFor();
+        const [download] = await Promise.all([
+          page.waitForEvent('download'),
+          page.getByRole('button', { name: t.btnDownloadQris, exact: true }).click(),
+        ]);
+        assert.equal(download.suggestedFilename(), `QRIS-${invoice}.png`);
+        await download.cancel();
         assert.doesNotMatch(await page.locator('body').innerText(), /DuitNow|Touch n Go|Maybank MAE/);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'invoice overflow');
         await page.screenshot({ path: `${output}/${width}-${language}-invoice.png`, fullPage: true });

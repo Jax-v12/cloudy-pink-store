@@ -3,12 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fulfillFixtureRead } from './browser-fixture-transport.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.argv[2] || 'playwright');
 const server = process.argv[3] || 'http://127.0.0.1:3156';
 assert.equal(new URL(server).hostname, '127.0.0.1');
-const base = 'https://store.invalid';
+const base = server;
 const output = path.resolve('.cache/service-help-20261018/browser');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -33,7 +32,7 @@ async function fixture(viewport, locale, patch = {}, region = 'ID') {
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (url.origin !== base) { state.blocked++; return route.abort(); }
-    if (!url.pathname.startsWith('/api/')) return fulfillFixtureRead(route, server);
+    if (!url.pathname.startsWith('/api/')) return route.continue();
     if (url.pathname === '/api/products' && request.method() === 'GET') {
       const products = url.searchParams.get('type') === 'ROBLOX' ? [{ id: 1, name: 'Synthetic Roblox', slug: 'synthetic-roblox', checkoutEnabled: true,
         variants: ['GAMEPASS', 'LOGIN', 'GIFT_USERNAME'].map((method, index) => ({ id: index + 1, name: method, method, units: 100, price: region ? 8500 : null, unitStep: 5, maxUnits: 1000 })) }] : [];
