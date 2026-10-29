@@ -135,6 +135,11 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                   )}
                 </div>
 
+                <p className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm text-[var(--text-secondary)]">
+                  <span>{comparison.estimateLabel}</span>
+                  <strong className="text-[#251D2C]">{comparison.estimates[method]}</strong>
+                </p>
+
                 <details className="store-disclosure group/details mt-3 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/70 text-xs sm:text-sm text-[var(--text-secondary)]">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5 font-bold text-[#251D2C] transition-colors hover:bg-pink-50 hover:text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
                     <span>{comparison.detailsSummary}</span>
@@ -162,6 +167,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
 
       <p className="mt-4 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 sm:p-4 text-xs sm:text-sm leading-relaxed text-[var(--text-secondary)]">
         {comparison.notice}
+        <span className="mt-1 block">{comparison.estimateNotice}</span>
       </p>
     </section>
   );

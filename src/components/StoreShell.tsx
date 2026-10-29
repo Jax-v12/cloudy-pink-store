@@ -94,7 +94,7 @@ export default function StoreShell({ children, wide = false }: { children: React
                 href="/"
                 className="group inline-flex items-center gap-2.5 rounded-xl py-1 pr-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
-                <Image src="/store/logo.png" alt={c.brand} width={180} height={60} sizes="(max-width: 639px) 128px, 180px" className="h-auto w-32 sm:w-45" />
+                <Image src="/store/logo-transparent.png" alt={c.brand} width={180} height={60} sizes="(max-width: 639px) 128px, 180px" className="h-auto w-32 sm:w-45" />
               </Link>
               {pathname !== '/' && (
                 <Link

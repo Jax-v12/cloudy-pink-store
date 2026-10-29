@@ -62,6 +62,11 @@ async function close(f) {
   await f.context.unrouteAll({ behavior: 'wait' });
   await f.context.close();
 }
+const estimates = {
+  ID: ['5–10 hari', '2 × 24 jam', '1–60 menit'],
+  EN: ['5–10 days', '2 × 24 hours', '1–60 minutes'],
+  MY: ['5–10 hari', '2 × 24 jam', '1–60 minit'],
+};
 try {
   for (const viewport of [{ width: 375, height: 812 }, { width: 810, height: 1080 }, { width: 1440, height: 900 }]) for (const locale of ['ID', 'EN', 'MY']) {
     const l = labels[locale];
@@ -76,6 +81,10 @@ try {
         await f.page.waitForFunction(() => document.querySelector('details')?.open === true);
         await f.page.keyboard.press('Enter');
         await f.page.waitForFunction(() => document.querySelector('details')?.open === false);
+        const timing = f.page.locator('#timing');
+        await timing.locator('summary').click();
+        await timing.locator('p').waitFor();
+        for (const estimate of estimates[locale]) assert.ok((await timing.innerText()).includes(estimate), 'FAQ includes the approved estimate');
         await f.page.getByRole('link', { name: l.terms, exact: true }).first().click();
         await f.page.waitForURL('**/help#terms');
         assert.equal(await f.page.locator('#terms').isVisible(), true);
@@ -91,7 +100,12 @@ try {
         const comparison = f.page.getByRole('region', { name: l.comparison, exact: true });
         await comparison.waitFor();
         assert.equal(await comparison.locator('article').count(), 3);
-        assert.equal(await comparison.locator('dt').count(), 9);
+        assert.equal(await comparison.locator('article details dt').count(), 9);
+        for (const [index, estimate] of estimates[locale].entries()) {
+          const card = comparison.locator('article').nth(index);
+          assert.equal(await card.getByText(estimate, { exact: true }).isVisible(), true, 'estimate is visible without opening details');
+          assert.equal(await card.locator('details').getByText(estimate, { exact: true }).count(), 0, 'estimate is outside the dropdown');
+        }
         for (const method of ['GAMEPASS', 'LOGIN', 'GIFT_USERNAME']) assert.equal(await comparison.locator(`a[href="/roblox/synthetic-roblox?method=${method}"]`).count(), 1);
         assert.equal(await comparison.locator('select').count(), 0);
         await clean(f);

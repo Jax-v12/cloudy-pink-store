@@ -1,5 +1,5 @@
 const en = {
-  infoStep: 'Username information', title: 'Robux via Username', badge: 'ROBUX VIA USERNAME',
+  infoStep: 'Information', title: 'Before you order', badge: 'ROBUX VIA USERNAME',
   description: 'Receive Robux through a manual gift or transfer to your Roblox username. Our team checks eligibility and confirms delivery after payment.',
   detailsIntro: 'Check the recipient, choose your Robux amount and enter your contact email.',
   privacy: 'Only your username and contact email are needed. Never provide passwords, OTPs, backup codes or session cookies.',
@@ -10,7 +10,7 @@ const en = {
 };
 type Copy = typeof en;
 const id: Copy = {
-  infoStep: "Informasi Nama pengguna", title: "Robux Via Nama pengguna", badge: 'ROBUX VIA USERNAME',
+  infoStep: 'Informasi', title: 'Sebelum memesan', badge: 'ROBUX VIA USERNAME',
   description: "Terima Robux melalui hadiah atau transfer manual ke nama pengguna Roblox kamu. Tim memeriksa kelayakan penerima dan mengonfirmasi pengiriman setelah pembayaran.",
   detailsIntro: 'Cek penerima, pilih jumlah Robux, lalu isi email kontakmu.',
   privacy: "Cukup nama pengguna dan email kontak. Jangan berikan kata sandi, OTP, kode cadangan, atau cookie sesi.",
@@ -20,7 +20,7 @@ const id: Copy = {
   adminHint: "Harga setiap wilayah adalah tarif untuk Robux dasar/minimum. Isi maksimum dan kelipatan untuk slider, atau kosongkan maksimum untuk paket tetap. Nominal dihitung proporsional dan dibulatkan ke atas ke satuan mata uang. Konfirmasikan kapasitas transfer sebelum aktivasi.",
 };
 const my: Copy = {
-  infoStep: 'Maklumat Username', title: 'Robux Melalui Username', badge: 'ROBUX MELALUI USERNAME',
+  infoStep: 'Maklumat', title: 'Sebelum membuat pesanan', badge: 'ROBUX MELALUI USERNAME',
   description: 'Terima Robux melalui hadiah atau pindahan manual kepada nama pengguna Roblox anda. Pasukan menyemak kelayakan penerima dan mengesahkan penghantaran selepas bayaran.',
   detailsIntro: 'Semak penerima, pilih jumlah Robux dan isi e-mel hubungan anda.',
   privacy: 'Hanya nama pengguna dan e-mel hubungan diperlukan. Jangan berikan kata laluan, OTP, kod sandaran atau kuki sesi.',

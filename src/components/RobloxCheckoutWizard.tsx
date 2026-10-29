@@ -11,6 +11,7 @@ import { useRegionalQuote } from './useRegionalQuote';
 import RobloxFields from './RobloxFields';
 import RobuxIcon from './RobuxIcon';
 import RobloxGamepassGuide from './RobloxGamepassGuide';
+import CheckoutSteps from './CheckoutSteps';
 
 type Rate = {
   id: number;
@@ -200,7 +201,7 @@ export default function RobloxCheckoutWizard({
 
   if (!rate)
     return (
-      <p className="rounded-3xl border border-[#F1E4ED] bg-white p-8 text-center font-semibold text-[#756C7D]">
+      <p className="rounded-3xl border border-[#F1E4ED] bg-white p-8 text-center font-semibold text-[var(--text-secondary)]">
         {r.noPackages}
       </p>
     );
@@ -210,66 +211,18 @@ export default function RobloxCheckoutWizard({
 
   return (
     <div className="mx-auto max-w-4xl pb-10">
-      <ol
-        style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
-        aria-label={c.status}
-        className="mx-auto mb-6 grid max-w-2xl rounded-2xl border border-[#F1E4ED] bg-white px-2 py-3.5 sm:mb-8 sm:px-4"
-      >
-        {steps.map((label, i) => (
-          <li key={label} className="relative min-w-0 text-center">
-            {i < steps.length - 1 && (
-              <span
-                aria-hidden="true"
-                className={`absolute top-4 left-1/2 h-0.5 w-full ${
-                  i < step ? 'bg-pink-500' : 'border-t-2 border-dashed border-[#F1E4ED]'
-                }`}
-              />
-            )}
-            <button
-              type="button"
-              disabled={i > step || busy}
-              onClick={() => go(i)}
-              aria-current={i === step ? 'step' : undefined}
-              className="relative px-1 focus-visible:outline-2 focus-visible:outline-pink-600 rounded-lg disabled:cursor-default"
-            >
-              <span
-                className={`mx-auto flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-xs sm:text-sm font-extrabold transition-colors ${
-                  i === step
-                    ? 'bg-pink-600 text-white ring-4 ring-pink-500/15 '
-                    : i < step
-                      ? 'bg-pink-100 text-pink-800 border border-pink-300'
-                      : 'bg-[#FFF9FC] text-[#756C7D] border border-[#F1E4ED]'
-                }`}
-              >
-                {i < step ? '✓' : i + 1}
-              </span>
-              <span
-                className={`mt-1.5 block text-[11px] sm:text-xs leading-snug ${
-                  i === step ? 'text-[#251D2C] font-extrabold' : 'text-[#756C7D] font-medium'
-                }`}
-              >
-                {label}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
+      <CheckoutSteps labels={steps} current={step} ariaLabel={c.status} busy={busy} onStepChange={go} />
 
       <form
         onSubmit={submit}
-        className="rounded-3xl border border-[#F1E4ED] bg-white px-5 py-7 sm:p-10"
+        className="mt-6 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-6 sm:mt-8 sm:p-8"
       >
         <fieldset key={step} disabled={busy} className="store-step min-w-0">
           <header className="mx-auto mb-7 max-w-xl text-center">
-            {step === 0 && (
-              <span className="inline-block rounded-full border border-pink-200 bg-pink-50 px-3.5 py-1 text-xs font-extrabold tracking-wider text-pink-700 mb-3">
-                {viaUsername ? u.badge : f.badge}
-              </span>
-            )}
             <h2 ref={heading} tabIndex={-1} className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C] outline-none">
               {titles[step]}
             </h2>
-            <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[#756C7D]">{intros[step]}</p>
+            <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[var(--text-secondary)]">{intros[step]}</p>
           </header>
 
           {error && (
@@ -308,28 +261,32 @@ export default function RobloxCheckoutWizard({
               <div className="flex items-center gap-4 rounded-2xl border border-pink-200/80 bg-[#FFF9FC] p-5">
                 <span
                   aria-hidden="true"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FFF9FC] text-[#756C7D]"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FFF9FC] text-[var(--text-secondary)]"
                 >
                   <RobuxIcon />
                 </span>
                 <div>
-                  <strong className="block text-lg sm:text-xl font-extrabold text-[#251D2C]">
-                    {basePrice === null ? t.regional.unavailable : money(basePrice)} / {rate.units} Robux
+                  <strong className="block text-2xl font-extrabold text-pink-600">
+                    {basePrice === null ? t.regional.unavailable : money(basePrice)}
                   </strong>
-                  <span className="text-xs sm:text-sm text-[#756C7D] font-medium">{f.baseRate}</span>
+                  <span className="mt-1 block text-sm text-[var(--text-secondary)] font-medium">{rate.units} Robux · {f.baseRate}</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#F1E4ED] bg-white p-5">
+              <div className="border-t border-[#F1E4ED] pt-4">
+                <p className="mb-3 text-sm text-[var(--text-secondary)]">
+                  {t.serviceHelp.comparison.estimateLabel}: <strong className="text-[#251D2C]">{t.serviceHelp.comparison.estimates[method]}</strong>
+                  <span className="mt-1 block text-xs leading-relaxed">{t.serviceHelp.comparison.estimateNotice}</span>
+                </p>
                 <p className="font-extrabold text-[#251D2C]">
                   {enabled && methods.length > 0 && basePrice !== null ? f.available : c.unavailable}
                 </p>
-                <p className="text-xs sm:text-sm text-[#756C7D] mt-1">{f.manual}</p>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">{f.manual}</p>
               </div>
 
-              <p className="text-xs sm:text-sm text-center text-[#756C7D]">{f.safeDraft}</p>
+              <p className="text-xs sm:text-sm text-center text-[var(--text-secondary)]">{f.safeDraft}</p>
               {viaUsername && (
-                <p className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 text-xs sm:text-sm text-[#251D2C]">
+                <p className="border-l-2 border-pink-300 pl-4 text-sm leading-relaxed text-[#251D2C]">
                   {u.privacy}
                 </p>
               )}
@@ -349,7 +306,7 @@ export default function RobloxCheckoutWizard({
                 }}
               />
 
-              <div className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5 space-y-5">
+              <div className="border-y border-[#F1E4ED] py-5 space-y-5">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3 sm:gap-4">
                   <label className="text-sm font-bold text-[#251D2C]" htmlFor={`${id}-quantity`}>
                     {f.quantity}
@@ -396,14 +353,14 @@ export default function RobloxCheckoutWizard({
                     className="gamepass-range w-full"
                     style={{ background: `linear-gradient(to right, #EC4899 ${progress}%, #F1E4ED ${progress}%)` }}
                   />
-                  <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[#756C7D]">
+                  <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
                     <span>{rate.units} Robux</span>
                     <span className="rounded-full border border-pink-200 bg-white px-3.5 py-1 text-xs sm:text-sm font-extrabold text-pink-700">
                       {units} Robux
                     </span>
                     <span>{maximum} Robux</span>
                   </div>
-                  <p id={`${id}-hint`} className="mt-3 text-center text-xs text-[#756C7D]">
+                  <p id={`${id}-hint`} className="mt-3 text-center text-xs text-[var(--text-secondary)]">
                     {fillTemplate(f.quantityHelp, { min: rate.units, max: maximum, step: increment })}
                   </p>
                   {!quote && (
@@ -427,16 +384,16 @@ export default function RobloxCheckoutWizard({
                 />
               </label>
 
-              <div className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-5">
+              <div className="border-l-2 border-pink-300 pl-4">
                 <h3 className="font-extrabold text-[#251D2C]">{f.noteTitle}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-[#756C7D]">{viaUsername ? u.timing : f.timing}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">{viaUsername ? u.timing : f.timing}</p>
               </div>
             </div>
           )}
 
           {phase === 2 && (
             <div className="space-y-6">
-              <div className="flex flex-wrap justify-between gap-2 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm text-[#756C7D]">
+              <div className="flex flex-wrap justify-between gap-2 border-b border-[#F1E4ED] pb-4 text-sm text-[var(--text-secondary)]">
                 <p>
                   {f.recipient}: <strong className="text-[#251D2C]">@{username}</strong>
                 </p>
@@ -450,7 +407,7 @@ export default function RobloxCheckoutWizard({
                 <p className="my-2.5 text-4xl font-extrabold text-pink-600">
                   {price} <span className="text-xl font-bold">Robux</span>
                 </p>
-                <p className="text-xs sm:text-sm text-[#756C7D]">{fillTemplate(r.taxNotice, { price, units })}</p>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)]">{fillTemplate(r.taxNotice, { price, units })}</p>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-4">
@@ -477,7 +434,7 @@ export default function RobloxCheckoutWizard({
                   className={`${input} mt-2`}
                 />
               </label>
-              <p className="text-xs text-[#756C7D]">{f.linkHelp}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{f.linkHelp}</p>
             </div>
           )}
 
@@ -510,7 +467,7 @@ export default function RobloxCheckoutWizard({
             <div className="my-5 space-y-3">
               <RegionalPaymentSummary region={region} quote={server.quote} subtotal={quote?.totalAmount} />
               {server.loading && (
-                <p role="status" className="text-xs sm:text-sm font-medium text-[#756C7D]">
+                <p role="status" className="text-xs sm:text-sm font-medium text-[var(--text-secondary)]">
                   {t.regional.quoteLoading}
                 </p>
               )}
@@ -540,9 +497,9 @@ export default function RobloxCheckoutWizard({
 
           {(phase === 4 || (viaUsername && phase === 3)) && (
             <div className="space-y-4 mt-5">
-              <dl className="divide-y divide-[#F1E4ED] rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2 text-sm">
+              <dl className="divide-y divide-[#F1E4ED] border-t border-[#F1E4ED] text-sm">
                 {[
-                  [c.method, r[method]],
+                  [c.method, f[method]],
                   [f.recipient, '@' + username],
                   [c.email, email],
                   [r.netRobux, `${units} Robux`],
@@ -550,12 +507,12 @@ export default function RobloxCheckoutWizard({
                   [c.payment, selectedMethod?.label ?? '—'],
                 ].map(([label, value]) => (
                   <div key={label} className="grid sm:grid-cols-[1fr_2fr] gap-1 sm:gap-4 py-3">
-                    <dt className="text-[#756C7D] font-medium">{label}</dt>
+                    <dt className="text-[var(--text-secondary)] font-medium">{label}</dt>
                     <dd className="font-bold text-[#251D2C] break-all sm:text-right">{value}</dd>
                   </div>
                 ))}
               </dl>
-              <p className="text-xs text-[#756C7D]">{viaUsername ? u.priceNotice : f.feeNotice}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{viaUsername ? u.priceNotice : f.feeNotice}</p>
             </div>
           )}
 
@@ -578,7 +535,7 @@ export default function RobloxCheckoutWizard({
             <button
               type="submit"
               disabled={busy || (step > 0 && !quote) || (phase >= 3 && (!enabled || !server.quote || !selectedMethod))}
-              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-40 cursor-pointer"
+              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white transition enabled:hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed cursor-pointer"
             >
               {busy ? t.btnProcessing : phase === 4 ? f.confirm : f.next}
             </button>

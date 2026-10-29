@@ -184,6 +184,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
 
   return (
     <StoreShell>
+      <div className={type === 'ROBLOX' && slug ? 'mx-auto max-w-4xl' : undefined}>
       {!slug && (
         <div className="mb-3.5 sm:mb-6 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-4 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -216,17 +217,11 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
           </Link>
 
           {type === 'ROBLOX' && method ? (
-            <div className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7">
-              <div className="inline-block rounded-lg border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-pink-700 mb-2.5">
-                {r[method]}
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#251D2C] mb-1.5">
+            <header className="mx-auto max-w-4xl">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">
                 {methodTitles[method]}
               </h1>
-              <p className="text-sm sm:text-base text-[#756C7D] font-medium">
-                {method === 'GAMEPASS' ? f.description : method === 'LOGIN' ? r.loginTiming : t.usernameFlow.description}
-              </p>
-            </div>
+            </header>
           ) : type === 'ROBLOX' && !method ? (
             <div className="rounded-3xl border border-amber-200 bg-amber-50/90 p-6 sm:p-8">
               <h2 className="text-lg font-extrabold text-amber-950 mb-2">{r.methodRequired}</h2>
@@ -512,6 +507,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
             </aside>
           </form>
         )}
+      </div>
       </div>
     </StoreShell>
   );

@@ -1,3 +1,9 @@
+const deliveryEstimates = {
+  EN: { GAMEPASS: '5–10 days', LOGIN: '2 × 24 hours', GIFT_USERNAME: '1–60 minutes' },
+  ID: { GAMEPASS: '5–10 hari', LOGIN: '2 × 24 jam', GIFT_USERNAME: '1–60 menit' },
+  MY: { GAMEPASS: '5–10 hari', LOGIN: '2 × 24 jam', GIFT_USERNAME: '1–60 minit' },
+};
+
 const en = {
   title: 'Help & service information',
   intro: 'Understand your purchase, follow your order and find the right help.',
@@ -7,7 +13,7 @@ const en = {
   questions: [
     { id: 'buying', question: 'How do I place an order?', answer: 'Choose Apps Premium or a Roblox method, check the available product and price, then review your details. An order is created only after your final confirmation. Follow the payment instructions on the invoice.' },
     { id: 'order-status', question: 'I have paid. Why is my order still processing?', answer: 'Payment and delivery are separate steps. The invoice updates after payment is verified. Roblox orders then enter the delivery queue and are completed after delivery is confirmed. For Apps, account details appear on the authorized invoice once available.' },
-    { id: 'timing', question: 'How long does delivery take?', answer: 'Processing depends on the method, account checks and the current queue. Gamepass purchases can also enter Roblox’s pending period before Robux is available. Check the invoice and method instructions; contact support for an update. No fixed delivery time is guaranteed here.' },
+    { id: 'timing', question: 'How long does delivery take?', answer: `Roblox delivery estimates: Gamepass ${deliveryEstimates.EN.GAMEPASS}, Login ${deliveryEstimates.EN.LOGIN}, Username ${deliveryEstimates.EN.GIFT_USERNAME}. Timing may vary with the queue and account checks; estimates are not guaranteed deadlines. The Gamepass pending period is controlled by Roblox. Check your invoice or contact support for an update.` },
     { id: 'payment-help', question: 'What if I paid but the invoice has not updated?', answer: 'Keep the original invoice open and allow the status to refresh. If it remains unclear, contact support with that invoice. Do not pay again or create a duplicate order while the payment is being checked.' },
     { id: 'access', question: 'How do I reopen my invoice?', answer: 'Use My orders or enter your invoice number on the home page, using the same browser as checkout. The invoice number alone does not grant access. If browser access is lost, contact support; do not share account details or an invoice screenshot containing them.' },
     { id: 'account-data', question: 'Which Roblox account details are required?', answer: 'Gamepass and Via Username do not need your Roblox password or backup codes. Via Login uses your username, password and five backup codes only through its dedicated checkout form and consent step for that order. Never provide OTPs, cookies or session tokens.' },
@@ -23,6 +29,9 @@ const en = {
   ],
   comparison: {
     title: 'Compare Roblox methods', intro: 'Check what each method needs before choosing. Availability and current prices are shown on each card.',
+    estimates: deliveryEstimates.EN,
+    estimateLabel: 'Estimated delivery',
+    estimateNotice: 'Timing may vary with the queue and verification; estimates are not guaranteed deadlines.',
     detailsSummary: 'Requirements, process & timing',
     requirements: 'What you need', process: 'How delivery works', timing: 'Processing time',
     GAMEPASS: { requirements: 'Roblox username and a public Gamepass link with the instructed price. No password or backup codes.', process: 'After verified payment and Gamepass checks, our team buys your Gamepass.', timing: 'Team processing is followed by Roblox’s pending period. See the Gamepass instructions before ordering.' },
@@ -58,7 +67,7 @@ const id: Copy = {
   questions: [
     { id: 'buying', question: 'Bagaimana cara memesan?', answer: "Pilih Aplikasi Premium atau salah satu metode Roblox, periksa produk dan harga yang tersedia, lalu tinjau datamu. Pesanan baru dibuat setelah konfirmasi terakhir. Ikuti instruksi pembayaran pada bukti pesanan." },
     { id: 'order-status', question: 'Sudah bayar, mengapa pesanan masih diproses?', answer: "Pembayaran dan pengiriman adalah tahap berbeda. Bukti Pesanan diperbarui setelah pembayaran terverifikasi. Pesanan Roblox lalu masuk antrean pengiriman dan selesai setelah pengiriman dikonfirmasi. Untuk Aplikasi, detail akun muncul pada bukti pesanan yang memiliki akses sah setelah tersedia." },
-    { id: 'timing', question: 'Berapa lama pengirimannya?', answer: "Proses bergantung pada metode, pemeriksaan akun, dan antrean saat itu. Pembelian Gamepass juga dapat masuk masa pending Roblox sebelum Robux tersedia. Periksa bukti pesanan dan panduan metode; hubungi bantuan untuk pembaruan. Tidak ada jaminan waktu pengiriman tetap di halaman ini." },
+    { id: 'timing', question: 'Berapa lama pengirimannya?', answer: `Estimasi pengiriman Roblox: Gamepass ${deliveryEstimates.ID.GAMEPASS}, Login ${deliveryEstimates.ID.LOGIN}, Username ${deliveryEstimates.ID.GIFT_USERNAME}. Waktu dapat berubah mengikuti antrean dan pemeriksaan akun; estimasi bukan jaminan. Masa pending Gamepass ditentukan Roblox. Periksa bukti pesanan atau hubungi bantuan untuk pembaruan.` },
     { id: 'payment-help', question: "Sudah bayar tetapi bukti pesanan belum berubah?", answer: "Simpan bukti pesanan asli dan tunggu pembaruan statusnya. Jika masih belum jelas, hubungi bantuan dengan bukti pesanan tersebut. Jangan membayar lagi atau membuat pesanan duplikat saat pembayaran sedang diperiksa." },
     { id: 'access', question: "Bagaimana membuka bukti pesanan kembali?", answer: "Gunakan Pesanan Saya atau masukkan nomor bukti pesanan di beranda melalui browser yang sama saat pemesanan. Nomor bukti pesanan saja tidak memberi hak akses. Jika akses browser hilang, hubungi bantuan; jangan bagikan detail akun atau screenshot bukti pesanan yang memuatnya." },
     { id: 'account-data', question: 'Data akun Roblox apa yang diperlukan?', answer: "Gamepass dan Via Nama pengguna tidak memerlukan kata sandi atau kode cadangan Roblox. Via Login menggunakan nama pengguna, kata sandi, dan lima kode cadangan hanya melalui formulir pemesanan serta persetujuan khusus pesanan tersebut. Jangan pernah memberikan OTP, cookie, atau token sesi." },
@@ -74,6 +83,9 @@ const id: Copy = {
   ],
   comparison: {
     title: 'Bandingkan metode Roblox', intro: 'Periksa kebutuhan setiap metode sebelum memilih. Ketersediaan dan harga terkini tampil di setiap kartu.',
+    estimates: deliveryEstimates.ID,
+    estimateLabel: 'Estimasi pengiriman',
+    estimateNotice: 'Waktu dapat berubah mengikuti antrean dan verifikasi; estimasi bukan jaminan.',
     detailsSummary: 'Syarat, cara kirim & waktu proses',
     requirements: 'Yang perlu disiapkan', process: 'Cara pengiriman', timing: 'Waktu pemrosesan',
     GAMEPASS: { requirements: "Nama pengguna Roblox dan tautan Gamepass publik dengan harga sesuai instruksi. Tanpa kata sandi atau kode cadangan.", process: 'Setelah pembayaran terverifikasi dan Gamepass diperiksa, tim membeli Gamepass kamu.', timing: 'Proses tim dilanjutkan masa pending Roblox. Baca panduan Gamepass sebelum memesan.' },
@@ -108,7 +120,7 @@ const my: Copy = {
   questions: [
     { id: 'buying', question: 'Bagaimanakah saya membuat pesanan?', answer: 'Pilih Apps Premium atau satu kaedah Roblox, semak produk dan harga yang tersedia, kemudian semak butiran anda. Pesanan hanya dicipta selepas pengesahan akhir. Ikut arahan bayaran pada invois.' },
     { id: 'order-status', question: 'Sudah bayar, mengapa pesanan masih diproses?', answer: 'Bayaran dan penghantaran ialah langkah berbeza. Invois dikemas kini selepas bayaran disahkan. Pesanan Roblox kemudian memasuki giliran penghantaran dan selesai selepas penghantaran disahkan. Bagi Apps, butiran akaun muncul pada invois dengan akses sah setelah tersedia.' },
-    { id: 'timing', question: 'Berapa lamakah penghantaran?', answer: 'Proses bergantung pada kaedah, semakan akaun dan giliran semasa. Pembelian Gamepass juga boleh memasuki tempoh pending Roblox sebelum Robux tersedia. Semak invois dan panduan kaedah; hubungi bantuan untuk perkembangan. Tiada jaminan masa penghantaran tetap pada halaman ini.' },
+    { id: 'timing', question: 'Berapa lamakah penghantaran?', answer: `Anggaran penghantaran Roblox: Gamepass ${deliveryEstimates.MY.GAMEPASS}, Login ${deliveryEstimates.MY.LOGIN}, Username ${deliveryEstimates.MY.GIFT_USERNAME}. Masa boleh berubah mengikut giliran dan semakan akaun; anggaran bukan jaminan. Tempoh pending Gamepass ditentukan Roblox. Semak invois atau hubungi bantuan untuk perkembangan.` },
     { id: 'payment-help', question: 'Sudah bayar tetapi invois belum berubah?', answer: 'Simpan invois asal dan tunggu kemas kini status. Jika masih tidak jelas, hubungi bantuan dengan invois tersebut. Jangan bayar semula atau cipta pesanan pendua semasa bayaran sedang disemak.' },
     { id: 'access', question: 'Bagaimanakah saya membuka invois semula?', answer: 'Gunakan Pesanan Saya atau masukkan nombor invois di halaman utama melalui pelayar yang sama ketika checkout. Nombor invois sahaja tidak memberikan akses. Jika akses pelayar hilang, hubungi bantuan; jangan kongsi butiran akaun atau tangkap layar invois yang mengandunginya.' },
     { id: 'account-data', question: 'Apakah butiran akaun Roblox yang diperlukan?', answer: 'Gamepass dan Nama Pengguna tidak memerlukan kata laluan atau kod sandaran Roblox. Log Masuk menggunakan nama pengguna, kata laluan dan lima kod sandaran hanya melalui borang checkout serta persetujuan khusus pesanan tersebut. Jangan berikan OTP, kuki atau token sesi.' },
@@ -124,6 +136,9 @@ const my: Copy = {
   ],
   comparison: {
     title: 'Bandingkan kaedah Roblox', intro: 'Semak keperluan setiap kaedah sebelum memilih. Ketersediaan dan harga semasa dipaparkan pada setiap kad.',
+    estimates: deliveryEstimates.MY,
+    estimateLabel: 'Anggaran penghantaran',
+    estimateNotice: 'Masa boleh berubah mengikut giliran dan pengesahan; anggaran bukan jaminan.',
     detailsSummary: 'Syarat, cara penghantaran & masa proses',
     requirements: 'Perkara yang diperlukan', process: 'Cara penghantaran', timing: 'Masa pemprosesan',
     GAMEPASS: { requirements: 'Nama pengguna Roblox dan pautan Gamepass awam dengan harga mengikut arahan. Tanpa kata laluan atau kod sandaran.', process: 'Selepas bayaran disahkan dan Gamepass disemak, pasukan membeli Gamepass anda.', timing: 'Proses pasukan diikuti tempoh pending Roblox. Baca panduan Gamepass sebelum memesan.' },

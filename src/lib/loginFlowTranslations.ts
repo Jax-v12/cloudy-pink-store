@@ -1,4 +1,5 @@
 const en = {
+  selectPackage: 'Select a package to continue.',
   checkUsername: 'Check Roblox username', usernameChecking: 'Checking username…', robloxUserId: 'User ID',
   usernameMissing: 'Username was not found.', usernameRateLimit: 'Too many checks. Please try again later.',
   usernameTimeout: 'Username check timed out. Try again.', usernameUnavailable: 'Username check is temporarily unavailable. Try again.',
@@ -31,6 +32,7 @@ const en = {
 };
 type Copy = typeof en;
 const id: Copy = {
+  selectPackage: 'Pilih paket untuk melanjutkan.',
   checkUsername: "Cek Nama pengguna Roblox", usernameChecking: "Memeriksa nama pengguna…", robloxUserId: 'ID pengguna',
   usernameMissing: "Nama pengguna tidak ditemukan.", usernameRateLimit: 'Terlalu banyak pemeriksaan. Coba lagi nanti.',
   usernameTimeout: "Pemeriksaan nama pengguna kehabisan waktu. Coba lagi.", usernameUnavailable: "Pemeriksaan nama pengguna sedang tidak tersedia. Coba lagi.",
@@ -62,6 +64,7 @@ const id: Copy = {
   unavailable: 'Tidak tersedia', contactPurpose: 'Informasi kontak hanya digunakan untuk komunikasi terkait pesanan ini.',
 };
 const my: Copy = {
+  selectPackage: 'Pilih pakej untuk meneruskan.',
   checkUsername: 'Semak nama pengguna Roblox', usernameChecking: 'Menyemak nama pengguna…', robloxUserId: 'ID pengguna',
   usernameMissing: 'Nama pengguna tidak ditemui.', usernameRateLimit: 'Terlalu banyak semakan. Cuba lagi kemudian.',
   usernameTimeout: 'Semakan nama pengguna tamat masa. Cuba lagi.', usernameUnavailable: 'Semakan nama pengguna tidak tersedia buat sementara. Cuba lagi.',

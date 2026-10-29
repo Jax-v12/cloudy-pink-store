@@ -14,6 +14,7 @@ import RegionalPaymentSummary from './RegionalPaymentSummary';
 import { useRegionalQuote } from './useRegionalQuote';
 import LoginUsernameField from './LoginUsernameField';
 import RobuxIcon from './RobuxIcon';
+import CheckoutSteps from './CheckoutSteps';
 
 type Variant = { id: number; method: string; units: number; price: number | null; name: string };
 type Catalog = {
@@ -26,7 +27,7 @@ const panel = 'rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8';
 const input =
   'mt-2 w-full min-w-0 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-500/10 transition-all';
 const button =
-  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:opacity-50 transition cursor-pointer';
+  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white enabled:hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition cursor-pointer';
 const driftCodes = [
   'PRICE_CHANGED',
   'REGION_CHANGED',
@@ -55,6 +56,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
   const validAccount = !Object.values(validateLoginAccount(draft.account)).some(Boolean);
   const payment = catalog?.paymentMethods.find(m => m.id === draft.paymentMethod) ?? catalog?.paymentMethods[0];
   const eligible = Boolean(product?.checkoutEnabled && region && variant && variant.price !== null);
+  const needsPackageSelection = Boolean(product?.checkoutEnabled && region && !variant && variants.some(v => v.price !== null));
   const quote = useRegionalQuote(
     stage === 'summary' && eligible && validAccount && checkout.phase === 'READY' ? product?.id : undefined,
     variant?.id,
@@ -163,45 +165,19 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
           &larr; {t.commerce.backToCatalog}
         </Link>
 
-        <header className={panel}>
-          <span className="inline-block rounded-lg border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-pink-700">
-            {t.roblox.LOGIN}
-          </span>
+        <header>
+          <p className="text-sm font-bold text-pink-700">{t.robloxFlow.LOGIN}</p>
           <h1 className="mt-2.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">{l[stage]}</h1>
           <p className="mt-2 text-sm sm:text-base text-[var(--text-secondary)]">
             {stage === 'account' ? l.accountIntro : stage === 'summary' ? l.summaryIntro : l.intro}
           </p>
-          <ol aria-label={t.commerce.status} className="mt-5 grid grid-cols-3 gap-2 border-t border-[#F1E4ED] pt-4">
-            {(['packages', 'account', 'summary'] as const).map((item, index) => {
-              const activeIndex = ['packages', 'account', 'summary'].indexOf(stage);
-              const current = index === activeIndex;
-              const done = index < activeIndex;
-              return (
-                <li
-                  key={item}
-                  aria-current={current ? 'step' : undefined}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs sm:text-sm transition ${
-                    current
-                      ? 'border-pink-600 bg-pink-50/80 font-extrabold text-[#251D2C] ring-1 ring-pink-600'
-                      : done
-                        ? 'border-pink-200 bg-[#FFF9FC] font-bold text-pink-800'
-                        : 'border-[#F1E4ED] bg-white text-[var(--text-secondary)]'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${
-                      current ? 'bg-pink-600 text-white' : done ? 'bg-pink-200 text-pink-800' : 'bg-[#F1E4ED] text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    {done ? '✓' : index + 1}
-                  </span>
-                  <span className="min-w-0 break-words leading-tight">{l[item]}</span>
-                </li>
-              );
-            })}
-          </ol>
+          <p className="mt-3 text-sm text-[var(--text-secondary)]">
+            {t.serviceHelp.comparison.estimateLabel}: <strong className="text-[#251D2C]">{t.serviceHelp.comparison.estimates.LOGIN}</strong>
+            <span className="mt-1 block text-xs leading-relaxed">{t.serviceHelp.comparison.estimateNotice}</span>
+          </p>
         </header>
+
+        <CheckoutSteps labels={[l.packages, l.account, l.summary]} current={['packages', 'account', 'summary'].indexOf(stage)} ariaLabel={t.commerce.status} />
 
         <DetectedLocation region={region} loading={!catalog && !loadError} />
 
@@ -296,11 +272,11 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 {t.roblox.noPackages}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className={variants.length === 1 ? 'grid gap-3' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
               {variants.map(v => (
                 <label
                   key={v.id}
-                  className={`min-w-0 rounded-2xl border p-4 sm:p-5 transition focus-within:outline-2 focus-within:outline-pink-700 ${
+                  className={`min-w-0 rounded-2xl border p-4 sm:p-5 transition focus-within:outline-2 focus-within:outline-pink-700 ${variants.length === 1 ? 'flex flex-wrap items-center justify-between gap-4' : ''} ${
                     v.id === draft.variantId
                       ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 '
                       : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300'
@@ -315,18 +291,23 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                     disabled={busy || v.price === null || !region || (checkout.attempt?.selectionLocked && v.id !== checkout.attempt.variantId)}
                     onChange={() => setDraft(old => ({ ...old, variantId: v.id }))}
                   />
-                  <RobuxIcon className={`mb-3 h-7 w-7 ${v.id === draft.variantId ? 'text-pink-600' : 'text-[var(--text-secondary)]'}`} />
-                  <span className="block text-xl font-extrabold text-[#251D2C]">{v.units} Robux</span>
-                  {v.name.trim().toLowerCase() !== `${v.units} robux` && (
-                    <span className="mt-1.5 block break-words text-sm font-medium text-[var(--text-secondary)]">{v.name}</span>
-                  )}
-                  <strong className="mt-3 block break-words text-base sm:text-lg font-extrabold text-pink-600">
+                  <div className={`min-w-0 ${variants.length === 1 ? 'flex items-center gap-3' : ''}`}>
+                    <RobuxIcon className={`${variants.length === 1 ? 'shrink-0' : 'mb-3'} h-7 w-7 ${v.id === draft.variantId ? 'text-pink-600' : 'text-[var(--text-secondary)]'}`} />
+                    <div className="min-w-0">
+                      <span className="block text-xl font-extrabold text-[#251D2C]">{v.units} Robux</span>
+                      {v.name.trim().toLowerCase() !== `${v.units} robux` && (
+                        <span className="mt-1.5 block break-words text-sm font-medium text-[var(--text-secondary)]">{v.name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <strong className={`${variants.length === 1 ? '' : 'mt-3'} block break-words text-base sm:text-lg font-extrabold text-pink-600`}>
                     {v.price === null ? l.unavailable : money(v.price)}
                   </strong>
                 </label>
               ))}
             </div>
-            <button className={`${button} mt-6`} disabled={!eligible || busy || checkout.phase !== 'READY'} onClick={() => void choose()}>
+            {needsPackageSelection && <p id="login-package-selection" className="mt-4 text-sm text-[var(--text-secondary)]">{l.selectPackage}</p>}
+            <button className={`${button} mt-5 w-full sm:w-auto`} aria-describedby={needsPackageSelection ? 'login-package-selection' : undefined} disabled={!eligible || busy || checkout.phase !== 'READY'} onClick={() => void choose()}>
               {l.continue}
             </button>
             {!product?.checkoutEnabled && (
@@ -544,9 +525,9 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
         ) : (
           <section className={`${panel} space-y-5`}>
             <p className="rounded-2xl border border-pink-200 bg-pink-50/80 p-4 text-sm font-medium text-[#251D2C]">{l.accessSummary}</p>
-            <dl className="divide-y divide-[#F1E4ED] rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2 text-sm text-[var(--text-secondary)]">
+            <dl className="divide-y divide-[#F1E4ED] border-t border-[#F1E4ED] text-sm text-[var(--text-secondary)]">
               {[
-                [l.method, t.roblox.LOGIN],
+                [l.method, t.robloxFlow.LOGIN],
                 [l.amount, `${variant.units} Robux`],
                 [l.username, account.username],
                 [l.whatsapp, normalizeWhatsapp(account.whatsapp, account.country || undefined)],
