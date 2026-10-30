@@ -31,6 +31,19 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
     await prisma.accountStock.create({ data: { productId: apps.id, emailAccount: encryptData('account@example.test'), passwordAccount: encryptData('stock-password') } });
     const roblox = await prisma.product.create({ data: { name: 'Roblox', slug: `roblox-${suffix}`, price: 0, type: 'ROBLOX', variants: { create: { name: 'Login 100', price: 2000, units: 100, method: 'LOGIN', active: true } } }, include: { variants: true } });
     const game = await prisma.product.create({ data: { name: 'Game', slug: `game-${suffix}`, price: 0, type: 'GAME', variants: { create: { name: 'Game 100', price: 3000, units: 100, providerSku: 'game-100', active: true } } }, include: { variants: true } });
+    // Historical orders must still be fulfilled while new Game purchases are paused.
+    const historicalGameOrder = () => prisma.order.create({ data: {
+      invoice: `INV-${key()}`, productId: game.id, type: 'GAME', productName: game.name,
+      variantName: game.variants[0].name, units: 100, totalAmount: 3000,
+      customerEmail: 'buyer@example.test', expiresAt: new Date(Date.now() + 7_200_000),
+      gameDetail: { create: { userId: '123', provider: 'simulator', providerSku: 'game-100' } },
+    } });
+    await t.test('paused Game checkout creates no new order', async () => {
+      const before = await prisma.order.count();
+      await assert.rejects(createCheckout({ productId: game.id, variantId: game.variants[0].id,
+        customerEmail: 'buyer@example.test', details: { userId: '123' } }, key()), /PRODUCT_UNAVAILABLE/);
+      assert.equal(await prisma.order.count(), before);
+    });
     const rb = () => ({ productId: roblox.id, variantId: roblox.variants[0].id, customerEmail: 'buyer@example.test', details: loginDetails });
     await t.test('new Roblox orders cannot use browser region or omit trusted location/quote', async () => {
       const before = await prisma.order.count();
@@ -293,7 +306,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
     });
     await t.test('worker resumes with status after a crash and ambiguous delivery requires review', async () => {
       for (const prefix of ['pending-', 'unknown-']) {
-        const { order } = await createCheckout({ productId: game.id, variantId: game.variants[0].id, customerEmail: 'buyer@example.test', details: { userId: '123' } }, key());
+        const order = await historicalGameOrder();
         await applyPaymentStatus(order.id, paid(order));
         await prisma.fulfillmentJob.update({ where: { orderId: order.id }, data: { reference: prefix + key(), attemptedAt: new Date(Date.now()-120000), leaseUntil: new Date(Date.now()-60000), leaseToken: 'abandoned' } });
         await runFulfillment();
@@ -308,7 +321,7 @@ test('commerce integration against isolated MySQL', { skip: !url }, async t => {
       }
     });
     await t.test('worker timeout is reconciled and concurrent workers do not send twice', async () => {
-      const { order } = await createCheckout({ productId: game.id, variantId: game.variants[0].id, customerEmail: 'buyer@example.test', details: { userId: '123' } }, key());
+      const order = await historicalGameOrder();
       await applyPaymentStatus(order.id, paid(order));
       await prisma.fulfillmentJob.update({ where: { orderId: order.id }, data: { reference: `timeout-${key()}` } });
       await Promise.all([runFulfillment(), runFulfillment()]);

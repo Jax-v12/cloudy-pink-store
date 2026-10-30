@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from './StoreShell';
+import GameTopupPaused from './GameTopupPaused';
+import { GAME_TOPUP_PURCHASES_ENABLED } from '@/lib/storeAvailability';
 import DetectedLocation from './DetectedLocation';
 import { useRegionalQuote } from './useRegionalQuote';
 import { formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
@@ -514,6 +516,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
 }
 
 export default function TopupCatalog(props: Parameters<typeof Catalog>[0]) {
+  if (props.type === 'GAME' && !GAME_TOPUP_PURCHASES_ENABLED) return <GameTopupPaused />;
   if (props.type === 'ROBLOX' && props.slug && props.initialMethod === 'LOGIN') return <LoginFlow slug={props.slug} stage="packages" />;
   return <Catalog {...props} />;
 }

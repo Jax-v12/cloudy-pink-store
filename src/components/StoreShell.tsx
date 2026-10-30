@@ -6,6 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentOrders, getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
 import ServiceHelpLinks from './ServiceHelpLinks';
+import { GAME_TOPUP_PURCHASES_ENABLED } from '@/lib/storeAvailability';
 
 export default function StoreShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const { t, language, setLanguage } = useLanguage();
@@ -82,7 +83,8 @@ export default function StoreShell({ children, wide = false }: { children: React
     };
   }, [showRecentModal, closeRecentModal]);
 
-  const links = [['/apps', c.APPS], ['/games', c.GAME], ['/roblox', c.ROBLOX]] as const;
+  const links = ([['/apps', c.APPS], ['/games', c.GAME], ['/roblox', c.ROBLOX]] as const)
+    .filter(([href]) => GAME_TOPUP_PURCHASES_ENABLED || href !== '/games');
 
   return (
     <main className="relative min-h-screen bg-[#FFF9FC] text-[#251D2C] overflow-x-clip">

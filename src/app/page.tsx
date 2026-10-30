@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from '@/components/StoreShell';
+import { GAME_TOPUP_PURCHASES_ENABLED } from '@/lib/storeAvailability';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -15,7 +16,7 @@ export default function HomePage() {
     { href: '/roblox', title: c.ROBLOX, description: c.robloxDescription, badge: 'Gamepass · Username · Login', art: '/store/anya-roblox.jpg' },
     { href: '/apps', title: c.APPS, description: c.appsDescription, badge: t.badge, art: '/store/anya-apps.jpg' },
     { href: '/games', title: c.GAME, description: c.gameDescription, badge: c.gameHeroEyebrow, art: '/store/anya-games.jpg' },
-  ];
+  ].filter(item => GAME_TOPUP_PURCHASES_ENABLED || item.href !== '/games');
   const steps = [
     { title: c.step1Title, desc: c.step1Desc },
     { title: c.step2Title, desc: c.step2Desc },
@@ -32,7 +33,7 @@ export default function HomePage() {
         <Image src="/banner-logo.png" alt={c.brand} width={1774} height={887} sizes="(max-width: 639px) 256px, (max-width: 1023px) 100vw, 550px" className="mx-auto h-auto w-64 max-w-full rounded-2xl border border-pink-100 sm:w-full sm:rounded-3xl" loading="eager" />
       </section>
 
-      <section className="mt-3 grid gap-4 md:grid-cols-3">
+      <section className={`mt-3 grid gap-4 ${GAME_TOPUP_PURCHASES_ENABLED ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         {categories.map(item => (
           <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-colors hover:border-pink-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
             <div>

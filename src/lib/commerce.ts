@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { GAME_TOPUP_PURCHASES_ENABLED } from './storeAvailability';
 import { isRegion } from './regionalPricing';
 import { ProductType, ProductVariant } from '@prisma/client';
 import { InputError, positiveInt, textField } from './http';
@@ -17,7 +18,7 @@ export function checkoutEnabled(type: ProductType) {
   if (type === 'APPS') return true;
   if (type === 'ROBLOX') return process.env.ROBLOX_CHECKOUT_ENABLED === 'true';
   // No live provider has been integrated. A configuration flag cannot bypass this gate.
-  return process.env.NODE_ENV !== 'production' && process.env.GAME_PROVIDER === 'simulator';
+  return GAME_TOPUP_PURCHASES_ENABLED && process.env.NODE_ENV !== 'production' && process.env.GAME_PROVIDER === 'simulator';
 }
 
 export function checkoutInput(body: Record<string, unknown>) {
