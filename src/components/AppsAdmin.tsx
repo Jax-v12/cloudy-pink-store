@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import StoreShell from './StoreShell';
 import AdminDialog from './AdminDialog';
+import AdminOperationsGuide from './AdminOperationsGuide';
 import { useLanguage } from '@/context/LanguageContext';
 import { parseAppsConfig, type AppsConfig } from '@/lib/appsProduct';
 import AggregateMetricsAdmin from './AggregateMetricsAdmin';
@@ -71,7 +72,7 @@ export default function AppsAdmin() {
     } catch { setMessage(a.error); }
   }
   return <StoreShell wide>
-    <Link href="/admin" className="mb-4 inline-block rounded-xl bg-white p-3 font-bold">← {t.commerce.home}</Link>
+    <div className="mb-4 flex flex-wrap items-center gap-3"><Link href="/admin" className="inline-block rounded-xl bg-white p-3 font-bold">← {t.commerce.home}</Link><AdminOperationsGuide /></div>
     <section className="space-y-5 rounded-3xl border-2 border-pink-200 bg-white p-5 sm:p-8">
       <h1 className="text-2xl font-black text-pink-900">{a.manage}</h1>
       {message && <p role="status" className="rounded-xl bg-pink-50 p-4">{message}</p>}

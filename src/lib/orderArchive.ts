@@ -10,12 +10,13 @@ type ArchiveCandidate = Pick<Order, 'type' | 'status' | 'fulfillmentStatus' | 'r
 
 export function archiveEligibility(order: ArchiveCandidate, now = new Date()) {
   const reasonCodes: string[] = [];
+  const closedUnpaid = ['EXPIRED', 'CANCELLED'].includes(order.status) && order.fulfillmentStatus === 'NOT_READY';
   if (!['ROBLOX', 'GAME'].includes(order.type)) reasonCodes.push('ORDER_TYPE_UNSUPPORTED');
-  if (order.status !== 'PAID' || order.fulfillmentStatus !== 'COMPLETED') reasonCodes.push('ORDER_NOT_FINAL');
+  if (!closedUnpaid && (order.status !== 'PAID' || order.fulfillmentStatus !== 'COMPLETED')) reasonCodes.push('ORDER_NOT_FINAL');
   if (order.refundStatus !== 'NONE') reasonCodes.push('ORDER_HAS_REFUND');
-  if (!order.job?.completedAt) reasonCodes.push('JOB_NOT_COMPLETE');
+  if (!closedUnpaid && !order.job?.completedAt) reasonCodes.push('JOB_NOT_COMPLETE');
   if (order.job?.leaseToken || (order.job?.leaseUntil && order.job.leaseUntil > now)) reasonCodes.push('JOB_BUSY');
-  if (order.secret || order.accountStock?.status === 'LOCKED') reasonCodes.push('ORDER_HAS_OBLIGATIONS');
+  if (order.secret || order.accountStock?.status === 'LOCKED' || (closedUnpaid && (order.job || order.accountStock))) reasonCodes.push('ORDER_HAS_OBLIGATIONS');
   return { canArchive: !order.archivedAt && reasonCodes.length === 0, archiveReasonCodes: reasonCodes };
 }
 

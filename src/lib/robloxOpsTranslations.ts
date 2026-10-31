@@ -1,4 +1,9 @@
 const en = {
+  notStarted: 'Delivery not started',
+  expiredHelp: 'Payment expired. Do not deliver this order. If the customer reports a payment, verify it through the existing payment process first.',
+  cancelledHelp: 'Payment was cancelled. Do not deliver this order. Check any reported payment before taking further action.',
+  evidencePlaceholder: 'Non-sensitive transaction or delivery reference',
+  searchPlaceholder: 'Invoice, username or contact email',
   loginNotice: 'Via Login uses your username, password, five backup codes and order contact details. Data is encrypted and account access expires after 72 hours. Do not provide OTPs or session cookies.',
   loginNext: 'After verified payment, the assigned admin can unlock the encrypted account details to perform this top-up. Contact support with your invoice if access expires or further verification is needed. Never put credentials in notes or delivery evidence.',
   noCredentials: 'Encrypted account access',
@@ -10,6 +15,11 @@ const en = {
 };
 type Copy = typeof en;
 const id: Copy = {
+  notStarted: 'Pengiriman belum dimulai',
+  expiredHelp: 'Pembayaran kedaluwarsa. Jangan kirim pesanan ini. Jika pelanggan mengaku membayar, verifikasi dahulu melalui proses pembayaran yang tersedia.',
+  cancelledHelp: 'Pembayaran dibatalkan. Jangan kirim pesanan ini. Periksa klaim pembayaran sebelum melakukan tindakan berikutnya.',
+  evidencePlaceholder: 'Referensi transaksi atau pengiriman tanpa data sensitif',
+  searchPlaceholder: 'Nomor pesanan, nama pengguna, atau email kontak',
   loginNotice: "Via Login memakai nama pengguna, kata sandi, lima kode cadangan, dan kontak pesanan. Data disimpan terenkripsi dan akses berakhir setelah 72 jam. Jangan berikan OTP atau cookie sesi.",
   loginNext: "Setelah pembayaran terverifikasi, admin yang ditugaskan dapat membuka data akun terenkripsi untuk top-up ini. Hubungi bantuan dengan nomor bukti pesanan jika akses kedaluwarsa atau perlu verifikasi tambahan. Jangan masukkan kredensial ke catatan atau bukti pengiriman.",
   noCredentials: 'Akses akun terenkripsi',
@@ -20,6 +30,11 @@ const id: Copy = {
   assistedAudit: 'Akses akun tersimpan dihentikan; lanjutkan pengisian dengan bantuan admin',
 };
 const my: Copy = {
+  notStarted: 'Penghantaran belum bermula',
+  expiredHelp: 'Bayaran tamat tempoh. Jangan hantar pesanan ini. Jika pelanggan mendakwa telah membayar, sahkan dahulu melalui proses bayaran yang tersedia.',
+  cancelledHelp: 'Bayaran dibatalkan. Jangan hantar pesanan ini. Semak dakwaan bayaran sebelum tindakan seterusnya.',
+  evidencePlaceholder: 'Rujukan transaksi atau penghantaran tanpa data sensitif',
+  searchPlaceholder: 'Nombor invois, nama pengguna atau e-mel hubungan',
   loginNotice: 'Log Masuk menggunakan nama pengguna, kata laluan, lima kod sandaran dan hubungan pesanan. Data disulitkan dan akses tamat selepas 72 jam. Jangan berikan OTP atau kuki sesi.',
   loginNext: 'Selepas bayaran disahkan, pentadbir yang ditugaskan boleh membuka maklumat akaun tersulit untuk tambah nilai ini. Hubungi sokongan dengan nombor invois jika akses tamat atau pengesahan tambahan diperlukan. Jangan masukkan maklumat sulit dalam nota atau bukti penghantaran.',
   noCredentials: 'Akses akaun tersulit',

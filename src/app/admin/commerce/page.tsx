@@ -4,6 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import StoreShell from '@/components/StoreShell';
 import { useLanguage } from '@/context/LanguageContext';
+import AdminOperationsGuide from '@/components/AdminOperationsGuide';
 
 const FulfillmentAdmin = dynamic(() => import('@/components/FulfillmentAdmin'));
 const TopupAdmin = dynamic(() => import('@/components/TopupAdmin'));
@@ -55,6 +56,7 @@ export default function Page() {
             >
               {c.catalogAdmin}
             </button>
+            <AdminOperationsGuide />
           </div>
         </div>
 

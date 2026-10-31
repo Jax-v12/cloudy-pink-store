@@ -8,10 +8,12 @@ import { robloxOpsTranslations } from './robloxOpsTranslations';
 import { robloxFlowTranslations } from './robloxFlowTranslations';
 import { robloxTranslations } from './robloxTranslations';
 import { commerceTranslations } from './commerceTranslations';
+import { adminGuideTranslations } from './adminGuideTranslations';
 export type Language = 'ID' | 'EN' | 'MY';
 
 export const translations = {
   ID: {
+    adminGuide: adminGuideTranslations.ID,
     apps: appsTranslations.ID,
     serviceHelp: serviceHelpTranslations.ID,
     loginFlow: loginFlowTranslations.ID,
@@ -215,6 +217,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   MY: {
+    adminGuide: adminGuideTranslations.MY,
     apps: appsTranslations.MY,
     serviceHelp: serviceHelpTranslations.MY,
     loginFlow: loginFlowTranslations.MY,
@@ -418,6 +421,7 @@ export const translations = {
     orderCancelled: 'Pesanan telah dibatalkan.',
   },
   EN: {
+    adminGuide: adminGuideTranslations.EN,
     apps: appsTranslations.EN,
     serviceHelp: serviceHelpTranslations.EN,
     loginFlow: loginFlowTranslations.EN,

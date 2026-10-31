@@ -22,7 +22,8 @@ export async function applyPaymentStatus(id: number, status: VerifiedPayment | n
     if (order.status !== 'PENDING') {
       // A paid notification for a released reservation requires reconciliation.
       if (state === 'paid') {
-        await tx.order.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED' } });
+        await tx.order.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), fulfillmentStatus: 'REQUIRES_REVIEW', refundStatus: 'REQUIRED', archivedAt: null, removedFromAdminAt: null } });
+        if (order.archivedAt || order.removedFromAdminAt) await tx.adminAudit.create({ data: { orderId: id, sessionId: 'payment-reconciliation', action: 'payment-reopened' } });
         return { action: 'review' as const, order };
       }
       return { action: 'unchanged' as const, order };

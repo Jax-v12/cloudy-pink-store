@@ -4,9 +4,11 @@ import { useLanguage } from '@/context/LanguageContext';
 import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import AdminDialog from './AdminDialog';
 import LoginAccessPanel from './LoginAccessPanel';
+import { showFulfillmentDetails } from '@/lib/orderNotice';
+import type { OrderStatus, FulfillmentStatus, RefundStatus } from '@prisma/client';
 
 type Row = {
-  id: number; invoice: string; type: string; status: string; fulfillmentStatus: string; refundStatus: string;
+  id: number; invoice: string; type: string; status: OrderStatus; fulfillmentStatus: FulfillmentStatus; refundStatus: RefundStatus;
   totalAmount: number; currency: Currency; pricingRegion: Region; productName: string; variantName: string; units: number; owned: boolean; contactEmail: string | null; contactWhatsapp: string | null;
   paymentMethod?: string;
   archivedAt: string | null; canArchive: boolean; archiveReasonCodes: string[]; canRemove: boolean; removeReasonCodes: string[]; removedFromAdminAt: string | null;
@@ -185,7 +187,7 @@ export default function FulfillmentAdmin() {
       <form onSubmit={e => { e.preventDefault(); setQuery(search.trim()); }} className="flex flex-wrap gap-3 items-end pt-2 border-t border-pink-50">
         <label className="flex-1 min-w-[200px] text-xs font-bold text-neutral-600 block">
           {ops.search}
-          <input type="search" value={search} onChange={e => setSearch(e.target.value)} maxLength={120} className="mt-1 block w-full border-2 border-pink-100 rounded-xl px-4 py-2.5 text-sm bg-white focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-50 transition-all shadow-inner" placeholder="Invoice ID, email, username..." />
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)} maxLength={120} className="mt-1 block w-full border-2 border-pink-100 rounded-xl px-4 py-2.5 text-sm bg-white focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-50 transition-all shadow-inner" placeholder={ops.searchPlaceholder} />
         </label>
         <button className="bg-pink-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-pink-700 shadow-sm transition active:scale-95">{ops.searchButton}</button>
         {query && <button type="button" onClick={() => { setSearch(''); setQuery(''); }} className="border-2 border-neutral-200 text-neutral-600 font-bold px-4 py-2.5 rounded-xl hover:bg-neutral-50 transition active:scale-95">{ops.clear}</button>}
@@ -204,35 +206,41 @@ export default function FulfillmentAdmin() {
     )}
 
     <div className="space-y-5">
-      {rows.map(row => <article key={row.id} className="bg-white border-2 border-pink-100 rounded-[2.5rem] p-6 sm:p-8 shadow-lg shadow-pink-900/5 hover:shadow-2xl hover:shadow-pink-900/10 hover:border-pink-300 hover:-translate-y-1 transition-all duration-300 group">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-pink-50 pb-5 mb-5">
+      {rows.map(row => {
+        const paymentClosed = row.refundStatus === 'NONE' && (row.status === 'EXPIRED' || row.status === 'CANCELLED');
+        const deliveryLabel = row.fulfillmentStatus === 'NOT_READY' && row.status !== 'PENDING'
+          ? row.status === 'PAID' ? label('REQUIRES_REVIEW') : ops.notStarted
+          : label(row.fulfillmentStatus);
+        return <article key={row.id} className="rounded-3xl border border-pink-100 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col justify-between gap-3 border-b border-pink-100 pb-4 sm:flex-row sm:items-start">
           <div>
-            <h3 className="font-black text-xl text-neutral-800 break-all group-hover:text-pink-600 transition-colors">{row.invoice}</h3>
+            <h3 className="break-all text-base font-bold text-neutral-800 sm:text-lg">{row.invoice}</h3>
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : row.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100 text-neutral-600'}`}>
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${row.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : row.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-700'}`}>
                 {c.payment}: {label(row.status)}
               </span>
-              <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.fulfillmentStatus === 'COMPLETED' ? 'bg-sky-100 text-sky-700' : row.fulfillmentStatus === 'PROCESSING' || row.fulfillmentStatus === 'QUEUED' ? 'bg-pink-100 text-pink-700' : 'bg-neutral-100 text-neutral-600'}`}>
-                {c.fulfillment}: {label(row.fulfillmentStatus)}
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${row.fulfillmentStatus === 'COMPLETED' ? 'bg-sky-100 text-sky-800' : row.fulfillmentStatus === 'PROCESSING' || row.fulfillmentStatus === 'QUEUED' ? 'bg-pink-100 text-pink-800' : 'bg-neutral-100 text-neutral-700'}`}>
+                {c.fulfillment}: <span className="ml-1">{deliveryLabel}</span>
               </span>
               {row.refundStatus !== 'NONE' && (
-                <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.refundStatus === 'REQUIRED' ? 'bg-rose-100 text-rose-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${row.refundStatus === 'REQUIRED' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700'}`}>
                   {c.refund}: {label(row.refundStatus)}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="shrink-0 text-left sm:text-right">
             <p className="text-2xl font-black text-pink-600">{formatMoney(row.totalAmount, row.currency, language)}</p>
             <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mt-1">{t.regional[row.pricingRegion]} &middot; {row.currency}</p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
+        {paymentClosed && <p className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm leading-relaxed text-neutral-700">{row.status === 'EXPIRED' ? ops.expiredHelp : ops.cancelledHelp}</p>}
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">{c.product}</p>
+              <p className="text-xs font-bold text-neutral-600 uppercase tracking-wider">{c.product}</p>
               <p className="font-semibold text-neutral-800 mt-1">{row.productName} <span className="text-neutral-300 mx-1">&bull;</span> {row.variantName}</p>
               <p className="text-sm font-bold text-pink-600 mt-0.5">{row.units} {c.units}</p>
             </div>
@@ -269,12 +277,12 @@ export default function FulfillmentAdmin() {
           <div className="space-y-4">
             {row.robloxDetail && (
               <div className="bg-pink-50/50 border border-pink-100 rounded-2xl p-4">
-                <p className="text-xs font-bold text-pink-400 uppercase tracking-wider mb-2">{c.ROBLOX} {c.productDetails}</p>
+                <p className="text-xs font-bold text-pink-700 uppercase tracking-wider mb-2">{c.ROBLOX} {c.productDetails}</p>
                 <div className="space-y-2">
                   <p className="text-sm"><span className="font-bold text-neutral-500">{c.method}:</span> <span className="font-semibold text-neutral-800">{label(row.robloxDetail.method)}</span></p>
                   <p className="text-sm"><span className="font-bold text-neutral-500">{c.username}:</span> <span className="font-black text-neutral-900">{row.robloxDetail.username}</span></p>
 
-                  {row.robloxDetail.method === 'LOGIN' && <p className="rounded-xl bg-pink-100 text-pink-800 p-3 text-sm font-medium mt-2">{ops.loginNext}</p>}
+                  {row.robloxDetail.method === 'LOGIN' && row.status === 'PAID' && row.refundStatus === 'NONE' && row.fulfillmentStatus !== 'COMPLETED' && !row.archivedAt && <p className="rounded-xl bg-pink-100 text-pink-800 p-3 text-sm font-medium mt-2">{ops.loginNext}</p>}
                   {row.robloxDetail.method === 'LOGIN' && row.owned && row.status === 'PAID' && row.refundStatus === 'NONE' && !row.archivedAt && !row.removedFromAdminAt && ['PROCESSING', 'WAITING_CUSTOMER'].includes(row.fulfillmentStatus) && <LoginAccessPanel orderId={row.id} invoice={row.invoice} username={row.robloxDetail.username} />}
 
                   {row.robloxDetail.gamepassUrl && (
@@ -319,11 +327,11 @@ export default function FulfillmentAdmin() {
           </div>
         </div>
 
-        {row.fulfillmentStatus !== 'COMPLETED' && row.refundStatus !== 'COMPLETED' && (
-          <div className="mt-6 pt-5 border-t border-pink-100 bg-pink-50/30 -mx-6 -mb-6 p-6 rounded-b-3xl">
+        {showFulfillmentDetails(row) && !row.archivedAt && !row.removedFromAdminAt && row.fulfillmentStatus !== 'COMPLETED' && row.refundStatus !== 'COMPLETED' && (
+          <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50/30 p-4">
             <label className="block text-sm font-bold text-neutral-700 mb-2">
               {c.evidence}
-              <input maxLength={1000} value={evidence[row.id] || ''} onChange={e => setEvidence(old => ({ ...old, [row.id]: e.target.value }))} className="mt-1 block w-full border-2 border-pink-100 rounded-xl px-4 py-2.5 bg-white focus:border-pink-500 focus:outline-none focus:ring-4 focus:ring-pink-50 transition-all font-normal" placeholder="Transaction ID, screenshot URL, etc." />
+              <input maxLength={1000} value={evidence[row.id] || ''} onChange={e => setEvidence(old => ({ ...old, [row.id]: e.target.value }))} className="mt-1 block w-full border-2 border-pink-100 rounded-xl px-4 py-2.5 bg-white focus:border-pink-500 focus:outline-none focus:ring-4 focus:ring-pink-50 transition-all font-normal" placeholder={ops.evidencePlaceholder} />
             </label>
             <div className="flex flex-wrap gap-3 mt-4">
               {row.type === 'ROBLOX' && row.status === 'PAID' && row.refundStatus === 'NONE' && <>
@@ -343,16 +351,16 @@ export default function FulfillmentAdmin() {
           </div>
         )}
 
-        <div className="mt-5 flex gap-6 text-xs text-neutral-500 font-medium">
+        {(row.job?.evidence || Boolean(row.job?.attempts.length) || row.audits.length > 0) && <div className="mt-4 flex flex-wrap gap-4 text-sm text-neutral-600 font-medium">
           {row.job?.evidence && <p className="break-all"><span className="font-bold">{c.evidence}:</span> {row.job.evidence}</p>}
-          <details className="cursor-pointer group"><summary className="outline-none hover:text-pink-600 transition list-none flex items-center gap-1">{c.attempts}<svg className="w-3.5 h-3.5 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></summary>
+          {Boolean(row.job?.attempts.length) && <details className="cursor-pointer group"><summary className="rounded focus-visible:outline-2 focus-visible:outline-pink-700 hover:text-pink-700 transition list-none flex items-center gap-1">{c.attempts}<svg className="w-3.5 h-3.5 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></summary>
             <div className="mt-2 space-y-1 max-h-32 overflow-y-auto bg-neutral-50 p-2 rounded-lg">{row.job?.attempts.map(a => <p key={a.id}>{label(a.operation)} &middot; {label(a.outcome)} &middot; {new Date(a.createdAt).toLocaleString()}</p>)}</div>
-          </details>
-          <details className="cursor-pointer group"><summary className="outline-none hover:text-pink-600 transition list-none flex items-center gap-1">{c.audit}<svg className="w-3.5 h-3.5 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></summary>
+          </details>}
+          {row.audits.length > 0 && <details className="cursor-pointer group"><summary className="rounded focus-visible:outline-2 focus-visible:outline-pink-700 hover:text-pink-700 transition list-none flex items-center gap-1">{c.audit}<svg className="w-3.5 h-3.5 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></summary>
             <div className="mt-2 space-y-1 max-h-32 overflow-y-auto bg-neutral-50 p-2 rounded-lg">{row.audits.map(a => <p key={a.id}>{label(a.action)} &middot; {new Date(a.createdAt).toLocaleString()}</p>)}</div>
-          </details>
-        </div>
-      </article>)}
+          </details>}
+        </div>}
+      </article>; })}
     </div>
 
     {cursor && (

@@ -3,6 +3,7 @@ import { formatMoney, type Currency, type Region } from '@/lib/regionalPricing';
 import { refreshOrderPages } from '@/lib/adminOrderPages';
 import { parseAppsConfig, type AppsConfig } from '@/lib/appsProduct';
 import AdminDialog from '@/components/AdminDialog';
+import AdminOperationsGuide from '@/components/AdminOperationsGuide';
 
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -809,6 +810,7 @@ export default function AdminPage() {
               >
                 {t.commerce.fulfillmentAdmin} · {t.commerce.catalogAdmin} ↗
               </a>
+              <AdminOperationsGuide />
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#251D2C]">{t.adminTitle}</h1>
             <p className="text-xs text-[#756C7D] mt-0.5">{t.encryptionNote}</p>
