@@ -8,6 +8,7 @@ import DetectedLocation from './DetectedLocation';
 import { useLanguage } from '@/context/LanguageContext';
 import { parseCatalogResponse, type AppsProduct } from '@/lib/appsProduct';
 import { formatMoney } from '@/lib/regionalPricing';
+import { canPersistInvoiceAccess, rememberInvoiceAccess } from '@/lib/invoiceBrowser';
 
 export function AppsPackageDetails({ product }: { product: AppsProduct }) {
   const { t } = useLanguage();
@@ -145,6 +146,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
   async function checkout(event: React.FormEvent) {
     event.preventDefault();
     if (!product || !ready(product) || !agree || submitting.current) return;
+    if (!canPersistInvoiceAccess()) { setError(t.invoiceStorageRequired); return; }
     submitting.current = true;
     setBusy(true);
     setError('');
@@ -175,7 +177,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
       }
       if (!json.data?.invoice || !json.data?.accessToken) throw new Error(t.errSystem);
       // Preserve the existing invoice access mechanism; never persist account credentials.
-      localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken);
+      rememberInvoiceAccess(json.data.invoice, json.data.accessToken);
       router.push(`/order/${encodeURIComponent(json.data.invoice)}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : t.errSystem);

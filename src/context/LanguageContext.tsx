@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useCallback, useEffect, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
 import { Language, translations } from '@/lib/translations';
+import { getBrowserLanguage, setBrowserLanguage, subscribeLanguage } from '@/lib/languageBrowser';
 
 interface LanguageContextType {
   language: Language;
@@ -11,40 +12,18 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-function subscribe(callback: () => void) {
-  if (typeof window === 'undefined') return () => {};
-  window.addEventListener('storage', callback);
-  window.addEventListener('language-change', callback);
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('language-change', callback);
-  };
-}
-
-function getSnapshot(): Language {
-  if (typeof window === 'undefined') return 'ID';
-  const saved = localStorage.getItem('store_lang');
-  if (saved === 'EN' || saved === 'MY') return saved;
-  return 'ID';
-}
-
 function getServerSnapshot(): Language {
   return 'ID';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const language = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const language = useSyncExternalStore(subscribeLanguage, getBrowserLanguage, getServerSnapshot);
   useEffect(() => { document.documentElement.lang = { ID: 'id', EN: 'en', MY: 'ms' }[language]; }, [language]);
-
-  const setLanguage = useCallback((lang: Language) => {
-    localStorage.setItem('store_lang', lang);
-    window.dispatchEvent(new Event('language-change'));
-  }, []);
 
   const t = translations[language];
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage: setBrowserLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -56,7 +56,7 @@ function scopedWhere(model, where, scope) {
   const sets = {
     product: { id: scope.products }, productVariant: { id: scope.variants, productId: scope.products }, regionalPrice: { variantId: scope.variants },
     checkoutSession: { id: scope.sessions, tokenHash: scope.hashes }, checkoutAttempt: { id: scope.attempts, sessionId: scope.sessions, checkoutKey: scope.keys },
-    order: { id: scope.orders, productId: scope.products, invoice: scope.invoices, checkoutKey: scope.keys }, robloxOrderDetail: { orderId: scope.orders }, rateLimit: { id: scope.rateLimits },
+    order: { id: scope.orders, productId: scope.products, invoice: scope.invoices, checkoutKey: scope.keys }, robloxOrderDetail: { orderId: scope.orders }, orderSecret: { orderId: scope.orders }, rateLimit: { id: scope.rateLimits },
   };
   if (Object.entries(sets[model] || {}).some(([key, values]) => belongs(values, where[key]))) return true;
   if (model === 'checkoutAttempt' && scope.sessions.has(where.sessionId_flowId?.sessionId) && scope.flows.has(where.sessionId_flowId?.flowId)) return true;
@@ -87,7 +87,9 @@ function validateData(model, operation, data, scope) {
     regionalPrice: creating ? ['variantId', 'region', 'amount', 'active'] : ['amount', 'active'],
     checkoutSession: creating ? ['id', 'tokenHash', 'createdAt', 'expiresAt', 'revokedAt'] : ['createdAt', 'expiresAt', 'revokedAt'],
     checkoutAttempt: creating ? ['sessionId', 'flowId', 'productId', 'variantId', 'checkoutKey', 'expiresAt', 'createdAt'] : ['state', 'version', 'variantId', 'requestHash', 'quoteSnapshot', 'leaseUntil', 'expiresAt', 'orderId'],
-    order: creating ? ['invoice', 'productId', 'type', 'productName', 'variantName', 'units', 'totalAmount', 'currency', 'pricingRegion', 'productSubtotal', 'paymentFee', 'discount', 'paymentProvider', 'paymentMethod', 'customerEmail', 'accountStockId', 'checkoutKey', 'requestHash', 'expiresAt', 'robloxDetail'] : ['status', 'archivedAt', 'removedFromAdminAt'],
+    order: creating ? ['invoice', 'productId', 'type', 'productName', 'variantName', 'units', 'totalAmount', 'currency', 'pricingRegion', 'productSubtotal', 'paymentFee', 'discount', 'paymentProvider', 'paymentMethod', 'customerEmail', 'accountStockId', 'checkoutKey', 'requestHash', 'expiresAt', 'robloxDetail', 'secret'] : ['status', 'archivedAt', 'removedFromAdminAt'],
+    orderSecret: creating ? ['orderId', 'ciphertext', 'expiresAt'] : [],
+    robloxOrderDetail: creating ? [] : ['whatsappE164'],
     rateLimit: creating ? ['id', 'points', 'expiresAt'] : ['points'],
   };
   ensure(fields[model] && Object.keys(data).every(key => fields[model].includes(key)), 'STAGING_DATA_REJECTED');
@@ -103,11 +105,21 @@ function validateData(model, operation, data, scope) {
       const detail = data.robloxDetail?.create;
       ensure(data.robloxDetail && Object.keys(data.robloxDetail).length === 1 && detail && detail.username === scope.username && ['LOGIN', 'GAMEPASS', 'GIFT_USERNAME'].includes(detail.method) && Object.keys(detail).every(key => ['method', 'username', 'robloxUserId', 'displayName', 'whatsappE164', 'gamepassUrl', 'gamepassPrice', 'gamepassId', 'gamepassVerifiedAt'].includes(key)), 'STAGING_DATA_REJECTED');
       if (detail.method === 'LOGIN') ensure(/^[a-f\d]{32}:[a-f\d]{32}:[a-f\d]+$/.test(detail.whatsappE164), 'STAGING_DATA_REJECTED');
+      if (detail.method === 'LOGIN') {
+        ensure(data.secret && Object.keys(data.secret).length === 1 && data.secret.create && Object.keys(data.secret.create).length === 2, 'STAGING_DATA_REJECTED');
+        validateSecret(data.secret.create);
+      } else ensure(data.secret === undefined, 'STAGING_DATA_REJECTED');
     }
+    if (model === 'orderSecret') { ensure(scope.orders.has(data.orderId), 'STAGING_DATA_REJECTED'); validateSecret(data); }
   }
   if ('orderId' in data && data.orderId !== null) ensure(scope.orders.has(data.orderId), 'STAGING_DATA_REJECTED');
   if (model === 'checkoutAttempt' && !creating && 'variantId' in data) ensure(scope.variants.has(data.variantId), 'STAGING_DATA_REJECTED');
   if (model === 'order' && !creating && 'status' in data) ensure(data.status === 'CANCELLED', 'STAGING_DATA_REJECTED');
+  if (model === 'robloxOrderDetail') ensure(!creating && data.whatsappE164 === null, 'STAGING_DATA_REJECTED');
+}
+
+function validateSecret(data) {
+  ensure(typeof data.ciphertext === 'string' && /^[a-f\d]{32}:[a-f\d]{32}:(?:[a-f\d]{2})+$/.test(data.ciphertext) && data.expiresAt instanceof Date && Number.isFinite(data.expiresAt.getTime()) && data.expiresAt.getTime() > Date.now() && data.expiresAt.getTime() <= Date.now() + 72 * 60 * 60 * 1000, 'STAGING_DATA_REJECTED');
 }
 
 function ownResult(model, row, scope) {
@@ -124,7 +136,7 @@ function ownResult(model, row, scope) {
 // A forwarding boundary, not a fake DB: locks, constraints, commits and rollbacks
 // are executed by the actual PrismaClient and its actual transaction clients.
 export function guardedClient(client, scope, transaction = null) {
-  const models = ['product', 'productVariant', 'regionalPrice', 'checkoutSession', 'checkoutAttempt', 'order', 'robloxOrderDetail', 'rateLimit'];
+  const models = ['product', 'productVariant', 'regionalPrice', 'checkoutSession', 'checkoutAttempt', 'order', 'robloxOrderDetail', 'orderSecret', 'rateLimit'];
   return new Proxy({}, { get(_target, key) {
     if (key === 'then') return undefined;
     if (key === '$transaction') return async (callback, options) => {
@@ -154,7 +166,7 @@ export function guardedClient(client, scope, transaction = null) {
       const writing = ['create', 'createMany', 'update', 'updateMany', 'upsert', 'deleteMany'].includes(operation);
       ensure(reading || writing, 'STAGING_OPERATION_REJECTED');
       if (writing) ensure(scope.writable, 'STAGING_WRITES_DISABLED');
-      if (operation === 'deleteMany') ensure(['checkoutAttempt', 'checkoutSession', 'rateLimit'].includes(key), 'STAGING_OPERATION_REJECTED');
+      if (operation === 'deleteMany') ensure(['checkoutAttempt', 'checkoutSession', 'rateLimit', 'orderSecret'].includes(key), 'STAGING_OPERATION_REJECTED');
       if (operation === 'createMany') ensure(key === 'regionalPrice' && Array.isArray(args.data) && args.data.length > 0 && args.data.length <= 3, 'STAGING_OPERATION_REJECTED');
       if (operation === 'create' && key === 'rateLimit') fail('STAGING_OPERATION_REJECTED');
       if (writing && !['create', 'createMany', 'upsert'].includes(operation) && key === 'checkoutSession') ensure(belongs(scope.createdSessions, args.where?.id), 'STAGING_FIXTURE_SCOPE_REJECTED');

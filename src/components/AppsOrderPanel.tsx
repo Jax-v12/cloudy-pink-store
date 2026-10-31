@@ -7,6 +7,7 @@ import { formatMoney } from '@/lib/regionalPricing';
 import { AppsPackageDetails } from './AppsCatalog';
 import AdminDialog from './AdminDialog';
 import AppsReminderPanel, { type ReminderState } from './AppsReminderPanel';
+import { canPersistInvoiceAccess, rememberInvoiceAccess, readInvoiceAccess } from '@/lib/invoiceBrowser';
 
 export type AppsOrder = {
   invoice: string;
@@ -36,7 +37,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
   const [agree, setAgree] = useState(false);
   const lock = useRef(false);
   const renewalKey = useRef('');
-  const headers = () => ({ 'Content-Type': 'application/json', 'x-order-token': localStorage.getItem(`token_${order.invoice}`) || '' });
+  const headers = () => ({ 'Content-Type': 'application/json', 'x-order-token': readInvoiceAccess(order.invoice) || '' });
 
   async function action(body: Record<string, string>) {
     if (lock.current) return;
@@ -83,6 +84,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
   async function confirmRenewal(event: React.FormEvent) {
     event.preventDefault();
     if (!renewal || renewal.price === null || !agree || lock.current) return;
+    if (!canPersistInvoiceAccess()) { setError(t.invoiceStorageRequired); return; }
     lock.current = true;
     setBusy(true);
     setError('');
@@ -105,7 +107,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
         }
         throw new Error();
       }
-      localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken);
+      rememberInvoiceAccess(json.data.invoice, json.data.accessToken);
       router.push(`/order/${encodeURIComponent(json.data.invoice)}`);
     } catch {
       setError(a.error);

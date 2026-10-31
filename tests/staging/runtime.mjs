@@ -103,6 +103,10 @@ export async function setupIntegration() {
           // Preserve synthetic financial rows too: cancel/archive, never hard-delete Orders.
           await db.$transaction(async tx => {
             if (scope.orders.size) await tx.order.updateMany({ where: { id: { in: [...scope.orders] }, productId: { in: [...scope.products] }, customerEmail: scope.email }, data: { status: 'CANCELLED', archivedAt: new Date(), removedFromAdminAt: new Date() } });
+            if (scope.orders.size) {
+              await tx.orderSecret.deleteMany({ where: { orderId: { in: [...scope.orders] } } });
+              await tx.robloxOrderDetail.updateMany({ where: { orderId: { in: [...scope.orders] }, method: 'LOGIN' }, data: { whatsappE164: null } });
+            }
             if (scope.attempts.size) await tx.checkoutAttempt.deleteMany({ where: { id: { in: [...scope.attempts] }, sessionId: { in: [...scope.createdSessions] }, productId: { in: [...scope.products] } } });
             if (scope.createdSessions.size) await tx.checkoutSession.deleteMany({ where: { id: { in: [...scope.createdSessions] }, tokenHash: { in: [...scope.hashes] } } });
             if (scope.rateLimits.size) await tx.rateLimit.deleteMany({ where: { id: { in: [...scope.rateLimits] } } });

@@ -6,6 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentOrders, getRecentOrders, type RecentOrderItem } from '@/lib/recentOrders';
 import ServiceHelpLinks from './ServiceHelpLinks';
+import { supportContactUrl } from '@/lib/supportContact';
 import { GAME_TOPUP_PURCHASES_ENABLED } from '@/lib/storeAvailability';
 
 export default function StoreShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
@@ -204,13 +205,13 @@ export default function StoreShell({ children, wide = false }: { children: React
         {/* Tombol Hubungi Kami (Kecuali Admin) */}
         {!pathname.startsWith('/admin') && (
           <a
-            href={`https://wa.me/6287867395872?text=${encodeURIComponent(
+            href={supportContactUrl(
               pathname.startsWith('/roblox')
                 ? t.whatsappRobloxMessage
                 : pathname.startsWith('/apps')
                   ? t.whatsappMessage
                   : t.whatsappGeneralMessage
-            )}`}
+            )}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex min-h-11 sm:fixed sm:bottom-6 sm:right-6 sm:z-40 sm:mt-0 items-center gap-2 rounded-full border-2 border-white bg-emerald-600 px-3.5 py-2.5 sm:px-4 sm:py-3 text-white sm:shadow-lg sm:shadow-emerald-600/25 hover:bg-emerald-700 sm:hover:scale-105 transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"

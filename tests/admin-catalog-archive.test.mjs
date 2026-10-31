@@ -257,9 +257,25 @@ test('catalog and archive MySQL transactions, audit, races and rollback', { skip
         await tx.adminSession.update({ where: { id: temporary.id }, data: { reauthenticatedAt: new Date(0) } });
       });
       await lockReady;
-      const deletion = deleteCatalogProduct(p.id, temporary.id, p.name, p.updatedAt);
-      release(); await holder;
-      await assert.rejects(deletion, /REAUTH_REQUIRED/);
+      let requested;
+      const lockRequested = new Promise(resolve => { requested = resolve; });
+      const original = prisma.$transaction.bind(prisma);
+      prisma.$transaction = (work, options) => original(tx => work(new Proxy(tx, {
+        get(target, name) {
+          if (name !== '$queryRaw') return target[name];
+          return (strings, ...values) => {
+            if (/Product.*FOR UPDATE/s.test(strings.join('')) && values[0] === p.id) requested();
+            return target.$queryRaw(strings, ...values);
+          };
+        },
+      })), options);
+      // Attach the rejection assertion before releasing the competing transaction.
+      const denied = assert.rejects(deleteCatalogProduct(p.id, temporary.id, p.name, p.updatedAt), /REAUTH_REQUIRED/);
+      let timeout;
+      try {
+        await Promise.race([lockRequested, new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('PRODUCT_LOCK_NOT_REQUESTED')), 5000); })]);
+        release(); await holder; await denied;
+      } finally { clearTimeout(timeout); release(); prisma.$transaction = original; }
       assert.ok(await prisma.product.findUnique({ where: { id: p.id } }));
     });
     await t.test('worker and archive contend safely; archived job is never resent', async () => {

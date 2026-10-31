@@ -1,6 +1,8 @@
 'use client';
+import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 import StoreShell from '@/components/StoreShell';
+import { supportContactUrl } from '@/lib/supportContact';
 
 export default function Page() {
   const { t } = useLanguage();
@@ -9,7 +11,7 @@ export default function Page() {
       <section className="mx-auto max-w-3xl rounded-3xl border border-[#F1E4ED] bg-white p-6 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] sm:p-8">
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">{t.apps.privacyTitle}</h1>
         <div className="mt-5 space-y-4">
-          {[t.apps.privacyBody, t.apps.privacyReminders, t.apps.privacyMetrics].map(text => (
+          {[t.apps.privacyBody, t.apps.privacyLogin, t.apps.privacyReminders, t.apps.privacyMetrics].map(text => (
             <p
               key={text}
               className="rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5 text-sm leading-7 text-[#251D2C]"
@@ -17,6 +19,15 @@ export default function Page() {
               {text}
             </p>
           ))}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <a href={supportContactUrl(t.whatsappGeneralMessage)} target="_blank" rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center rounded-xl bg-pink-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-pink-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-700">
+            {t.contactAdmin}
+          </a>
+          <Link href="/help#terms" className="inline-flex min-h-11 items-center rounded-xl border border-pink-200 px-4 py-2.5 text-sm font-bold text-pink-700 hover:bg-pink-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-700">
+            {t.serviceHelp.terms}
+          </Link>
         </div>
       </section>
     </StoreShell>

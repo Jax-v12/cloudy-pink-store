@@ -1,8 +1,7 @@
-import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
-import { publicSiteOrigin } from '@/lib/siteMetadata';
+import { publicPageMetadata } from '@/lib/siteMetadata';
 import AggregateMetrics from '@/components/AggregateMetrics';
 
 const jakartaSans = Plus_Jakarta_Sans({
@@ -21,11 +20,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Cloudy Pink Store — Aplikasi Premium & Robux",
-  description: "Aplikasi premium dan isi ulang Robux untuk Indonesia. Periksa paket, ketentuan, pembayaran, dan perkembangan pesanan.",
-  ...(publicSiteOrigin() ? { metadataBase: new URL(publicSiteOrigin()!), openGraph: { title: 'Cloudy Pink Store', description: 'Aplikasi premium dan isi ulang Robux untuk Indonesia', images: ['/banner-logo.png'], type: 'website' as const } } : {}),
-};
+export const metadata = publicPageMetadata(
+  'Cloudy Pink Store — Aplikasi Premium & Robux',
+  'Aplikasi premium dan isi ulang Robux untuk Indonesia. Periksa paket, ketentuan, pembayaran, dan perkembangan pesanan.',
+);
 
 export default function RootLayout({
   children,

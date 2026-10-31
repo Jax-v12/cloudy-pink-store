@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import StoreShell from '@/components/StoreShell';
 import { useLanguage } from '@/context/LanguageContext';
+import { supportContactUrl } from '@/lib/supportContact';
 
 export default function HelpPage() {
   const { t } = useLanguage();
@@ -68,12 +69,22 @@ export default function HelpPage() {
         <section className="rounded-3xl border border-pink-200 bg-gradient-to-br from-pink-50/90 via-white to-purple-50/60 p-6 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] sm:p-8">
           <h2 className="text-lg sm:text-xl font-extrabold text-[#251D2C]">{copy.supportTitle}</h2>
           <p className="mt-2.5 text-sm leading-7 text-[#756C7D]">{copy.supportBody}</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+          <a
+            href={supportContactUrl(t.whatsappGeneralMessage)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center rounded-xl bg-pink-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-pink-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-700"
+          >
+            {t.contactAdmin}
+          </a>
           <Link
             href="/"
-            className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 shadow-xs hover:border-pink-300 hover:bg-pink-50 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 shadow-xs hover:border-pink-300 hover:bg-pink-50 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
           >
             &larr; {copy.back}
           </Link>
+          </div>
         </section>
       </div>
     </StoreShell>

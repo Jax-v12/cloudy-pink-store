@@ -8,6 +8,11 @@ import reporter from './staging/reporter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
+import * as sandboxPolicy from './staging/sandbox-policy.mjs';
+import sandboxReporter from './staging/sandbox-reporter.mjs';
+import { loginCredentialsFixture } from './login-access-fixture.mjs';
+import { parseDetails } from '../src/lib/commerce.ts';
 
 const runId = '662db2ed-e635-4d54-98a1-e1aa3348df7e';
 const target = 'mysql://synthetic:synthetic@mysql-26d9d666-fixture.aivencloud.com:3306/cloudy_staging?ssl-mode=REQUIRED';
@@ -195,4 +200,184 @@ test('direct staging worker execution stops before loading config or connecting'
   assert.notEqual(result.status, 0);
   assert.match(result.stdout, /STAGING_WRITE_APPROVAL_REQUIRED/);
   assert.doesNotMatch(result.stdout + result.stderr, /mysql:\/\/|password|DATABASE_URL=/i);
+});
+
+for (const [label, policy] of [['staging', { fixtureScope, guardedClient }], ['sandbox', sandboxPolicy]]) {
+  test(`${label} Login checkout accepts the current encrypted secret envelope and refuses unsafe nested data`, async () => {
+    const fixture = policy.fixtureScope(runId, true);
+    fixture.products.add(42);
+    const ciphertext = 'a'.repeat(32) + ':' + 'b'.repeat(32) + ':' + 'c'.repeat(64);
+    const data = {
+      invoice: 'INV-' + crypto.randomUUID(), productId: 42, type: 'ROBLOX',
+      checkoutKey: fixture.key(), customerEmail: fixture.email, accountStockId: null,
+      totalAmount: 1000, currency: 'IDR', pricingRegion: 'ID', paymentProvider: 'MIDTRANS', paymentMethod: 'QRIS',
+      robloxDetail: { create: { method: 'LOGIN', username: fixture.username, whatsappE164: ciphertext } },
+      secret: { create: { ciphertext, expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000) } },
+    };
+    let writes = 0;
+    const db = policy.guardedClient({ order: { create: async () => { writes++; return { id: 8, invoice: data.invoice }; } } }, fixture);
+    await db.order.create({ data });
+    assert.equal(writes, 1);
+    assert.equal(fixture.orders.has(8), true);
+    for (const secret of [
+      undefined,
+      { create: { ...data.secret.create, ciphertext: 'plaintext-fixture' } },
+      { create: { ...data.secret.create, expiresAt: new Date(NaN) } },
+      { create: { ...data.secret.create, expiresAt: new Date(Date.now() + 73 * 60 * 60 * 1000) } },
+      { create: { ...data.secret.create, orderId: 99 } },
+      { connect: { orderId: 99 } },
+    ]) await assert.rejects(db.order.create({ data: { ...data, secret } }), /DATA_REJECTED/);
+    for (const method of ['GAMEPASS', 'GIFT_USERNAME']) {
+      await assert.rejects(db.order.create({ data: { ...data, robloxDetail: { create: { method, username: fixture.username } } } }), /DATA_REJECTED/);
+    }
+    assert.equal(writes, 1);
+  });
+
+  test(`${label} secret cleanup is restricted to owned orders and current encrypted fields`, async () => {
+    const fixture = policy.fixtureScope(runId, true); fixture.orders.add(8);
+    let writes = 0;
+    const db = policy.guardedClient({ orderSecret: { create: async () => { writes++; return { orderId: 8 }; }, deleteMany: async () => { writes++; return { count: 1 }; } }, robloxOrderDetail: { updateMany: async () => { writes++; return { count: 1 }; } } }, fixture);
+    const data = { orderId: 8, ciphertext: 'a'.repeat(32) + ':' + 'b'.repeat(32) + ':' + 'c'.repeat(64), expiresAt: new Date(Date.now() + 1000) };
+    await db.orderSecret.create({ data });
+    assert.equal((await db.orderSecret.deleteMany({ where: { orderId: 8 } })).count, 1);
+    await db.robloxOrderDetail.updateMany({ where: { orderId: 8, method: 'LOGIN' }, data: { whatsappE164: null } });
+    await assert.rejects(db.orderSecret.deleteMany({ where: { orderId: 9 } }), /FIXTURE_SCOPE_REJECTED/);
+    await assert.rejects(db.orderSecret.create({ data: { ...data, orderId: 9 } }), /DATA_REJECTED/);
+    await assert.rejects(db.orderSecret.create({ data: { orderId: 8, secretType: 'LOGIN', encryptedData: 'plaintext' } }), /DATA_REJECTED|OPERATION_REJECTED/);
+    await assert.rejects(db.robloxOrderDetail.updateMany({ where: { orderId: 9 }, data: { whatsappE164: null } }), /FIXTURE_SCOPE_REJECTED/);
+    await assert.rejects(db.robloxOrderDetail.updateMany({ where: { orderId: 8 }, data: { whatsappE164: 'plaintext' } }), /DATA_REJECTED/);
+    assert.equal(writes, 3);
+  });
+}
+
+test('actual staging and Sandbox fixture builders satisfy the current Login account contract', async () => {
+  for (const filename of ['checkout.integration.mjs', 'sandbox.integration.mjs']) {
+    const source = fs.readFileSync(new URL('./staging/' + filename, import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, '');
+    const fakeTest = () => {};
+    fakeTest.before = fakeTest.after = fakeTest.afterEach = () => {};
+    const sandbox = { test: fakeTest, process: { env: {} }, writeApproval: () => true, loginCredentialsFixture };
+    vm.runInNewContext(source + `
+      scope = { username: 'FixtureUser', email: 'fixture@example.invalid' }; product = { id: 42 };
+      ${filename.startsWith('checkout') ? "variants = { login: { id: 7, method: 'LOGIN' } };" : 'variant = { id: 7 };'}
+      db = { productVariant: { findUnique: async () => ({}) } };
+      api = { checkoutPricing: () => ({}), checkoutQuoteToken: () => 'synthetic-quote' };
+      globalThis.buildInput = input;
+    `, sandbox);
+    const body = await sandbox.buildInput();
+    assert.deepEqual(parseDetails('ROBLOX', { method: 'LOGIN' }, body.details).loginCredentials, loginCredentialsFixture());
+  }
+});
+
+test('Sandbox payment transition forwards paidAt only on owned paid orders', async () => {
+  const fixture = sandboxPolicy.fixtureScope(runId, true); fixture.orders.add(8);
+  let writes = 0;
+  const db = sandboxPolicy.guardedClient({ order: { updateMany: async () => { writes++; return { count: 1 }; } } }, fixture);
+  const paidAt = new Date();
+  await db.order.updateMany({ where: { id: 8, status: 'PENDING' }, data: { status: 'PAID', paidAt, fulfillmentStatus: 'QUEUED' } });
+  await assert.rejects(db.order.updateMany({ where: { id: 9 }, data: { status: 'PAID', paidAt } }), /FIXTURE_SCOPE_REJECTED/);
+  await assert.rejects(db.order.updateMany({ where: { id: 8 }, data: { status: 'PAID', paidAt: 'invalid' } }), /DATA_REJECTED/);
+  assert.equal(writes, 1);
+});
+
+async function sandboxCases({ qrisUrl = 'https://api.sandbox.midtrans.com/v2/qris/fixture/qr-code', fetchResult, providerState = 'pending' } = {}) {
+  const cases = new Map(), skipped = [];
+  const order = { id: 8, invoice: 'INV-' + crypto.randomUUID(), qrisUrl, paymentReference: 'fixture-reference', status: 'PENDING' };
+  const state = { applies: 0, reads: 0, fetches: 0, statuses: 0 };
+  const providerStatus = { state: providerState };
+  const fakeTest = (name, _options, callback) => cases.set(name, callback);
+  fakeTest.before = fakeTest.after = fakeTest.afterEach = () => {};
+  const source = fs.readFileSync(new URL('./staging/sandbox.integration.mjs', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, '');
+  const sandbox = {
+    test: fakeTest, assert, crypto, process: { env: {} }, writeApproval: () => true,
+    setTimeout: callback => { callback(); }, AbortSignal, Request, Response,
+    scopeFixture: sandboxPolicy.fixtureScope(runId, true),
+    fetch: async () => { state.fetches++; if (fetchResult instanceof Error) throw fetchResult; return fetchResult ?? { ok: true }; },
+    order,
+    apiFixture: {
+      paymentAdapter: () => ({ status: async () => { state.statuses++; return providerStatus; } }),
+      applyPaymentStatus: async (_id, status) => { assert.equal(status, providerStatus); state.applies++; order.status = 'PAID'; },
+      webhook: async () => new Response(null, { status: [403, 400, 400, 403][state.webhooks++] }),
+      invoice: async req => req.headers.get('cookie') === 'fixture-owner'
+        ? Response.json({ success: true, data: { totalAmount: 1000 } }, { headers: { 'cache-control': 'private, no-store' } })
+        : Response.json({ success: false }, { status: 404 }),
+      bootstrap: async () => Response.json({}, { status: 201, headers: { 'set-cookie': '__Host-cloudy_checkout=fixture-foreign; HttpOnly; Secure; SameSite=Lax' } }),
+    },
+    dbFixture: {
+      order: { findUnique: async () => order },
+      fulfillmentJob: { findFirst: async () => { state.reads++; return {}; } },
+    },
+  };
+  state.webhooks = 0;
+  vm.runInNewContext(source + "\nsharedOrder1 = order; sharedOwner1 = { cookie: 'fixture-owner' }; api = apiFixture; db = dbFixture; scope = scopeFixture;", sandbox);
+  const context = { skip: reason => skipped.push(reason) };
+  return { cases, state, skipped, context };
+}
+
+test('Sandbox simulator unsupported and failure paths never fabricate settlement or run dependent replay', async () => {
+  for (const [options, reason] of [
+    [{ qrisUrl: null }, 'SANDBOX_SIMULATOR_UNSUPPORTED'],
+    [{ fetchResult: { ok: false } }, 'SANDBOX_SIMULATOR_HTTP_FAILED'],
+    [{ fetchResult: new Error('synthetic-failure') }, 'SANDBOX_SIMULATOR_REQUEST_FAILED'],
+    [{ providerState: 'pending' }, 'SANDBOX_PROVIDER_SETTLEMENT_UNCONFIRMED'],
+  ]) {
+    const fixture = await sandboxCases(options);
+    await fixture.cases.get('sandbox: 03. sandbox settlement simulation if supported')(fixture.context);
+    assert.equal(fixture.state.applies, 0);
+    assert.deepEqual(fixture.skipped, [reason]);
+    await fixture.cases.get('sandbox: 09. duplicate and delayed webhook replay in an isolated test environment')(fixture.context);
+    assert.deepEqual(fixture.skipped, [reason, 'SANDBOX_PROVIDER_SETTLEMENT_REQUIRED']);
+  }
+});
+
+test('Sandbox settlement applies the real provider paid status', async () => {
+  const fixture = await sandboxCases({ providerState: 'paid' });
+  await fixture.cases.get('sandbox: 03. sandbox settlement simulation if supported')(fixture.context);
+  assert.equal(fixture.state.applies, 1);
+  assert.equal(fixture.state.statuses, 1);
+  assert.equal(fixture.state.reads, 1);
+  assert.deepEqual(fixture.skipped, []);
+});
+
+test('Sandbox ownership case reads the current success/data invoice envelope', async () => {
+  const fixture = await sandboxCases();
+  await fixture.cases.get('sandbox: 10. signature, amount, currency, order_id and ownership validation')(fixture.context);
+});
+
+test('missing-order webhook returns 404 locally while Sandbox guards still refuse foreign invoice reads', async () => {
+  const fixture = sandboxPolicy.fixtureScope(runId, true);
+  const db = sandboxPolicy.guardedClient({ order: { findUnique: async () => { assert.fail('Foreign invoice reached the database'); } } }, fixture);
+  await assert.rejects(db.order.findUnique({ where: { invoice: 'INV-nonexistent' } }), /SANDBOX_FIXTURE_SCOPE_REJECTED/);
+  const script = `
+    import assert from 'node:assert/strict';
+    import crypto from 'node:crypto';
+    let reads = 0;
+    globalThis.prisma = { order: { findUnique: async ({ where }) => {
+      assert.equal(where.invoice, 'INV-nonexistent'); reads++; return null;
+    } } };
+    globalThis.fetch = async () => { assert.fail('Missing order must not call a provider'); };
+    const { POST } = await import(${JSON.stringify(new URL('../src/app/api/webhook/payment/route.ts', import.meta.url).href)});
+    const payload = { order_id: 'INV-nonexistent', status_code: '200', gross_amount: '1000.00', transaction_status: 'settlement' };
+    payload.signature_key = crypto.createHash('sha512').update(payload.order_id + payload.status_code + payload.gross_amount + process.env.MIDTRANS_SERVER_KEY).digest('hex');
+    const response = await POST(new Request('https://staging-tests.invalid/api/webhook/payment', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }));
+    assert.equal(response.status, 404); assert.equal(reads, 1);
+  `;
+  const result = spawnSync(process.execPath, ['--import', new URL('./register.mjs', import.meta.url).href, '--input-type=module', '--eval', script], {
+    env: { ...isolatedEnvironment(process.env), NODE_ENV: 'test', MIDTRANS_SERVER_KEY: 'synthetic-missing-order-test' }, encoding: 'utf8', windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('Sandbox reporter retains safe skip reasons while suppressing error payloads', async () => {
+  async function* events() {
+    yield { type: 'test:pass', data: { name: 'sandbox: 03. settlement', skip: 'SANDBOX_SIMULATOR_UNSUPPORTED' } };
+    yield { type: 'test:fail', data: { name: 'sandbox: 03. settlement', details: { error: new Error('synthetic-secret-value') } } };
+    yield { type: 'test:stdout', data: { message: 'synthetic-secret-value' } };
+  }
+  let output = '';
+  for await (const line of sandboxReporter(events())) output += line;
+  const rows = output.trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(rows[0].result, 'SKIP');
+  assert.equal(rows[0].reason, 'SANDBOX_SIMULATOR_UNSUPPORTED');
+  assert.equal(rows[1].result, 'FAIL');
+  assert.doesNotMatch(output, /synthetic-secret-value/);
 });

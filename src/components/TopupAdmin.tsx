@@ -68,7 +68,7 @@ export default function TopupAdmin() {
       </button>
     </div>
 
-    {error && !deleteTarget && <p role="alert" className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 p-4 font-semibold shadow-sm">{errorLabel(error)}</p>}
+    {error && !deleteTarget && !selected && <p role="alert" className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 p-4 font-semibold shadow-sm">{errorLabel(error)}</p>}
     {notice && <p role="status" className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 font-semibold shadow-sm">{c.actionSaved}</p>}
 
     {deleteTarget && <AdminDialog title={c.deleteProduct} busy={busy} onClose={() => setDeleteTarget(null)}>
@@ -132,7 +132,7 @@ export default function TopupAdmin() {
           <div className="mt-auto border-t border-pink-50 pt-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-bold text-neutral-500">{c.packagesLabel} ({p.variants.length})</span>
-              <button onClick={() => { setProductId(p.id); setVariant({ ...empty, ...(p.type === 'GAME' ? { units: 1, maxUnits: null, unitStep: 1, method: null } : {}) }); }} className="text-xs font-black text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 rounded-lg px-3 py-1.5 transition active:scale-95">
+              <button onClick={() => { setError(''); setProductId(p.id); setVariant({ ...empty, ...(p.type === 'GAME' ? { units: 1, maxUnits: null, unitStep: 1, method: null } : {}) }); }} className="text-xs font-black text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 rounded-lg px-3 py-1.5 transition active:scale-95">
                 + {c.newVariant}
               </button>
             </div>
@@ -146,7 +146,7 @@ export default function TopupAdmin() {
                       <p className="text-sm font-bold text-neutral-800 truncate">{v.name}</p>
                       <p className="text-xs font-semibold text-pink-600">{v.units} U</p>
                     </div>
-                    <button onClick={() => { setProductId(p.id); setVariant(v); }} className="shrink-0 text-xs font-bold text-pink-600 hover:text-pink-800 bg-white border border-pink-200 shadow-sm rounded-lg px-3 py-1 opacity-0 group-hover/variant:opacity-100 transition-opacity">
+                    <button onClick={() => { setError(''); setProductId(p.id); setVariant(v); }} className="shrink-0 text-xs font-bold text-pink-600 hover:text-pink-800 bg-white border border-pink-200 shadow-sm rounded-lg px-3 py-1 opacity-0 group-hover/variant:opacity-100 transition-opacity">
                       {c.edit}
                     </button>
                   </div>
@@ -166,18 +166,14 @@ export default function TopupAdmin() {
     )}
 
     {selected && (
-      <div className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200 overflow-y-auto">
-        <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
-          <div className="flex items-center justify-between border-b border-pink-100 bg-pink-50/50 px-6 py-4">
-            <h3 className="font-black text-xl text-neutral-800">
-              <span className="text-pink-600">{selected.name}</span> <span className="text-neutral-300 mx-2">/</span> {variant.id ? c.edit : c.newVariant}
-            </h3>
-            <button type="button" onClick={() => setProductId(0)} className="text-neutral-400 hover:text-neutral-700 p-1 transition" title={c.closeEditor}>
+      <AdminDialog title={`${selected.name} / ${variant.id ? c.edit : c.newVariant}`} width="wide" busy={busy} onClose={() => setProductId(0)}>
+          <div className="mb-3 flex justify-end">
+            <button type="button" disabled={busy} onClick={() => setProductId(0)} className="text-neutral-400 hover:text-neutral-700 p-1 transition disabled:opacity-50" aria-label={c.closeEditor}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
-          <form key={`${productId}-${variant.id || 0}`} className="p-6 grid sm:grid-cols-2 gap-5 max-h-[75vh] overflow-y-auto custom-scrollbar" onSubmit={e => {
+          <form key={`${productId}-${variant.id || 0}`} className="grid sm:grid-cols-2 gap-5" onSubmit={e => {
             e.preventDefault(); const f = new FormData(e.currentTarget);
             let regionalPrices: RegionalPrice[] | undefined;
             try {
@@ -231,16 +227,16 @@ export default function TopupAdmin() {
               </section>
             )}
 
+            {error && <p role="alert" className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-4 font-semibold text-rose-700">{errorLabel(error)}</p>}
             <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-4 border-t border-pink-100 pt-5 mt-2">
               <label className="flex gap-3 items-center cursor-pointer select-none"><input name="active" type="checkbox" defaultChecked={variant.active} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.active}</span></label>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setProductId(0)} className="text-neutral-600 font-bold px-6 py-2.5 rounded-xl hover:bg-neutral-100 transition active:scale-95">{c.cancelAction}</button>
+                <button type="button" disabled={busy} onClick={() => setProductId(0)} className="text-neutral-600 font-bold px-6 py-2.5 rounded-xl hover:bg-neutral-100 transition active:scale-95 disabled:opacity-50">{c.cancelAction}</button>
                 <button disabled={busy} className="bg-pink-600 hover:bg-pink-700 text-white font-black shadow-md shadow-pink-200/50 rounded-xl px-8 py-2.5 transition active:scale-95">{c.save}</button>
               </div>
             </div>
           </form>
-        </div>
-      </div>
+      </AdminDialog>
     )}
   </section>;
 }

@@ -6,11 +6,13 @@ export default function AdminDialog({
   busy,
   onClose,
   children,
+  width = 'normal',
 }: {
   title: string;
   busy: boolean;
   onClose: () => void;
   children: ReactNode;
+  width?: 'normal' | 'wide';
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function AdminDialog({
         event.preventDefault();
         if (!busy) onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-7 text-[#251D2C] shadow-2xl backdrop:bg-[#251D2C]/50 backdrop:backdrop-blur-xs"
+      className={`m-auto w-[calc(100%-2rem)] ${width === 'wide' ? 'max-w-3xl max-h-[90dvh] overflow-y-auto' : 'max-w-lg'} rounded-3xl border border-[#F1E4ED] bg-white p-6 sm:p-7 text-[#251D2C] shadow-2xl backdrop:bg-[#251D2C]/50 backdrop:backdrop-blur-xs`}
     >
       <h3 className="mb-4 border-b border-[#F1E4ED] pb-3 text-lg sm:text-xl font-extrabold text-[#251D2C]">{title}</h3>
       {children}

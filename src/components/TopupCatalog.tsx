@@ -15,6 +15,7 @@ import RobloxCheckoutWizard from './RobloxCheckoutWizard';
 import RobloxServiceCards from './RobloxServiceCards';
 import LoginFlow from './LoginFlow';
 import type { RobloxMethodKey } from '@/lib/roblox';
+import { canPersistInvoiceAccess, rememberInvoiceAccess } from '@/lib/invoiceBrowser';
 
 type Variant = {
   regionalPrices?: RegionalPrice[];
@@ -119,6 +120,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
   async function checkout(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!product || !variant || busy || submitting.current || (type === 'ROBLOX' && !server.quote)) return;
+    if (!canPersistInvoiceAccess()) { setError('INVOICE_STORAGE_REQUIRED'); return; }
     const form = event.currentTarget;
     const fd = new FormData(form);
     const details: Record<string, unknown> =
@@ -144,7 +146,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
       });
       const j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.errorCode);
-      localStorage.setItem(`token_${j.data.invoice}`, j.data.accessToken);
+      rememberInvoiceAccess(j.data.invoice, j.data.accessToken);
       form.reset();
       key.current = { payload: '', value: '' };
       router.push(`/order/${encodeURIComponent(j.data.invoice)}`);
@@ -168,6 +170,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
     REGIONAL_PRICE_UNAVAILABLE: t.regional.unavailable,
     PAYMENT_REGION_UNAVAILABLE: t.regional.paymentUnavailable,
     PAYMENT_METHOD_UNAVAILABLE: t.regional.paymentUnavailable,
+    INVOICE_STORAGE_REQUIRED: t.invoiceStorageRequired,
     IDEMPOTENCY_CONFLICT: c.conflict,
     PRODUCT_UNAVAILABLE: c.checkoutUnavailable,
     CAPACITY_REVIEW_REQUIRED: c.checkoutUnavailable,

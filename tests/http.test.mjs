@@ -38,7 +38,7 @@ test('HTTP authorization, CSRF, reauthentication and response redaction', { skip
     assert.equal(passLookup.status, 200); assert.ok(passLookup.headers.get('cache-control').includes('no-store'));
     assert.equal((await passLookup.json()).data.price, 143);
     const catalogPage = await request('/roblox');
-    assert.equal(catalogPage.status, 200); assert.ok((await catalogPage.text()).includes('Top-up Robux, diproses dengan teliti'));
+    assert.equal(catalogPage.status, 200); assert.ok((await catalogPage.text()).includes('Isi ulang Robux, diproses dengan teliti'));
     const methodPage = await request(`/roblox/${p.slug}?method=LOGIN`);
     assert.equal(methodPage.status, 200);
     const loginPage = await methodPage.text();

@@ -20,20 +20,22 @@ describe('recentOrders', () => {
     };
   });
 
-  it('stores only { invoice, visitedAt } up to 5 items without duplicates and strips extra fields', () => {
-    assert.deepEqual(getRecentOrders(), []);
+  it('stores only { invoice, visitedAt } up to 5 items without duplicates and strips extra fields', t => {
+    t.mock.method(Date, 'now', () => Date.parse('2037-01-01T00:00:00.000Z'));
+    const nowMs = Date.parse('2026-10-18T10:10:00.000Z');
+    assert.deepEqual(getRecentOrders(nowMs), []);
 
     saveRecentOrder({
       invoice: 'INV-1',
       visitedAt: '2026-10-18T10:00:00.000Z',
-    });
+    }, nowMs);
 
     saveRecentOrder({
       invoice: 'INV-2',
       visitedAt: '2026-10-18T10:05:00.000Z',
-    });
+    }, nowMs);
 
-    let list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
+    let list = getRecentOrders(nowMs);
     assert.equal(list.length, 2);
     assert.deepEqual(Object.keys(list[0]).sort(), ['invoice', 'visitedAt']);
     assert.equal(list[0].invoice, 'INV-2');
@@ -43,9 +45,9 @@ describe('recentOrders', () => {
     saveRecentOrder({
       invoice: 'INV-1',
       visitedAt: '2026-10-18T10:09:00.000Z',
-    });
+    }, nowMs);
 
-    list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
+    list = getRecentOrders(nowMs);
     assert.equal(list.length, 2);
     assert.equal(list[0].invoice, 'INV-1');
     assert.equal(list[1].invoice, 'INV-2');
@@ -55,10 +57,10 @@ describe('recentOrders', () => {
       saveRecentOrder({
         invoice: `INV-${i}`,
         visitedAt: '2026-10-18T10:09:30.000Z',
-      });
+      }, nowMs);
     }
 
-    list = getRecentOrders(new Date('2026-10-18T10:10:00.000Z').getTime());
+    list = getRecentOrders(nowMs);
     assert.equal(list.length, 5);
     assert.equal(list[0].invoice, 'INV-8');
   });
@@ -95,7 +97,7 @@ describe('recentOrders', () => {
 
     assert.doesNotThrow(() => {
       assert.deepEqual(getRecentOrders(), []);
-      saveRecentOrder({ invoice: 'INV-BLOCKED-1', visitedAt: '2026-10-18T10:00:00.000Z' });
+      saveRecentOrder({ invoice: 'INV-BLOCKED-1' }, Date.parse('2026-10-18T10:00:00.000Z'));
       clearRecentOrders();
     });
   });

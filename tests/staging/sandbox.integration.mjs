@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { loginCredentialsFixture } from '../login-access-fixture.mjs';
 import { setupSandbox } from './sandbox-runtime.mjs';
 import { writeApproval } from './sandbox-policy.mjs';
 
@@ -66,13 +67,13 @@ async function input() {
   return {
     productId: product.id, variantId: variant.id, customerEmail: scope.email, paymentMethod: 'QRIS',
     quoteToken: api.checkoutQuoteToken(product.id, variant.id, quote),
-    details: { username: scope.username, whatsappE164: '+12025550123' },
+    details: { username: scope.username, whatsappE164: '+12025550123', ...loginCredentialsFixture() },
   };
 }
 
 const confirm = (owner, row, body) => api.confirmLoginAttempt(owner.id, row.flowId, row.version, body, 'ID', false);
 
-let sharedOrder1, sharedOwner1;
+let sharedOrder1, sharedOwner1, providerSettlementVerified = false;
 
 run('01. QRIS Sandbox charge creation', async () => {
   const { owner, row } = await start();
@@ -110,48 +111,29 @@ run('02. provider payment status', async () => {
   assert.equal(status.state, 'pending');
 });
 
-run('03. sandbox settlement simulation if supported', async () => {
+run('03. sandbox settlement simulation if supported', async t => {
   assert.ok(sharedOrder1, 'Prerequisite Order 1 required');
-  let simulationAttempted = false;
-  let simulatedSettlement = false;
-
-  if (sharedOrder1.qrisUrl && sharedOrder1.qrisUrl.startsWith('https://')) {
-    simulationAttempted = true;
-    try {
-      const simRes = await fetch('https://simulator.sandbox.midtrans.com/qris/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `qrCodeUrl=${encodeURIComponent(sharedOrder1.qrisUrl)}`,
-      });
-      if (simRes.ok) {
-        // Allow simulator background processing
-        await new Promise(r => setTimeout(r, 2000));
-        const currentStatus = await api.paymentAdapter(sharedOrder1).status(sharedOrder1);
-        if (currentStatus?.state === 'paid') {
-          simulatedSettlement = true;
-          await api.applyPaymentStatus(sharedOrder1.id, currentStatus);
-        }
-      }
-    } catch {
-      // Simulator may be web UI only or unparsable
-    }
-  }
-
-  if (!simulatedSettlement) {
-    // If external web simulator did not transition state, test verified settlement transition path
-    const verifiedStatus = {
-      provider: 'MIDTRANS', invoice: sharedOrder1.invoice, amount: 1000,
-      currency: 'IDR', region: 'ID', reference: sharedOrder1.paymentReference,
-      state: 'paid', cancelled: false, qr: sharedOrder1.qrisUrl,
-    };
-    await api.applyPaymentStatus(sharedOrder1.id, verifiedStatus);
-  }
+  if (!sharedOrder1.qrisUrl?.startsWith('https://')) { t.skip('SANDBOX_SIMULATOR_UNSUPPORTED'); return; }
+  let simRes;
+  try {
+    simRes = await fetch('https://simulator.sandbox.midtrans.com/qris/payment', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `qrCodeUrl=${encodeURIComponent(sharedOrder1.qrisUrl)}`,
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch { t.skip('SANDBOX_SIMULATOR_REQUEST_FAILED'); return; }
+  if (!simRes.ok) { t.skip('SANDBOX_SIMULATOR_HTTP_FAILED'); return; }
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  const currentStatus = await api.paymentAdapter(sharedOrder1).status(sharedOrder1);
+  if (currentStatus?.state !== 'paid') { t.skip('SANDBOX_PROVIDER_SETTLEMENT_UNCONFIRMED'); return; }
+  await api.applyPaymentStatus(sharedOrder1.id, currentStatus);
 
   const updated = await db.order.findUnique({ where: { id: sharedOrder1.id } });
   assert.equal(updated.status, 'PAID');
   const job = await db.fulfillmentJob.findFirst({ where: { orderId: sharedOrder1.id } });
   assert.ok(job, 'Expected fulfillment job after settlement');
   sharedOrder1 = updated;
+  providerSettlementVerified = true;
 });
 
 run('04. order COMMITTED before charge', async () => {
@@ -247,8 +229,9 @@ run('08. concurrent retry without duplicate charges', async () => {
   assert.ok(order5.paymentReference);
 });
 
-run('09. duplicate and delayed webhook replay in an isolated test environment', async () => {
+run('09. duplicate and delayed webhook replay in an isolated test environment', async t => {
   assert.ok(sharedOrder1, 'Prerequisite Order 1 required');
+  if (!providerSettlementVerified) { t.skip('SANDBOX_PROVIDER_SETTLEMENT_REQUIRED'); return; }
   const makeWebhookRequest = (patch = {}) => {
     const payload = {
       order_id: sharedOrder1.invoice,
@@ -314,11 +297,8 @@ run('10. signature, amount, currency, order_id and ownership validation', async 
     .digest('hex');
   assert.equal((await api.webhook(makeTamperedWebhook({ transaction_id: 'wrong-tx-id', signature_key: wrongTxSig }))).status, 400);
 
-  // Nonexistent order_id
-  const nonExistentSig = crypto.createHash('sha512')
-    .update('INV-nonexistent' + '200' + '1000.00' + process.env.MIDTRANS_SERVER_KEY)
-    .digest('hex');
-  assert.equal((await api.webhook(makeTamperedWebhook({ order_id: 'INV-nonexistent', signature_key: nonExistentSig }))).status, 404);
+  // Missing-order 404 is covered by the local handler regression; this
+  // remote harness must never read invoices outside its owned fixture scope.
 
   // Empty webhook payload
   assert.equal((await api.webhook(new Request('https://staging-tests.invalid/api/webhook/payment', { method: 'POST', body: '{}' }))).status, 403);
@@ -329,7 +309,7 @@ run('10. signature, amount, currency, order_id and ownership validation', async 
   assert.equal(ownerRes.status, 200);
   assert.equal(ownerRes.headers.get('cache-control'), 'private, no-store');
   const ownerJson = await ownerRes.json();
-  assert.equal(ownerJson.totalAmount, 1000);
+  assert.equal(ownerJson.data.totalAmount, 1000);
 
   const foreign = await session();
   const foreignRes = await api.invoice(request(foreign.cookie, undefined, 'GET'), params);

@@ -1,4 +1,5 @@
 const ID = {
+  privacyLogin: 'Untuk Roblox Via Login, kata sandi dan lima kode cadangan hanya digunakan untuk top-up pesanan tersebut dan disimpan terenkripsi. Akses dibatasi paling lama 72 jam sejak pesanan dibuat. Jangan mengirim OTP, cookie, token sesi, atau rahasia melalui chat. Penghapusan data aktif tidak langsung menghapus salinan backup; backup mengikuti retensi dan pembatasan akses terpisah.',
   reminderReview: 'Pengingat perlu diperiksa', reminderReviewHelp: 'Hasil tidak pasti tidak dikirim ulang otomatis. Periksa di penyedia, catat referensi penanganan, lalu tutup peninjauan. Menutup peninjauan tidak mengirim pesan atau menyatakan pesan diterima.',
   reminderUnknown: 'Hasil tidak pasti', reminderRejected: 'Ditolak penyedia', reminderResolve: 'Catat selesai diperiksa',
   privacyReminders: "Jika Anda memilih pengingat, nomor WhatsApp disimpan terenkripsi sampai layanan berakhir atau Anda berhenti. Nomor digunakan untuk pengingat melalui Meta setelah verifikasi admin. Pesan tidak memuat kata sandi, kode akses, atau tautan akses bukti pesanan. Salinan cadangan mengikuti retensi terpisah.",
@@ -36,6 +37,7 @@ const ID = {
 };
 type Copy = { [K in keyof typeof ID]: string };
 const EN: Copy = {
+  privacyLogin: 'For Roblox Via Login, the password and five backup codes are used only for that top-up order and stored encrypted. Access lasts at most 72 hours from order creation. Never send OTPs, cookies, session tokens or secrets through chat. Deleting active data does not immediately erase backup copies; backups have separate retention and access restrictions.',
   reminderReview: 'Reminders needing review', reminderReviewHelp: 'Uncertain attempts are never automatically resent. Check with the provider, record a handling reference, then close the review. Closing does not send a message or claim delivery.',
   reminderUnknown: 'Uncertain outcome', reminderRejected: 'Provider rejected', reminderResolve: 'Record review completed',
   privacyReminders: 'If you opt in, your WhatsApp number is encrypted until service expiry or opt-out. It is used for reminders through Meta after administrator verification. Messages contain no passwords, access codes, or invoice access links. Backup copies follow separate retention.',
@@ -64,6 +66,7 @@ const EN: Copy = {
   deliveryLifetime: 'Invitation, link or voucher details remain available for 72 hours after recording. Follow the instructions promptly; if they expire before activation completes, request help for redelivery.',
 };
 const MY: Copy = {
+  privacyLogin: 'Untuk Roblox Via Login, kata laluan dan lima kod sandaran hanya digunakan bagi pesanan tambah nilai tersebut dan disimpan secara tersulit. Akses dihadkan paling lama 72 jam selepas pesanan dibuat. Jangan hantar OTP, kuki, token sesi atau rahsia melalui sembang. Pemadaman data aktif tidak serta-merta memadam salinan sandaran; sandaran tertakluk pada retensi dan sekatan akses berasingan.',
   reminderReview: 'Peringatan perlu disemak', reminderReviewHelp: 'Percubaan tidak pasti tidak dihantar semula secara automatik. Semak dengan penyedia, catat rujukan pengendalian, kemudian tutup semakan. Menutup semakan tidak menghantar mesej atau mengesahkan penerimaan.',
   reminderUnknown: 'Hasil tidak pasti', reminderRejected: 'Ditolak penyedia', reminderResolve: 'Catat semakan selesai',
   privacyReminders: 'Jika anda bersetuju, nombor WhatsApp disulitkan sehingga perkhidmatan tamat atau anda berhenti. Nombor digunakan bagi peringatan melalui Meta selepas pengesahan pentadbir. Mesej tidak mengandungi kata laluan, kod akses atau pautan akses invois. Salinan sandaran mengikut retensi berasingan.',

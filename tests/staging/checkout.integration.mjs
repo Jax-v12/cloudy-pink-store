@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { loginCredentialsFixture } from '../login-access-fixture.mjs';
 import { setupIntegration } from './runtime.mjs';
 import { writeApproval } from './policy.mjs';
 
@@ -55,7 +56,7 @@ const orderCount = () => db.order.count({ where: { productId: product.id } });
 async function input(variant = variants.login) {
   const current = await db.productVariant.findUnique({ where: { id: variant.id }, include: { regionalPrices: true } });
   const quote = api.checkoutPricing('ROBLOX', 0, current, 'ID', 'QRIS');
-  return { productId: product.id, variantId: variant.id, customerEmail: scope.email, paymentMethod: 'QRIS', quoteToken: api.checkoutQuoteToken(product.id, variant.id, quote), details: { username: scope.username, ...(variant.method === 'LOGIN' ? { whatsappE164: '+12025550123' } : variant.method === 'GAMEPASS' ? { gamepassUrl: 'https://www.roblox.com/game-pass/123456/Synthetic' } : {}) } };
+  return { productId: product.id, variantId: variant.id, customerEmail: scope.email, paymentMethod: 'QRIS', quoteToken: api.checkoutQuoteToken(product.id, variant.id, quote), details: { username: scope.username, ...(variant.method === 'LOGIN' ? { whatsappE164: '+12025550123', ...loginCredentialsFixture() } : variant.method === 'GAMEPASS' ? { gamepassUrl: 'https://www.roblox.com/game-pass/123456/Synthetic' } : {}) } };
 }
 const confirm = (owner, row, body, reconfirm = false) => api.confirmLoginAttempt(owner.id, row.flowId, row.version, body, 'ID', reconfirm);
 

@@ -91,10 +91,11 @@ function validateData(model, operation, data, scope) {
     regionalPrice: creating ? ['variantId', 'region', 'amount', 'active'] : ['amount', 'active'],
     checkoutSession: creating ? ['id', 'tokenHash', 'createdAt', 'expiresAt', 'revokedAt'] : ['createdAt', 'expiresAt', 'revokedAt'],
     checkoutAttempt: creating ? ['sessionId', 'flowId', 'productId', 'variantId', 'checkoutKey', 'expiresAt', 'createdAt'] : ['state', 'version', 'variantId', 'requestHash', 'quoteSnapshot', 'leaseUntil', 'expiresAt', 'orderId'],
-    order: creating ? ['invoice', 'productId', 'type', 'productName', 'variantName', 'units', 'totalAmount', 'currency', 'pricingRegion', 'productSubtotal', 'paymentFee', 'discount', 'paymentProvider', 'paymentMethod', 'customerEmail', 'accountStockId', 'checkoutKey', 'requestHash', 'expiresAt', 'robloxDetail'] : ['status', 'archivedAt', 'removedFromAdminAt', 'paymentReference', 'qrisUrl', 'fulfillmentStatus', 'refundStatus', 'accountStockId'],
+    order: creating ? ['invoice', 'productId', 'type', 'productName', 'variantName', 'units', 'totalAmount', 'currency', 'pricingRegion', 'productSubtotal', 'paymentFee', 'discount', 'paymentProvider', 'paymentMethod', 'customerEmail', 'accountStockId', 'checkoutKey', 'requestHash', 'expiresAt', 'robloxDetail', 'secret'] : ['status', 'paidAt', 'archivedAt', 'removedFromAdminAt', 'paymentReference', 'qrisUrl', 'fulfillmentStatus', 'refundStatus', 'accountStockId'],
     rateLimit: creating ? ['id', 'points', 'expiresAt'] : ['points'],
     fulfillmentJob: creating ? ['orderId', 'type', 'status', 'payload'] : ['status', 'payload'],
-    orderSecret: creating ? ['orderId', 'secretType', 'encryptedData'] : [],
+    orderSecret: creating ? ['orderId', 'ciphertext', 'expiresAt'] : [],
+    robloxOrderDetail: creating ? [] : ['whatsappE164'],
   };
   const invalidKeys = Object.keys(data).filter(key => !fields[model]?.includes(key));
   ensure(fields[model] && invalidKeys.length === 0, `SANDBOX_DATA_REJECTED_FIELDS_${model}_${invalidKeys.join(',')}`);
@@ -111,14 +112,23 @@ function validateData(model, operation, data, scope) {
       const detail = data.robloxDetail?.create;
       ensure(data.robloxDetail && Object.keys(data.robloxDetail).length === 1 && detail && detail.username === scope.username && detail.method === 'LOGIN' && Object.keys(detail).every(key => ['method', 'username', 'robloxUserId', 'displayName', 'whatsappE164', 'gamepassUrl', 'gamepassPrice', 'gamepassId', 'gamepassVerifiedAt'].includes(key)), 'SANDBOX_DATA_REJECTED_ROBLOX_DETAIL');
       if (detail.whatsappE164) ensure(/^[a-f\d]{32}:[a-f\d]{32}:[a-f\d]+$/.test(detail.whatsappE164), 'SANDBOX_DATA_REJECTED_WHATSAPP');
+      ensure(data.secret && Object.keys(data.secret).length === 1 && data.secret.create && Object.keys(data.secret.create).length === 2, 'SANDBOX_DATA_REJECTED_SECRET');
+      validateSecret(data.secret.create);
     }
     if (model === 'fulfillmentJob') {
       ensure(scope.orders.has(data.orderId), 'SANDBOX_DATA_REJECTED_FULFILLMENT_JOB');
     }
+    if (model === 'orderSecret') { ensure(scope.orders.has(data.orderId), 'SANDBOX_DATA_REJECTED_ORDER_ID'); validateSecret(data); }
   }
   if ('orderId' in data && data.orderId !== null) ensure(scope.orders.has(data.orderId), 'SANDBOX_DATA_REJECTED_ORDER_ID');
   if (model === 'checkoutAttempt' && !creating && 'variantId' in data) ensure(scope.variants.has(data.variantId), 'SANDBOX_DATA_REJECTED_ATTEMPT_VARIANT');
   if (model === 'order' && !creating && 'status' in data) ensure(['PENDING', 'PAID', 'CANCELLED', 'EXPIRED'].includes(data.status), 'SANDBOX_DATA_REJECTED_ORDER_STATUS');
+  if (model === 'order' && 'paidAt' in data) ensure(data.status === 'PAID' && data.paidAt instanceof Date && Number.isFinite(data.paidAt.getTime()), 'SANDBOX_DATA_REJECTED_PAID_AT');
+  if (model === 'robloxOrderDetail') ensure(!creating && data.whatsappE164 === null, 'SANDBOX_DATA_REJECTED_WHATSAPP');
+}
+
+function validateSecret(data) {
+  ensure(typeof data.ciphertext === 'string' && /^[a-f\d]{32}:[a-f\d]{32}:(?:[a-f\d]{2})+$/.test(data.ciphertext) && data.expiresAt instanceof Date && Number.isFinite(data.expiresAt.getTime()) && data.expiresAt.getTime() > Date.now() && data.expiresAt.getTime() <= Date.now() + 72 * 60 * 60 * 1000, 'SANDBOX_DATA_REJECTED_SECRET');
 }
 
 function ownResult(model, row, scope) {
@@ -132,14 +142,13 @@ function ownResult(model, row, scope) {
   scope.journal?.();
 }
 
-export function guardedClient(client, scope, transaction = null) {
+export function guardedClient(client, scope) {
   const models = ['product', 'productVariant', 'regionalPrice', 'checkoutSession', 'checkoutAttempt', 'order', 'robloxOrderDetail', 'rateLimit', 'fulfillmentJob', 'orderSecret'];
   return new Proxy({}, { get(_target, key) {
     if (key === 'then') return undefined;
     if (key === '$transaction') return async (callback, options) => {
       ensure(typeof callback === 'function', 'SANDBOX_OPERATION_REJECTED');
-      const state = { committedAttempt: false };
-      return client.$transaction(tx => callback(guardedClient(tx, scope, state)), options);
+      return client.$transaction(tx => callback(guardedClient(tx, scope)), options);
     };
     if (key === '$queryRaw') return async (strings, ...values) => {
       const sql = Array.isArray(strings) && strings.raw ? strings.join('?').replace(/\s*=\s*/g, ' = ').replace(/\s+/g, ' ').trim() : '';

@@ -1,9 +1,10 @@
 'use client';
+import { invoiceId } from './invoiceBrowser';
+export { invoiceId } from './invoiceBrowser';
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 export type LoginAttempt = { flowId: string; productId: number; variantId: number; version: number; expiresAt: string;
   outcome: 'NOT_COMMITTED' | 'UNKNOWN' | 'COMMITTED' | 'EXPIRED' | 'CANCELLED'; selectionLocked: boolean; invoice?: string };
-export function invoiceId(value: unknown): value is string { return typeof value === 'string' && /^INV-[A-Za-z0-9_-]{1,187}$/.test(value); }
 
 // The only durable values are public UUID locators. No customer/quote/request data.
 export function checkoutLocator(): Promise<string> {

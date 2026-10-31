@@ -147,6 +147,13 @@ export default function AdminPage() {
   const [batchText, setBatchText] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [productCursor, setProductCursor] = useState<number | null>(null);
+  const productDepthRef = useRef(1);
+  const productLoadingRef = useRef(false);
+  const selectedProductRef = useRef<ProductOption | null>(null);
+  useEffect(() => {
+    selectedProductRef.current = productOptions.find(product => String(product.id) === selectedProductId) ?? null;
+  }, [productOptions, selectedProductId]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchMessage, setBatchMessage] = useState('');
@@ -224,22 +231,40 @@ export default function AdminPage() {
     }
   }, []);
 
-  const loadProductOptions = useCallback(async () => {
+  const loadProductOptions = useCallback(async (cursor?: number) => {
+    if (productLoadingRef.current) return;
+    productLoadingRef.current = true;
     setProductsLoading(true);
     try {
-      const res = await fetch('/api/admin/apps/products');
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error('REQUEST_FAILED');
-      if (Array.isArray(json.data)) {
-        setProductOptions(json.data);
-        setSelectedProductId(prev => {
-          if (prev && json.data.some((p: ProductOption) => String(p.id) === prev)) return prev;
-          return json.data.length > 0 ? String(json.data[0].id) : '';
-        });
+      const fetchPage = async (pageCursor?: number) => {
+        const res = await fetch('/api/admin/apps/products' + (pageCursor ? '?cursor=' + pageCursor : ''));
+        const json = await res.json();
+        if (!res.ok || !json.success || !Array.isArray(json.data)) throw new Error('REQUEST_FAILED');
+        const nextCursor: unknown = json.pagination?.nextCursor;
+        if (nextCursor !== null && (typeof nextCursor !== 'number' || !Number.isSafeInteger(nextCursor) || nextCursor <= 0)) throw new Error('REQUEST_FAILED');
+        const data: ProductOption[] = json.data;
+        return { data, nextCursor };
+      };
+      if (cursor) {
+        const page = await fetchPage(cursor);
+        setProductOptions(previous => [...new Map([...previous, ...page.data].map(product => [product.id, product])).values()]);
+        setProductCursor(page.nextCursor);
+        productDepthRef.current++;
+      } else {
+        const refreshed = await refreshOrderPages<ProductOption>(productDepthRef.current, fetchPage);
+        const retained = selectedProductRef.current;
+        // New products can move the selected item just beyond the refreshed pages.
+        const options = retained && !refreshed.rows.some(product => product.id === retained.id)
+          ? [...refreshed.rows, retained] : refreshed.rows;
+        setProductOptions(options);
+        setProductCursor(refreshed.nextCursor);
+        productDepthRef.current = refreshed.cursors.length + 1;
+        setSelectedProductId(previous => options.some(product => String(product.id) === previous) ? previous : options[0] ? String(options[0].id) : '');
       }
     } catch (err: unknown) {
       console.error('Gagal memuat produk:', err);
     } finally {
+      productLoadingRef.current = false;
       setProductsLoading(false);
     }
   }, []);
@@ -1049,6 +1074,7 @@ export default function AdminPage() {
                     </option>
                   ))}
                 </select>
+                {productCursor !== null && <button type="button" disabled={productsLoading} onClick={() => void loadProductOptions(productCursor)} className="mt-2 min-h-11 px-3 py-2.5 text-xs font-bold text-pink-700 disabled:opacity-50">{t.loadMore}</button>}
               </div>
 
               <div>
@@ -1168,6 +1194,7 @@ export default function AdminPage() {
                     </option>
                   ))}
                 </select>
+                {productCursor !== null && <button type="button" disabled={productsLoading} onClick={() => void loadProductOptions(productCursor)} className="mt-2 min-h-11 px-3 py-2.5 text-xs font-bold text-pink-700 disabled:opacity-50">{t.loadMore}</button>}
               </div>
 
               <div>
@@ -1531,6 +1558,8 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {activeTab === 'products' && productCursor !== null && <button type="button" disabled={productsLoading} onClick={() => void loadProductOptions(productCursor)} className="min-h-11 px-3 py-2.5 text-xs font-bold text-pink-700 disabled:opacity-50">{t.loadMore}</button>}
 
           {/* === TRANSACTION HISTORY TAB === */}
           {activeTab === 'orders' && (

@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
+import { readInvoiceAccess } from '@/lib/invoiceBrowser';
 export type ReminderState = { reminderOptIn?: boolean; reminderVerified?: boolean; remindersAvailable?: boolean };
 export default function AppsReminderPanel({ invoice, service, refresh }: { invoice: string; service: ReminderState; refresh: () => void }) {
   const { t, language } = useLanguage(); const a = t.apps;
@@ -9,7 +10,7 @@ export default function AppsReminderPanel({ invoice, service, refresh }: { invoi
   async function save(enabled: boolean) {
     if (lock.current) return; lock.current = true; setBusy(true); setError(false);
     try {
-      const response = await fetch(`/api/orders/${encodeURIComponent(invoice)}/reminders`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-order-token': localStorage.getItem(`token_${invoice}`) || '' },
+      const response = await fetch(`/api/orders/${encodeURIComponent(invoice)}/reminders`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-order-token': readInvoiceAccess(invoice) || '' },
         body: JSON.stringify(enabled ? { enabled, phone, consent, language } : { enabled }) });
       if (!response.ok || !(await response.json()).success) throw new Error();
       setPhone(''); setConsent(false); refresh();

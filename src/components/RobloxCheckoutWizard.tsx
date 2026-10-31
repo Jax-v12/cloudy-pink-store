@@ -12,6 +12,7 @@ import RobloxFields from './RobloxFields';
 import RobuxIcon from './RobuxIcon';
 import RobloxGamepassGuide from './RobloxGamepassGuide';
 import CheckoutSteps from './CheckoutSteps';
+import { canPersistInvoiceAccess, rememberInvoiceAccess } from '@/lib/invoiceBrowser';
 
 type Rate = {
   id: number;
@@ -160,6 +161,7 @@ export default function RobloxCheckoutWizard({
       return;
     }
     if (!enabled || !server.quote || !selectedMethod) return;
+    if (!canPersistInvoiceAccess()) { setError(t.invoiceStorageRequired); return; }
     const payload = JSON.stringify({
       quoteToken: server.quote.quoteToken,
       paymentMethod: methodValue,
@@ -183,7 +185,7 @@ export default function RobloxCheckoutWizard({
       });
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json.errorCode);
-      localStorage.setItem(`token_${json.data.invoice}`, json.data.accessToken);
+      rememberInvoiceAccess(json.data.invoice, json.data.accessToken);
       router.push(`/order/${encodeURIComponent(json.data.invoice)}`);
     } catch (e) {
       const code = e instanceof Error ? e.message : '';

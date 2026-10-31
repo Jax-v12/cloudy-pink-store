@@ -15,6 +15,7 @@ import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl
 import { buildAppsOtpWhatsappUrl, type AppsOtpState } from '@/lib/appsOtp';
 import { saveRecentOrder } from '@/lib/recentOrders';
 import { useLanguage } from '@/context/LanguageContext';
+import { hasPendingInvoiceAccess, persistInvoiceAccess, readInvoiceAccess } from '@/lib/invoiceBrowser';
 
 interface OrderDetail extends AppsOrder {
   invoice: string;
@@ -69,6 +70,14 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [downloadError, setDownloadError] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [appsRevision, setAppsRevision] = useState(0);
+  const [, refreshInvoiceAccess] = useState(0);
+  const accessPending = hasPendingInvoiceAccess(id);
+  useEffect(() => {
+    if (!accessPending) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [accessPending]);
   const appsDeliveredAt = order?.appsService?.deliveredAt;
   const hasAppsDelivery = Boolean(order?.appsService?.delivery);
   useEffect(() => () => { copyRequest.current++; }, [id]);
@@ -127,7 +136,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     async function loadOrder() {
       let poll = true;
       try {
-        const token = localStorage.getItem(`token_${id}`);
+        const token = readInvoiceAccess(id);
         const headers: HeadersInit = token ? { 'x-order-token': token } : {};
         const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
           headers,
@@ -200,7 +209,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     setRequestingOtp(true);
     setOtpError('');
     try {
-      const token = localStorage.getItem(`token_${id}`);
+      const token = readInvoiceAccess(id);
       const res = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/otp`, {
         method: 'POST',
         headers: token ? { 'x-order-token': token } : {},
@@ -239,7 +248,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       }
 
       setDownloading(true);
-      const token = localStorage.getItem(`token_${id}`);
+      const token = readInvoiceAccess(id);
 
       const response = await fetch(`/api/orders/${encodeURIComponent(order.invoice)}/qris/download`, {
         headers: token ? { 'x-order-token': token } : {},
@@ -267,9 +276,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
+  const accessNotice = accessPending && <section role="alert" className="mb-4 w-full max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+    <p>{t.invoiceAccessUnsaved}</p>
+    <button type="button" className="mt-3 min-h-11 rounded-xl border border-amber-700 bg-white px-4 py-2 font-bold focus-visible:outline-2 focus-visible:outline-amber-900" onClick={() => {
+      persistInvoiceAccess(id);
+      refreshInvoiceAccess(value => value + 1);
+    }}>{t.saveInvoiceAccess}</button>
+  </section>;
+
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#FFF9FC]">
+      <main className="min-h-screen flex flex-col items-center justify-center bg-[#FFF9FC] p-4">
+        {accessNotice}
         <div className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs animate-pulse">
           {t.loadingOrder}
         </div>
@@ -280,6 +298,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   if (error || !order) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#FFF9FC]">
+        {accessNotice}
         <div className="bg-white p-7 rounded-3xl border border-[#F1E4ED] text-center max-w-md shadow-[0_14px_36px_-12px_rgba(157,23,77,0.1)]">
           <p className="text-rose-700 font-bold text-sm sm:text-base mb-5">
             {error === 'ORDER_NOT_FOUND' ? t.orderAccessUnavailable : t.errSystem}
@@ -312,6 +331,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   return (
     <main className="relative min-h-screen bg-[#FFF9FC] p-4 sm:p-8 md:p-10 font-sans text-[#251D2C] overflow-x-clip">
       <div className="relative z-10 max-w-2xl mx-auto">
+        {accessNotice}
         <Link href="/" className="mb-5 inline-block rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
           <Image src="/store/logo.png" alt={t.commerce.brand} width={156} height={52} className="h-auto w-39" />
         </Link>
