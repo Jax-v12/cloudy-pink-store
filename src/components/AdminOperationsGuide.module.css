@@ -1,0 +1,57 @@
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  height: min(46rem, 90dvh);
+  overflow: hidden;
+  animation: enter 180ms ease-out both;
+}
+
+.dialog::backdrop {
+  animation: fade-in 180ms ease-out both;
+}
+
+.dialog.closing {
+  animation: leave 140ms ease-in both;
+}
+
+.dialog.closing::backdrop {
+  animation: fade-in 140ms ease-in reverse both;
+}
+
+.content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+  padding: 2px 4px;
+}
+
+.section > summary {
+  transition: background-color 160ms ease;
+}
+
+.section > summary:hover {
+  background-color: #fdf2f8;
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes leave {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open], .dialog::backdrop, .dialog.closing::backdrop { animation: none; }
+  .content { scroll-behavior: auto; }
+  .section > summary { transition: none; }
+}

@@ -10,6 +10,14 @@ const selected = process.argv.find(arg => arg.startsWith('--case='))?.slice(7);
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 let passed = 0;
+async function toggleFrames(summary) {
+  return summary.evaluate(async element=>{
+    const details=element.parentElement,heights=[details.getBoundingClientRect().height];
+    element.click();
+    for(let i=0;i<24;i++) { await new Promise(requestAnimationFrame); heights.push(details.getBoundingClientRect().height); }
+    return {supported:CSS.supports('interpolate-size','allow-keywords')&&CSS.supports('selector(::details-content)'),heights};
+  });
+}
 try {
   for (const [width, height] of [[375,812], [810,1080], [1440,900]]) for (const locale of ['ID','EN','MY']) {
     if (selected && selected !== `${width} ${locale}`) continue;
@@ -68,13 +76,26 @@ try {
       await trigger.click();
       const dialog=page.getByRole('dialog',{name:t.adminGuide.title,exact:true});
       await dialog.getByText(t.adminGuide.intro,{exact:true}).waitFor();
+      await dialog.evaluate(async element=>{ await Promise.all(element.getAnimations().map(animation=>animation.finished)); });
+      const guideBounds=await dialog.boundingBox();
       assert.equal(t.adminGuide.sections.length,5);
       const close=dialog.getByRole('button',{name:t.adminGuide.close,exact:true});
       await close.focus(); await page.keyboard.press('Tab');
       assert.equal(await dialog.locator('summary').first().evaluate(el=>el===document.activeElement),true);
       for(const section of t.adminGuide.sections) {
-        const summary=dialog.locator('summary').filter({hasText:section.title}); await summary.click();
+        const summary=dialog.locator('summary').filter({hasText:section.title});
+        if(section===t.adminGuide.sections[0]) {
+          const motion=await toggleFrames(summary);
+          if(motion.supported)assert.ok(motion.heights.some(height=>height>motion.heights[0]+1 && height<motion.heights.at(-1)-1),'disclosure jumps straight to its expanded height');
+          const collapse=await toggleFrames(summary);
+          if(collapse.supported)assert.ok(collapse.heights.some(height=>height<collapse.heights[0]-1 && height>collapse.heights.at(-1)+1),'disclosure jumps straight to its collapsed height');
+          await summary.click();
+        } else await summary.click();
         await dialog.getByText(section.steps[0],{exact:true}).waitFor();
+        await dialog.evaluate(async element=>{ await Promise.all(element.getAnimations({subtree:true}).map(animation=>animation.finished)); });
+        const expandedBounds=await dialog.boundingBox();
+        assert.ok(Math.abs(expandedBounds.height-guideBounds.height)<2,'guide size jumps when a section expands');
+        assert.ok(Math.abs(expandedBounds.y-guideBounds.y)<2,'guide moves when a section expands');
       }
       await dialog.locator('summary').last().focus(); await page.keyboard.press('Tab');
       assert.equal(await close.evaluate(el=>el===document.activeElement),true);
@@ -82,15 +103,22 @@ try {
       await page.keyboard.press('Escape'); await dialog.waitFor({state:'hidden'});
       assert.equal(await trigger.evaluate(el=>el===document.activeElement),true);
       assert.equal(await card(4).getByRole('textbox',{name:t.commerce.evidence,exact:true}).inputValue(),'fixture-reference');
+      await page.emulateMedia({reducedMotion:'reduce'});
+      await trigger.click(); await dialog.getByText(t.adminGuide.intro,{exact:true}).waitFor();
+      await dialog.locator('summary').first().click();
+      assert.equal(await dialog.evaluate(element=>element.getAnimations({subtree:true}).every(animation=>Number(animation.effect.getTiming().duration)<=1)),true,'reduced motion still has a visible animation');
+      await page.keyboard.press('Escape'); await dialog.waitFor({state:'hidden'});
+      await page.emulateMedia({reducedMotion:'no-preference'});
       auth='denied'; await trigger.click(); await dialog.getByText(t.commerce.UNAUTHORIZED,{exact:true}).waitFor();
-      assert.equal(await dialog.getByText(t.adminGuide.intro,{exact:true}).count(),0); await page.keyboard.press('Escape');
+      assert.equal(await dialog.getByText(t.adminGuide.intro,{exact:true}).count(),0); await page.keyboard.press('Escape'); await dialog.waitFor({state:'hidden'});
       auth='failed'; await trigger.click(); await dialog.getByText(t.commerce.SYSTEM_ERROR,{exact:true}).waitFor();
       auth='ready'; await dialog.getByRole('button',{name:t.commerce.retryLoad,exact:true}).click();
-      await dialog.getByText(t.adminGuide.intro,{exact:true}).waitFor(); await page.keyboard.press('Escape');
+      await dialog.getByText(t.adminGuide.intro,{exact:true}).waitFor(); await page.keyboard.press('Escape'); await dialog.waitFor({state:'hidden'});
       for(const path of ['/admin/apps','/admin']) {
         await page.goto(base+path); const button=page.getByRole('button',{name:t.adminGuide.title,exact:true}); await button.click();
         await page.getByRole('dialog',{name:t.adminGuide.title,exact:true}).getByText(t.adminGuide.intro,{exact:true}).waitFor();
         await page.keyboard.press('Escape');
+        await page.getByRole('dialog',{name:t.adminGuide.title,exact:true}).waitFor({state:'hidden'});
       }
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       assert.deepEqual(errors,[]); assert.deepEqual(mutations,[]);
