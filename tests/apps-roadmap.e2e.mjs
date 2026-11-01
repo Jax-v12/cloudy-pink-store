@@ -22,7 +22,7 @@ try {
     const a = appsTranslations[locale], t = translations[locale];
     const context = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' });
     await context.addInitScript(locale => { localStorage.setItem('store_lang', locale); localStorage.setItem('token_INV-SYNTHETIC-APPS', 'synthetic-only'); }, locale);
-    let failed = true, ack = false, querySeen = false, mutationCount = 0, expired = false; const errors = [];
+    let failed = true, ack = false, querySeen = false, mutationCount = 0, expired = false, readyAccount = false; const errors = [];
     const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
     await context.route('**/*', async route => {
       const url = new URL(route.request().url());
@@ -30,7 +30,8 @@ try {
       if (url.pathname === '/api/products') {
         if (failed) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) });
         querySeen ||= url.searchParams.get('q') === 'Beyond';
-        return route.fulfill({ json: { success: true, data: [product], pagination: { nextCursor: null }, location: { region: 'ID', reason: 'detected' } } });
+        const listedProduct = readyAccount ? { ...product, stockAvailable: 1, appsConfig: { ...config, fulfillmentMode: 'READY_ACCOUNT', activationMethod: null } } : product;
+        return route.fulfill({ json: { success: true, data: [listedProduct], pagination: { nextCursor: null }, location: { region: 'ID', reason: 'detected' } } });
       }
       if (url.pathname === '/api/orders/INV-SYNTHETIC-APPS') return route.fulfill({ json: { success: true, data: { ...order, appsService: { ...order.appsService, deliveredAt: expired ? '2020-01-01T00:00:00Z' : order.appsService.deliveredAt, acknowledgedAt: ack ? new Date().toISOString() : null } } } });
       if (url.pathname === '/api/orders/INV-SYNTHETIC-APPS/apps') { mutationCount++; ack = true; return route.fulfill({ json: { success: true } }); }
@@ -49,6 +50,8 @@ try {
       await page.getByRole('searchbox').fill('Beyond'); await page.getByRole('searchbox').press('Enter');
       await page.getByRole('link', { name: a.details, exact: true }).waitFor(); assert.equal(querySeen, true);
       await page.getByRole('link', { name: a.details, exact: true }).click(); await page.getByText(config.warrantyTerms, { exact: true }).waitFor();
+      await page.getByText(a.emailHint, { exact: true }).waitFor();
+      assert.equal(await page.getByText(a.orderEmailHint, { exact: true }).count(), 0);
       await page.getByRole('textbox', { name: a.email, exact: true }).fill('fixture@example.test');
       assert.equal(await page.getByRole('button', { name: t.btnPayNow, exact: true }).isDisabled(), true);
       await page.getByRole('checkbox', { name: a.agree }).check();
@@ -56,6 +59,11 @@ try {
       await page.keyboard.press('Tab');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await page.screenshot({ path: `${output}/${width}-${locale}-package.png`, fullPage: true });
+      readyAccount = true; await page.reload();
+      await page.getByText(a.orderEmailHint, { exact: true }).waitFor();
+      assert.equal(await page.getByText(a.emailHint, { exact: true }).count(), 0);
+      assert.equal(await page.getByRole('checkbox', { name: a.agree }).isChecked(), false);
+      assert.equal(mutationCount, 0);
       await page.goto(base + '/order/INV-SYNTHETIC-APPS'); await page.getByRole('button', { name: a.acknowledge, exact: true }).waitFor();
       await page.getByRole('button', { name: a.acknowledge, exact: true }).click(); await page.getByText(a.acknowledged, { exact: true }).waitFor();
       assert.equal(mutationCount, 1); assert.equal(errors.length, 0, errors.join('\n'));

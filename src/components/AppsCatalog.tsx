@@ -367,7 +367,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
                 />
               </label>
-              <p className="text-xs sm:text-sm leading-6 text-[var(--text-secondary)]">{a.emailHint}</p>
+              <p className="text-xs sm:text-sm leading-6 text-[var(--text-secondary)]">{product.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.emailHint : a.orderEmailHint}</p>
               <label className="flex items-start gap-3 text-xs sm:text-sm leading-6 font-medium text-[#251D2C] cursor-pointer">
                 <input
                   type="checkbox"

@@ -1,6 +1,8 @@
 {
   "status": "INACTIVE_TEST_DRAFTS",
-  "source": "Owner confirmed prices, duration and warranty; remaining text is a proposal for testing",
+  "source": "Owner confirmed prices on 20 October, ready-account stock fulfillment on 21 October, and final device, usage, warranty, refund and invoice/OTP terms on 1 November 2026. Local preparation only; no operational catalog update or sales activation",
+  "commercialTermsConfirmedAt": "2026-11-01",
+  "remainingVerification": "Real account entitlement, stock legitimacy and regional eligibility still need verification. Only public catalog metadata was inspected; no stock account contents or direct database access",
   "stock": "No account stock created",
   "packages": [
     { "name": "CapCut Pro Private 1 bulan", "slug": "capcut-pro-private-1-bulan", "priceIDR": 44000, "priceMYRSen": 1000, "durationDays": 30, "warrantyDays": 25 },
@@ -9,13 +11,13 @@
   "proposedConfig": {
     "version": 1,
     "appGroup": "capcut",
-    "accountType": "Private — draf pengujian, belum dijual",
-    "devices": "USULAN: satu perangkat aktif. Batas resmi paket belum dikonfirmasi operator.",
+    "accountType": "Private",
+    "devices": "1 perangkat.",
     "regionRules": "DRAF: cakupan akun untuk Indonesia/Malaysia belum diverifikasi. Pembayaran Apps saat ini hanya IDR; harga MYR dicatat untuk persiapan.",
     "included": "DRAF: akses CapCut Pro Private selama durasi paket. Rincian entitlement akun harus diverifikasi sebelum aktivasi penjualan.",
-    "usageRules": "USULAN: penggunaan pribadi; jangan bagikan akses, mengubah data pemulihan, atau menjual ulang akun. Ketentuan final menunggu verifikasi operator.",
-    "instructions": "DRAF: akun siap pakai diusulkan untuk pengujian alur stok. Operator harus memastikan metode pengiriman yang benar dan menambahkan stok asli terenkripsi sebelum mengaktifkan paket. Tidak ada akun atau password contoh yang disimpan.",
-    "warrantyTerms": "USULAN: ajukan bantuan dari invoice selama masa garansi dengan kategori kendala yang sesuai. Garansi tidak memperpanjang durasi layanan. Penanganan, pengecualian, dan ketentuan penggantian/refund perlu dikonfirmasi sebelum penjualan.",
+    "usageRules": "Jangan mengubah kata sandi. Jangan memberikan akses akun kepada orang lain.",
+    "instructions": "Setelah pembayaran terverifikasi, username dan kata sandi akun diberikan melalui invoice yang sah. Tekan tombol Dapatkan Kode OTP pada invoice untuk meminta kode; tim akan mengirimkan kode melalui alur invoice. Jangan mengirim kata sandi atau OTP melalui formulir bantuan.",
+    "warrantyTerms": "Garansi 7 hari untuk paket 7 hari dan 25 hari untuk paket 30 hari. Refund berlaku jika akun sama sekali tidak bisa digunakan. Ajukan kendala melalui bantuan pesanan pada invoice. Persetujuan dan pelaksanaan refund ditangani tim; tidak otomatis.",
     "fulfillmentMode": "READY_ACCOUNT",
     "activationMethod": null
   }
