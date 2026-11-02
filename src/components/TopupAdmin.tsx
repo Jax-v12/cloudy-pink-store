@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { REGIONS, REGION_CURRENCY, currencyScale, parseMoney, type RegionalPrice, type Region } from '@/lib/regionalPricing';
 import type { PaymentMethod } from '@/lib/paymentProvider';
+import { fillTemplate, robloxCapacityStatus } from '@/lib/roblox';
 import AdminDialog from './AdminDialog';
 
-type Variant = { regionalPrices?: RegionalPrice[]; id?: number; name: string; price: number; units: number; maxUnits?: number | null; unitStep?: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean };
+type Variant = { regionalPrices?: RegionalPrice[]; id?: number; name: string; price: number; units: number; maxUnits?: number | null; unitStep?: number; active: boolean; method: string | null; gamepassPrice: number | null; providerSku: string | null; requiresZone: boolean; capacityCheckedAt?: string | null };
 type Product = { id: number; name: string; slug: string; type: 'GAME' | 'ROBLOX'; active: boolean; updatedAt: string; deletion: { allowed: boolean; reasonCodes: string[] }; variants: Variant[] };
 const empty: Variant = { name: '', price: 0, units: 50, maxUnits: 5000, unitStep: 5, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
 export default function TopupAdmin() {
@@ -144,7 +145,7 @@ export default function TopupAdmin() {
                   <div key={v.id} className={`flex items-center justify-between group/variant rounded-xl border p-2.5 transition ${productId === p.id && variant.id === v.id ? 'bg-pink-50 border-pink-300' : 'bg-neutral-50 border-transparent hover:border-pink-200 hover:bg-white'}`}>
                     <div className="min-w-0 pr-3">
                       <p className="text-sm font-bold text-neutral-800 truncate">{v.name}</p>
-                      <p className="text-xs font-semibold text-pink-600">{v.units} U</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5"><span className="text-xs font-semibold text-pink-600">{v.units} U</span>{(() => { const cap = robloxCapacityStatus(v.method, v.capacityCheckedAt); return cap.state !== 'not_applicable' ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${cap.state === 'expired' ? 'bg-rose-100 text-rose-700' : cap.state === 'expiring_soon' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>{cap.state === 'expired' ? c.capacityExpired : fillTemplate(cap.state === 'expiring_soon' ? c.capacityExpiringSoon : c.capacityActive, { hours: cap.hoursLeft })}</span> : null; })()}</div>
                     </div>
                     <button onClick={() => { setError(''); setProductId(p.id); setVariant(v); }} className="shrink-0 text-xs font-bold text-pink-600 hover:text-pink-800 bg-white border border-pink-200 shadow-sm rounded-lg px-3 py-1 opacity-0 group-hover/variant:opacity-100 transition-opacity">
                       {c.edit}
@@ -192,7 +193,7 @@ export default function TopupAdmin() {
                 <label className={labelText}>{t.robloxFlow.increment}<input type="number" name="unitStep" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.method === 'GAMEPASS' ? Math.max(5, variant.unitStep || 5) : variant.unitStep || 1} className={field} /></label>
                 <p className="sm:col-span-2 text-sm font-medium text-amber-700 bg-amber-50 p-4 rounded-xl border border-amber-100">{variant.method === 'GAMEPASS' ? <>{t.robloxFlow.adminHint} <br/>{t.roblox.autoPrice}</> : t.usernameFlow.adminHint}</p>
               </>}
-              <label className="flex gap-3 items-center cursor-pointer select-none mt-2"><input name="capacity" type="checkbox" className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.capacity}</span></label>
+              {(() => { const cap = robloxCapacityStatus(variant.method, variant.capacityCheckedAt); return <label className="flex flex-wrap gap-3 items-center cursor-pointer select-none mt-2"><input name="capacity" type="checkbox" className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.capacity}</span>{cap.state !== 'not_applicable' && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${cap.state === 'expired' ? 'bg-rose-100 text-rose-700' : cap.state === 'expiring_soon' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>{cap.state === 'expired' ? c.capacityExpired : fillTemplate(cap.state === 'expiring_soon' ? c.capacityExpiringSoon : c.capacityActive, { hours: cap.hoursLeft })}</span>}</label>; })()}
             </> : <>
               <label className={labelText}>{c.sku}<input name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>
               <label className="flex gap-3 items-center cursor-pointer select-none mt-2"><input name="requiresZone" type="checkbox" defaultChecked={variant.requiresZone} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.requiresZone}</span></label>

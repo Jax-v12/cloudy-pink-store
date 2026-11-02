@@ -5,7 +5,8 @@ import crypto from 'node:crypto';
 import { encryptData, decryptData } from '../src/lib/crypto.ts';
 import { checkoutInput, parseDetails, requestDigest, checkoutEnabled } from '../src/lib/commerce.ts';
 import { verifySignature, getGatewayStatus, isGatewayQrUrl, isValidOrderQrUrl } from '../src/lib/midtrans.ts';
-import { handleQrisDownload, QRIS_DOWNLOAD_RATE_LIMIT } from '../src/app/api/orders/[id]/qris/download/route.ts';
+import { handleQrisDownload, QRIS_DOWNLOAD_RATE_LIMIT } from '../src/lib/qrisDownloadServer.ts';
+import * as qrisDownloadRoute from '../src/app/api/orders/[id]/qris/download/route.ts';
 import { qrisDownloadFilename, qrisExtensionForBlobMime, qrisExtensionForDataUrl, sanitizeQrisInvoice } from '../src/lib/qrisDownload.ts';
 import { getGameProvider } from '../src/lib/gameProvider.ts';
 import { assertSafeDatabaseUrl } from '../src/lib/prisma.ts';
@@ -271,7 +272,7 @@ test('next.config.ts configures mandatory HTTP security headers, Midtrans allowl
   assert.ok(csp.includes("frame-ancestors 'none'"));
 });
 
-test('server-side QRIS download validates order auth, Midtrans URL, rejects SSRF, enforces limits and MIME', async () => {
+test('server-side QRIS download validates order auth, Midtrans URL, rejects SSRF, enforces limits and MIME', async () => { assert.deepEqual(Object.keys(qrisDownloadRoute), ['GET']);
   const priorProd = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION;
   const originalFetch = globalThis.fetch;
   try {

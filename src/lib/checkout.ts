@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { quoteRobloxQuantity } from './robloxPricing';
+import { ROBLOX_CAPACITY_TTL_MS } from './roblox';
 import { InputError } from './http';
 
 import { prisma } from './prisma';
@@ -81,7 +82,7 @@ export async function createCheckout(body: Record<string, unknown>, key: string,
       if (requireLoginAttempt && product.type === 'ROBLOX' && variant?.method === 'LOGIN') throw new CommerceError('CHECKOUT_SESSION_REQUIRED', 401);
       if (attempt && (product.type !== 'ROBLOX' || variant?.method !== 'LOGIN')) throw new CommerceError('PRODUCT_UNAVAILABLE');
       if ((product.type !== 'APPS' && !variant) || (product.type === 'APPS' && input.variantId !== undefined)) throw new CommerceError('INVALID_INPUT', 400);
-      if (variant?.method === 'GIFT_USERNAME' && (!variant.capacityCheckedAt || Date.now() - variant.capacityCheckedAt.getTime() > 86_400_000)) throw new CommerceError('CAPACITY_REVIEW_REQUIRED');
+      if (variant?.method === 'GIFT_USERNAME' && (!variant.capacityCheckedAt || Date.now() - variant.capacityCheckedAt.getTime() > ROBLOX_CAPACITY_TTL_MS)) throw new CommerceError('CAPACITY_REVIEW_REQUIRED');
       const quote = checkoutPricing(product.type, product.price, variant, resolvedRegion, input.paymentMethod ?? 'QRIS', input.quantity);
       // Check after idempotency replay, under the same lock as authoritative pricing.
       // Every new Roblox order requires a confirmed server quote, including legacy clients.

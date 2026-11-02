@@ -37,11 +37,23 @@ export async function recoverCheckoutPayment(order: Order): Promise<string | nul
     const [clock] = await tx.$queryRaw<{ now: Date }[]>`SELECT CURRENT_TIMESTAMP(3) AS now`;
     if (current.status !== 'PENDING' || current.expiresAt <= clock.now || current.paymentReference || current.qrisUrl) return null;
     const attempt = await tx.checkoutAttempt.findUnique({ where: { orderId: current.id } });
-    const snapshot = object(attempt?.quoteSnapshot);
+    const now = clock.now.getTime();
+    if (!attempt) {
+      if (!current.checkoutKey || !(current.createdAt instanceof Date)) return null;
+      const first = current.createdAt.getTime();
+      const last = current.updatedAt instanceof Date ? current.updatedAt.getTime() : first;
+      if (!Number.isSafeInteger(first) || first > now || now - first >= RETRY_WINDOW_MS ||
+          !Number.isSafeInteger(last) || last < first || last > now) {
+        throw new CommerceError('PAYMENT_REQUIRES_REVIEW', 503);
+      }
+      if (now - last < DISPATCH_LEASE_MS) return null;
+      await tx.order.update({ where: { id: current.id }, data: { updatedAt: clock.now } });
+      return { order: current, notAfter: Date.now() + RETRY_WINDOW_MS - (now - first) };
+    }
+    const snapshot = object(attempt.quoteSnapshot);
     const recovery = object(snapshot?.paymentRecovery);
     // Historical orders were dispatched without this protocol: status-only.
-    if (!attempt || attempt.state !== 'COMMITTED' || !snapshot || recovery?.version !== 1) return null;
-    const now = clock.now.getTime();
+    if (attempt.state !== 'COMMITTED' || !snapshot || recovery?.version !== 1) return null;
     const first = recovery.firstDispatchAt === undefined ? now : recovery.firstDispatchAt;
     const last = recovery.lastDispatchAt;
     if (typeof first !== 'number' || !Number.isSafeInteger(first) || first > now || now - first >= RETRY_WINDOW_MS ||

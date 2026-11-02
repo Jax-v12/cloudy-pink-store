@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { robloxGamepassPrice } from '../src/lib/roblox.ts';
+import { robloxGamepassPrice, robloxCapacityStatus, ROBLOX_CAPACITY_TTL_MS } from '../src/lib/roblox.ts';
+import { commerceTranslations } from '../src/lib/commerceTranslations.ts';
 import { parseDetails, checkoutInput } from '../src/lib/commerce.ts';
 import { verifyRobloxDetails } from '../src/lib/robloxVerification.ts';
 import { robloxAvatarUrl } from '../src/lib/robloxApi.ts';
@@ -100,4 +101,22 @@ test('public avatar lookup never reflects an arbitrary image host', async () => 
     globalThis.fetch = async () => Response.json({ data: [{ state: 'Completed', imageUrl: 'https://tr.rbxcdn.com/a.png' }] });
     assert.equal(await robloxAvatarUrl(42), 'https://tr.rbxcdn.com/a.png');
   } finally { globalThis.fetch = original; }
+});
+
+test('GIFT_USERNAME 24-hour capacity check helper classifies valid, expiring_soon, expired and non-applicable states', () => {
+  const now = 1_700_000_000_000;
+  assert.equal(ROBLOX_CAPACITY_TTL_MS, 86_400_000);
+  assert.deepEqual(robloxCapacityStatus('GAMEPASS', null, now), { state: 'not_applicable' });
+  assert.deepEqual(robloxCapacityStatus('LOGIN', new Date(now), now), { state: 'not_applicable' });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', null, now), { state: 'expired', hoursLeft: 0 });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', 'invalid-date', now), { state: 'expired', hoursLeft: 0 });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', new Date(now - 86_400_000), now), { state: 'expired', hoursLeft: 0 });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', new Date(now - 86_400_001), now), { state: 'expired', hoursLeft: 0 });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', new Date(now - 21 * 3600_000).toISOString(), now), { state: 'expiring_soon', hoursLeft: 3 });
+  assert.deepEqual(robloxCapacityStatus('GIFT_USERNAME', new Date(now - 2 * 3600_000), now), { state: 'valid', hoursLeft: 22 });
+  for (const locale of ['ID', 'EN', 'MY']) {
+    assert.ok(commerceTranslations[locale].capacityActive.includes('{hours}'));
+    assert.ok(commerceTranslations[locale].capacityExpiringSoon.includes('{hours}'));
+    assert.ok(commerceTranslations[locale].capacityExpired.length > 0);
+  }
 });

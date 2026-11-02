@@ -243,3 +243,33 @@ test('provider idempotency keys differ across invoices and delayed dispatch cann
   await assert.rejects(paymentAdapter(order).create(order, order.customerEmail, Date.now() - 1), /PAYMENT_REQUIRES_REVIEW/);
   assert.equal(charges().length, 2);
 });
+
+test('non-login orders with checkoutKey recover within four minutes with a 20s lease and reject after window', async () => {
+  attempt = null;
+  order.type = 'APPS';
+  order.checkoutKey = 'non-login-checkout-key-0123456789abcdef';
+  order.updatedAt = new Date(now);
+  chargeMode = 'timeout-before-provider';
+  assert.equal(await initializeCheckoutPayment(order, order.customerEmail), null);
+  assert.equal(charges().length, 1);
+  assert.equal(await recover(), null);
+  assert.equal(charges().length, 1);
+  now += 21_000;
+  chargeMode = 'success';
+  const results = await Promise.all([recover(), recover(), recover()]);
+  assert.deepEqual(results.filter(Boolean), ['000201synthetic']);
+  assert.equal(charges().length, 2);
+  const keys = charges().map(call => new Headers(call.headers).get('idempotency-key'));
+  assert.equal(keys[0], keys[1]);
+  assert.equal(order.paymentReference, 'synthetic-transaction');
+  provider = null;
+  order.paymentReference = null;
+  order.qrisUrl = null;
+  now += 240_000;
+  await assert.rejects(recover(), /PAYMENT_REQUIRES_REVIEW/);
+  assert.equal(charges().length, 2);
+  now = order.createdAt.getTime() + 30_000;
+  order.checkoutKey = null;
+  assert.equal(await recover(), null);
+  assert.equal(charges().length, 2);
+});

@@ -46,3 +46,25 @@ export function robloxPassDashboardUrl(universeId: number | string): string {
 export function robloxProfileUrl(userId: number | string): string {
   return `https://www.roblox.com/users/${encodeURIComponent(String(userId))}/profile`;
 }
+
+export const ROBLOX_CAPACITY_TTL_MS = 24 * 60 * 60 * 1000;
+export const ROBLOX_CAPACITY_WARN_MS = 4 * 60 * 60 * 1000;
+
+export type RobloxCapacityState =
+  | { state: 'not_applicable' }
+  | { state: 'expired'; hoursLeft: 0 }
+  | { state: 'expiring_soon'; hoursLeft: number }
+  | { state: 'valid'; hoursLeft: number };
+
+export function robloxCapacityStatus(
+  method: string | null | undefined,
+  capacityCheckedAt: Date | string | null | undefined,
+  now = Date.now(),
+): RobloxCapacityState {
+  if (method !== 'GIFT_USERNAME') return { state: 'not_applicable' };
+  const checkedAt = capacityCheckedAt instanceof Date ? capacityCheckedAt.getTime() : typeof capacityCheckedAt === 'string' ? Date.parse(capacityCheckedAt) : NaN;
+  const remainingMs = ROBLOX_CAPACITY_TTL_MS - (now - checkedAt);
+  if (!Number.isFinite(checkedAt) || remainingMs <= 0) return { state: 'expired', hoursLeft: 0 };
+  const hoursLeft = Math.max(1, Math.ceil(remainingMs / 3_600_000));
+  return { state: remainingMs <= ROBLOX_CAPACITY_WARN_MS ? 'expiring_soon' : 'valid', hoursLeft };
+}
