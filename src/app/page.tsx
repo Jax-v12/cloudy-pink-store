@@ -13,9 +13,9 @@ export default function HomePage() {
   const [invoice, setInvoice] = useState('');
   const router = useRouter();
   const categories = [
-    { href: '/roblox', title: c.ROBLOX, description: c.robloxDescription, badge: 'Gamepass · Username · Login', art: '/store/anya-roblox.jpg' },
-    { href: '/apps', title: c.APPS, description: c.appsDescription, badge: t.badge, art: '/store/anya-apps.jpg' },
-    { href: '/games', title: c.GAME, description: c.gameDescription, badge: c.gameHeroEyebrow, art: '/store/anya-games.jpg' },
+    { href: '/roblox', title: c.ROBLOX, description: c.robloxDescription, badge: 'Gamepass · Username · Login', art: '/store/category-roblox.jpg' },
+    { href: '/apps', title: c.APPS, description: c.appsDescription, badge: t.badge, art: '/store/category-apps.jpg' },
+    { href: '/games', title: c.GAME, description: c.gameDescription, badge: c.gameHeroEyebrow, art: '/store/category-games.jpg' },
   ].filter(item => GAME_TOPUP_PURCHASES_ENABLED || item.href !== '/games');
   const steps = [
     { title: c.step1Title, desc: c.step1Desc },
@@ -30,7 +30,7 @@ export default function HomePage() {
           <h1 className="max-w-xl text-3xl font-extrabold leading-tight tracking-tight text-[#251D2C] sm:text-5xl">{c.portalTitle}</h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">{c.portalSubtitle}</p>
         </div>
-        <Image src="/banner-logo.png" alt={c.brand} width={1774} height={887} sizes="(max-width: 639px) 256px, (max-width: 1023px) 100vw, 550px" className="mx-auto h-auto w-64 max-w-full rounded-2xl border border-pink-100 sm:w-full sm:rounded-3xl" loading="eager" />
+        <Image src="/banner-logo.png" alt={c.brand} width={1596} height={432} sizes="(max-width: 639px) 256px, (max-width: 1023px) 100vw, 550px" className="mx-auto h-auto w-64 max-w-full rounded-2xl border border-pink-100 sm:w-full sm:rounded-3xl" loading="eager" />
       </section>
 
       <section className={`mt-3 grid gap-4 ${GAME_TOPUP_PURCHASES_ENABLED ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
