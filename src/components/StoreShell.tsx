@@ -110,7 +110,7 @@ export default function StoreShell({ children, wide = false }: { children: React
             </div>
 
             <nav
-              className="order-3 flex w-full items-center gap-1.5 overflow-x-auto rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-1 text-xs sm:text-sm font-bold lg:order-none lg:w-auto"
+              className="order-3 flex w-full items-center justify-center gap-1.5 overflow-x-auto rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-1 text-xs sm:text-sm font-bold lg:order-none lg:w-auto"
               aria-label={c.home}
             >
               {pathname !== '/' && (
