@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyAdminAuth } from '@/lib/auth';
-import { logFailure, privateHeaders } from '@/lib/http';
+import { adminAccess } from '@/lib/adminAccess';
+import { apiError } from '@/lib/apiError';
+import { privateHeaders } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
-    if (!(await verifyAdminAuth(req))) return NextResponse.json({ success: false }, { status: 401 });
+    await adminAccess(req);
     const today = new Date(Date.now() + 7 * 60 * 60_000).toISOString().slice(0, 10);
     const midnight = new Date(`${today}T00:00:00+07:00`).getTime();
     const days = Array.from({ length: 7 }, (_, index) => new Date(midnight - (6 - index) * 86_400_000));
@@ -25,7 +26,6 @@ export async function GET(req: Request) {
     ]);
     return NextResponse.json({ success: true, data: { totalRevenue: total._sum.totalAmount || 0, totalSold, chartData } }, { headers: privateHeaders });
   } catch (error) {
-    logFailure('Analytics failed', error);
-    return NextResponse.json({ success: false, errorCode: 'SYSTEM_ERROR' }, { status: 500 });
+    return apiError(error);
   }
 }

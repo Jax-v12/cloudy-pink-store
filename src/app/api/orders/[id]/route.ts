@@ -39,7 +39,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const appsService = order.appsService;
     const appsDelivery = order.status === 'PAID' && order.refundStatus === 'NONE' && appsService?.deliveryCiphertext && appsDeliveryVisible(appsService.deliveredAt)
       ? decryptData(appsService.deliveryCiphertext) : null;
-    const stock = order.status === 'PAID' ? order.accountStock : null;
+    const stock = order.status === 'PAID' && order.refundStatus === 'NONE' ? order.accountStock : null;
     const account = stock ? {
       emailAccount: decryptLegacyField(stock.emailAccount),
       passwordAccount: decryptData(stock.passwordAccount),

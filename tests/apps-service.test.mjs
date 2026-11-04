@@ -68,3 +68,25 @@ test('owner can redeliver an uncompleted activation and renewal preserves the pr
   assert.equal(order.appsService.activeUntil.getTime(), until.getTime() + 7 * 86400000);
   assert.ok(order.appsService.activationConfirmedAt < order.appsService.activeFrom);
 });
+
+test('Apps stock refund returns accountStock to READY and detaches accountStockId', async () => {
+  reset();
+  const { manualAction } = await import('../src/lib/manualFulfillment.ts');
+  let stock = { id: 42, status: 'SOLD' };
+  order.fulfillmentStatus = 'COMPLETED';
+  order.accountStockId = 42;
+  tx.fulfillmentJob.updateMany = async () => ({ count: 1 });
+  tx.orderSecret = { deleteMany: async () => ({ count: 0 }) };
+  tx.accountStock = { updateMany: async ({ where, data }) => {
+    if (where.id === stock.id && where.status.in.includes(stock.status)) { stock.status = data.status; return { count: 1 }; }
+    return { count: 0 };
+  } };
+  await manualAction(1, 'admin', 'refund-required');
+  assert.equal(order.refundStatus, 'REQUIRED');
+  assert.equal(order.fulfillmentStatus, 'REQUIRES_REVIEW');
+  assert.equal(stock.status, 'SOLD');
+  await manualAction(1, 'admin', 'refund-completed', 'REFUND-EVIDENCE-1');
+  assert.equal(order.refundStatus, 'COMPLETED');
+  assert.equal(order.accountStockId, null);
+  assert.equal(stock.status, 'READY');
+});

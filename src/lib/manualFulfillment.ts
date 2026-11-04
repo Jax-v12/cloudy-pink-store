@@ -12,15 +12,22 @@ export async function manualAction(orderId: number, sessionId: string, action: s
       if (order.refundStatus === 'COMPLETED') throw new CommerceError('INVALID_TRANSITION');
       if (order.type === 'GAME' && order.fulfillmentStatus === 'PROCESSING') throw new CommerceError('JOB_BUSY');
       if (order.status !== 'PAID' && order.refundStatus !== 'REQUIRED') throw new CommerceError('INVALID_TRANSITION');
-      if (order.fulfillmentStatus === 'COMPLETED' || (action === 'refund-completed' && (order.refundStatus !== 'REQUIRED' || !evidence))) throw new CommerceError('INVALID_TRANSITION');
+      if ((order.fulfillmentStatus === 'COMPLETED' && !(order.type === 'APPS' && order.accountStockId != null)) || (action === 'refund-completed' && (order.refundStatus !== 'REQUIRED' || !evidence))) throw new CommerceError('INVALID_TRANSITION');
       if (order.job?.leaseUntil && order.job.leaseUntil > new Date()) throw new CommerceError('JOB_BUSY');
       await tx.order.update({ where: { id: orderId }, data: {
         refundStatus: action === 'refund-required' ? 'REQUIRED' : 'COMPLETED',
         refundReference: action === 'refund-completed' ? evidence : undefined,
         fulfillmentStatus: 'REQUIRES_REVIEW',
+        ...(action === 'refund-completed' && order.accountStockId != null ? { accountStockId: null } : {}),
       } });
       await tx.fulfillmentJob.updateMany({ where: { orderId }, data: { leaseToken: null, leaseUntil: null } });
       if (action === 'refund-completed') {
+        if (order.accountStockId != null) {
+          await tx.accountStock.updateMany({
+            where: { id: order.accountStockId, status: { in: ['LOCKED', 'SOLD'] } },
+            data: { status: 'READY' },
+          });
+        }
         await tx.orderSecret.deleteMany({ where: { orderId } });
         await tx.fulfillmentJob.updateMany({ where: { orderId }, data: { completedAt: new Date() } });
       }

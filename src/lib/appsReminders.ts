@@ -120,14 +120,17 @@ export async function runAppsReminders() {
 
 export async function purgeAppsReminderContacts() {
   const rows = await prisma.appsService.findMany({ where: { reminderPhone: { not: null }, OR: [{ reminderOptIn: false }, { activeUntil: { lte: new Date() } }, { order: { refundStatus: { not: 'NONE' } } }, { order: { archivedAt: { not: null } } }, { order: { removedFromAdminAt: { not: null } } }] }, select: { orderId: true }, take: 100, orderBy: { orderId: 'asc' } });
-  for (const row of rows) await prisma.$transaction(async tx => {
+  let purged = 0;
+  for (const row of rows) purged += await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id=${row.orderId} FOR UPDATE`;
     const order = await tx.order.findUnique({ where: { id: row.orderId }, include: { appsService: true } });
     const s = order?.appsService;
     if (order && s?.reminderPhone && (!s.reminderOptIn || !s.activeUntil || s.activeUntil <= new Date() || order.refundStatus !== 'NONE' || order.archivedAt || order.removedFromAdminAt)) {
       await tx.appsService.update({ where: { orderId: row.orderId }, data: { reminderPhone: null, reminderOptIn: false, reminderVerifiedAt: null } });
       await tx.adminAudit.create({ data: { orderId: row.orderId, sessionId: 'system-cleanup', action: 'apps-reminder-contact-purged' } });
+      return 1;
     }
+    return 0;
   });
-  return rows.length;
+  return purged;
 }

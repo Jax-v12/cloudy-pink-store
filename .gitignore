@@ -53,3 +53,5 @@ scratch*.js
 my.cnf
 .vercel
 .env*
+/proyek/
+tests/capture-features-preview.mjs

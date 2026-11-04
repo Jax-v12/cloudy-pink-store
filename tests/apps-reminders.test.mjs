@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reminderWindows, reminderEligible, whatsappReady, sendWhatsappReminder } from '../src/lib/appsReminders.ts';
+const mockPrisma = { appsService: {}, $transaction: async fn => fn(mockPrisma), $queryRaw: async () => [], order: {}, adminAudit: {} };
+globalThis.prisma = mockPrisma;
+const { reminderWindows, reminderEligible, whatsappReady, sendWhatsappReminder, purgeAppsReminderContacts } = await import('../src/lib/appsReminders.ts');
 
 test('H-3 and H-1 use separate bounded windows and never send after expiry', () => {
   const end = new Date('2026-11-01T10:00:00Z');
@@ -36,4 +38,18 @@ test('adapter sends only approved template parameters; accepted is distinct from
   assert.equal(await sendWhatsappReminder(message, env, async () => { throw new Error('timeout'); }), 'UNKNOWN');
   assert.equal(await sendWhatsappReminder(message, env, async () => Response.json({ error: { code: 100 } }, { status: 400 })), 'REJECTED');
   await assert.rejects(sendWhatsappReminder(message, {}, async () => { throw new Error('must not call'); }), /WHATSAPP_UNAVAILABLE/);
+});
+test('purgeAppsReminderContacts counts only rows still eligible under row lock', async () => {
+  const future = new Date(Date.now() + 86400000);
+  const rowsById = {
+    1: { id: 1, refundStatus: 'COMPLETED', archivedAt: null, removedFromAdminAt: null, appsService: { reminderPhone: 'enc-1', reminderOptIn: true, activeUntil: future } },
+    2: { id: 2, refundStatus: 'NONE', archivedAt: null, removedFromAdminAt: null, appsService: { reminderPhone: 'enc-2', reminderOptIn: true, activeUntil: future } },
+  };
+  let updated = [];
+  mockPrisma.appsService.findMany = async () => [{ orderId: 1 }, { orderId: 2 }];
+  mockPrisma.order.findUnique = async ({ where }) => rowsById[where.id];
+  mockPrisma.appsService.update = async ({ where }) => { updated.push(where.orderId); };
+  mockPrisma.adminAudit.create = async () => ({});
+  assert.equal(await purgeAppsReminderContacts(), 1);
+  assert.deepEqual(updated, [1]);
 });

@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { verifyAdminAuth } from '@/lib/auth';
+import { adminAccess } from '@/lib/adminAccess';
+import { CommerceError } from '@/lib/commerce';
 import { clientKey, consumeRateLimit } from '@/lib/rateLimit';
 import { InputError, logFailure, privateHeaders, readJson } from '@/lib/http';
 
@@ -41,9 +42,10 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const authenticated = await verifyAdminAuth(req);
-    return NextResponse.json({ authenticated }, { status: authenticated ? 200 : 401, headers: privateHeaders });
+    await adminAccess(req);
+    return NextResponse.json({ authenticated: true }, { status: 200, headers: privateHeaders });
   } catch (error) {
+    if (error instanceof CommerceError) return NextResponse.json({ authenticated: false }, { status: error.status, headers: privateHeaders });
     logFailure('Admin session lookup failed', error);
     return NextResponse.json({ authenticated: false }, { status: 503, headers: privateHeaders });
   }

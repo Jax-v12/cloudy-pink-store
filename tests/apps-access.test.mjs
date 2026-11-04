@@ -43,3 +43,50 @@ test('Apps admin rejects missing/expired session and stale recent authentication
   session = { id: 'stale', expiresAt: new Date(Date.now() + 60000), reauthenticatedAt: new Date(0) };
   assert.equal((await admin.POST(req())).status, 403);
 });
+test('refunded Apps order hides account credentials and OTP state on invoice detail', async () => {
+  const { encryptData } = await import('../src/lib/crypto.ts');
+  const detail = await import('../src/app/api/orders/[id]/route.ts');
+  order.createdAt = new Date();
+  order.audits = [];
+  order.accountStock = { emailAccount: encryptData('user@example.test'), passwordAccount: encryptData('synthetic-secret'), profileName: 'Profile 1', pin: null, additionalInfo: null };
+  const fetchDetail = async () => (await (await detail.GET(new Request('https://store.example.test/api/orders/INV-OWNER', { headers: { 'x-order-token': 'owner-token' } }), params('INV-OWNER'))).json()).data;
+  order.refundStatus = 'NONE';
+  assert.equal((await fetchDetail()).account?.emailAccount, 'user@example.test');
+  for (const status of ['REQUIRED', 'COMPLETED']) {
+    order.refundStatus = status;
+    assert.equal((await fetchDetail()).account, null);
+  }
+  order.refundStatus = 'NONE';
+});
+test('admin product update enforces optimistic lock and records catalogAudit', async () => {
+  const productRoute = await import('../src/app/api/admin/products/[id]/route.ts');
+  const stockRoute = await import('../src/app/api/admin/stock/route.ts');
+  const audits = [];
+  const stamp = new Date('2026-11-01T10:00:00.000Z');
+  let productRow = { id: 7, name: 'Old Name', type: 'APPS', price: 10000, category: 'Apps', updatedAt: stamp };
+  globalThis.prisma.$transaction = async fn => fn(globalThis.prisma);
+  globalThis.prisma.$queryRaw = async () => [];
+  globalThis.prisma.product = {
+    findUnique: async ({ where }) => where.id === productRow.id ? productRow : null,
+    update: async ({ data }) => { productRow = { ...productRow, ...data, updatedAt: new Date('2026-11-01T10:05:00.000Z') }; return productRow; },
+  };
+  globalThis.prisma.catalogAudit = { create: async ({ data }) => { audits.push(data); } };
+  session = null;
+  const putReq = body => new Request('https://store.example.test/api/admin/products/7', {
+    method: 'PUT',
+    headers: { authorization: 'Bearer ' + 'a'.repeat(43), 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  assert.equal((await productRoute.PUT(putReq({ name: 'New', price: 15000, expectedUpdatedAt: stamp.toISOString() }), params('7'))).status, 401);
+  assert.equal((await stockRoute.POST(new Request('https://store.example.test/api/admin/stock', { method: 'POST', headers: { authorization: 'Bearer bad' } }))).status, 401);
+  session = { id: 'admin-1', expiresAt: new Date(Date.now() + 60000), reauthenticatedAt: new Date() };
+  const stale = await productRoute.PUT(putReq({ name: 'New', price: 15000, expectedUpdatedAt: '2026-10-01T00:00:00.000Z' }), params('7'));
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).errorCode, 'PRODUCT_CHANGED');
+  const ok = await productRoute.PUT(putReq({ name: 'Updated Name', price: 15000, expectedUpdatedAt: stamp.toISOString() }), params('7'));
+  assert.equal(ok.status, 200);
+  assert.equal(productRow.name, 'Updated Name');
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].action, 'product-updated');
+  assert.equal(audits[0].sessionId, 'admin-1');
+});
