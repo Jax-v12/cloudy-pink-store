@@ -35,7 +35,7 @@ export default function HomePage() {
 
       <section className={`mt-3 grid gap-4 ${GAME_TOPUP_PURCHASES_ENABLED ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         {categories.map(item => (
-          <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-colors hover:border-pink-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
+          <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-all hover:border-pink-400 hover:shadow-[var(--shadow-soft)] motion-safe:hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
             <div>
               <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#F1E4ED] bg-white sm:h-18 sm:w-18">
@@ -62,8 +62,8 @@ export default function HomePage() {
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.trackSubtitle}</p>
         </div>
         <div className="flex gap-2">
-          <input id="invoice" className="min-w-0 flex-1 rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm text-[#251D2C] outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" value={invoice} onChange={event => setInvoice(event.target.value)} placeholder={t.trackPlaceholder} required />
-          <button type="submit" className="rounded-xl bg-pink-600 px-5 py-3 text-sm font-bold text-white hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">{t.trackButton}</button>
+          <input id="invoice" className="min-w-0 flex-1 rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600" value={invoice} onChange={event => setInvoice(event.target.value)} placeholder={t.trackPlaceholder} required />
+          <button type="submit" className="rounded-xl bg-pink-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-pink-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">{t.trackButton}</button>
         </div>
       </form>
 

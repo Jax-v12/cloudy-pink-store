@@ -232,7 +232,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
               <h2 className="text-lg font-extrabold text-amber-950 mb-2">{r.methodRequired}</h2>
               <Link
                 href="/roblox"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-300 text-amber-900 font-bold rounded-xl hover:bg-amber-100 transition"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-300 text-amber-900 font-bold rounded-xl hover:bg-amber-100 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
               >
                 {c.backToCatalog}
               </Link>
@@ -248,9 +248,22 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
 
       {type === 'ROBLOX' && <DetectedLocation region={region} loading={loading} />}
       {error && (
-        <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 mb-4">
-          {errors[error] || t.errSystem}
-        </p>
+        <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p>{errors[error] || t.errSystem}</p>
+          <button
+            type="button"
+            disabled={busy || loading}
+            onClick={() => {
+              setLoading(true);
+              setError('');
+              server.retry();
+              refreshLocation();
+            }}
+            className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-bold text-rose-800 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
+          >
+            {c.retryLoad}
+          </button>
+        </div>
       )}
 
       <div>
@@ -339,7 +352,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
           <button
             onClick={more}
             disabled={loading}
-            className="my-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition"
+            className="my-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             {t.loadMore}
           </button>

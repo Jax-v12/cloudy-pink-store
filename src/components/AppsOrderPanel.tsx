@@ -173,7 +173,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
               <button
                 disabled={busy}
                 onClick={() => void action({ action: 'acknowledge' })}
-                className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:bg-pink-50 transition cursor-pointer"
+                className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {a.acknowledge}
               </button>
@@ -198,7 +198,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
                 <select
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white p-3 text-sm font-medium text-[#251D2C]"
+                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white p-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 >
                   {(['DELIVERY_HELP', 'NO_ACCESS', 'STOPPED_WORKING'] as const)
                     .filter(key => key === 'DELIVERY_HELP' || order.appsWarranty?.active)
@@ -209,7 +209,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
                     ))}
                 </select>
               </label>
-              <button disabled={busy} className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-sm font-extrabold text-white transition cursor-pointer">
+              <button disabled={busy} className="rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
                 {a.request}
               </button>
             </form>
@@ -218,7 +218,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
             <button
               disabled={busy}
               onClick={() => void getRenewal()}
-              className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:bg-pink-50 transition cursor-pointer"
+              className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
             >
               {a.renew}
             </button>
@@ -250,7 +250,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
             <div className="flex flex-wrap gap-3">
               <button
                 disabled={!agree || busy || renewal.price === null}
-                className="rounded-xl bg-pink-600 hover:bg-pink-700 px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-50"
+                className="rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {t.btnPayNow}
               </button>
@@ -258,7 +258,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
                 type="button"
                 disabled={busy}
                 onClick={() => setRenewal(null)}
-                className="rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C]"
+                className="rounded-xl border border-[#F1E4ED] bg-white hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] px-5 py-2.5 text-sm font-bold text-[#251D2C] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {a.cancel}
               </button>

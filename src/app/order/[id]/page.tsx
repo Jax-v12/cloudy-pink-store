@@ -288,7 +288,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-[#FFF9FC] p-4">
         {accessNotice}
-        <div className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs animate-pulse">
+        <div role="status" className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs animate-pulse">
           {t.loadingOrder}
         </div>
       </main>
@@ -305,7 +305,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </p>
           <Link
             href="/"
-            className="inline-block px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 transition"
+            className="inline-block px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             {t.btnBackHome}
           </Link>
@@ -338,32 +338,38 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         <div className="flex justify-between items-center mb-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#251D2C] bg-white border border-[#F1E4ED] hover:border-pink-300 hover:bg-pink-50 px-3.5 py-2 rounded-xl shadow-2xs transition"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#251D2C] bg-white border border-[#F1E4ED] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] px-3.5 py-2 rounded-xl shadow-2xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             ← {t.btnBackHome}
           </Link>
 
           {/* Switch Bahasa: ID | MY | EN */}
-          <div className="inline-flex bg-white p-1 rounded-xl border border-[#F1E4ED] shadow-2xs">
+          <div role="group" aria-label={t.commerce.language} className="inline-flex bg-white p-1 rounded-xl border border-[#F1E4ED] shadow-2xs">
             <button
+              type="button"
+              aria-pressed={language === 'ID'}
               onClick={() => setLanguage('ID')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`min-h-10 sm:min-h-0 px-3 py-1 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600 ${
                 language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
               ID
             </button>
             <button
+              type="button"
+              aria-pressed={language === 'MY'}
               onClick={() => setLanguage('MY')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`min-h-10 sm:min-h-0 px-3 py-1 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600 ${
                 language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
               MY
             </button>
             <button
+              type="button"
+              aria-pressed={language === 'EN'}
               onClick={() => setLanguage('EN')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`min-h-10 sm:min-h-0 px-3 py-1 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-pink-600 ${
                 language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[var(--text-secondary)] hover:text-[#251D2C]'
               }`}
             >
@@ -454,7 +460,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <button
                     disabled={downloading}
                     onClick={downloadQrisImage}
-                    className="w-full py-2.5 px-4 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-4 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                   >
                     {downloading ? t.btnProcessing : t.btnDownloadQris}
                   </button>
@@ -555,7 +561,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
                 <button
                   onClick={handleCopyAccount}
-                  className="mt-3.5 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer"
+                  className="mt-3.5 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-xs transition active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 >
                   {copiedAccount ? t.accountCopied : t.btnCopyAccount}
                 </button>
@@ -582,7 +588,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     <button
                       type="button"
                       onClick={handleCopyOtp}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                     >
                       {copiedOtp ? t.copiedNotice : t.btnCopyOtp}
                     </button>
@@ -607,7 +613,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     type="button"
                     disabled={requestingOtp}
                     onClick={handleRequestOtp}
-                    className="w-full py-2.5 px-3 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-2.5 px-3 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 cursor-pointer disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                   >
                     {requestingOtp
                       ? t.btnProcessing
@@ -627,7 +633,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 text-center flex items-center justify-center"
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition active:scale-95 text-center flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                   >
                     💬 {t.btnOtpWhatsapp}
                   </a>
@@ -688,8 +694,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <span>💡</span> {t.faqTitle}
                 </h4>
                 <div className="space-y-2 text-xs">
-                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
-                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
                       <span>📺 {t.faqTvTitle}</span>
                       <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
@@ -698,8 +704,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     </p>
                   </details>
 
-                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
-                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
                       <span>🏠 {t.faqHouseholdTitle}</span>
                       <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
@@ -708,8 +714,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     </p>
                   </details>
 
-                  <details className="group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
-                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none">
+                  <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
+                    <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
                       <span>🔒 {t.faqRulesTitle}</span>
                       <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
                     </summary>
@@ -736,7 +742,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               </p>
               <Link
                 href="/"
-                className="px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 inline-block transition"
+                className="px-5 py-2.5 bg-pink-600 text-white font-extrabold rounded-xl text-xs sm:text-sm hover:bg-pink-700 active:scale-[0.98] inline-block transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {t.btnBackHome}
               </Link>

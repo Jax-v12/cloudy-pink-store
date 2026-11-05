@@ -96,7 +96,7 @@ export default function RobloxCheckoutWizard({
     ? [u.description, u.detailsIntro, f.paymentIntro, u.confirmIntro]
     : [f.description, f.detailsIntro, f.passIntro, f.paymentIntro, f.confirmIntro];
   const input =
-    'w-full rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3.5 text-[#251D2C] font-medium outline-none focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 transition-all';
+    'w-full rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3.5 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
   const errors: Record<string, string> = {
     REGION_UNVERIFIED: t.regional.locationUnavailable,
     REGION_CHANGED: t.regional.priceChanged,
@@ -417,7 +417,7 @@ export default function RobloxCheckoutWizard({
                   href="https://create.roblox.com/dashboard/creations"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-xl border border-pink-200 bg-pink-50 px-5 py-2.5 text-sm font-bold text-pink-700 hover:bg-pink-100 transition"
+                  className="rounded-xl border border-pink-200 bg-pink-50 px-5 py-2.5 text-sm font-bold text-pink-700 hover:bg-pink-100 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 >
                   {f.create} ↗
                 </a>
@@ -445,7 +445,7 @@ export default function RobloxCheckoutWizard({
               {methods.map(m => (
                 <label
                   key={m.id}
-                  className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 sm:p-5 transition ${
+                  className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 sm:p-5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-pink-700 ${
                     methodValue === m.id
                       ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600'
                       : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300'
@@ -482,7 +482,7 @@ export default function RobloxCheckoutWizard({
                       server.retry();
                       onRegionRefresh();
                     }}
-                    className="font-bold underline"
+                    className="rounded font-bold underline cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
                   >
                     {t.regional.retry}
                   </button>
@@ -529,7 +529,7 @@ export default function RobloxCheckoutWizard({
               <button
                 type="button"
                 onClick={() => go(step - 1)}
-                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition cursor-pointer"
+                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {f.previous}
               </button>
@@ -537,7 +537,7 @@ export default function RobloxCheckoutWizard({
             <button
               type="submit"
               disabled={busy || (step > 0 && !quote) || (phase >= 3 && (!enabled || !server.quote || !selectedMethod))}
-              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white transition enabled:hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed cursor-pointer"
+              className="min-w-44 rounded-xl bg-pink-600 px-6 py-3 text-sm font-extrabold text-white transition enabled:hover:bg-pink-700 enabled:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed cursor-pointer"
             >
               {busy ? t.btnProcessing : phase === 4 ? f.confirm : f.next}
             </button>

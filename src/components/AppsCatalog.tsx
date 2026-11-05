@@ -226,7 +226,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   maxLength={100}
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 />
               </label>
               <label className="min-w-0 text-sm font-bold text-[#251D2C]">
@@ -235,10 +235,10 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   maxLength={50}
                   value={category}
                   onChange={e => setCategory(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 />
               </label>
-              <button className="rounded-xl bg-pink-600 hover:bg-pink-700 px-5 py-2.5 text-sm font-extrabold text-white transition cursor-pointer">
+              <button className="rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
                 {t.searchButton}
               </button>
             </form>
@@ -248,7 +248,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         {slug && (
           <Link
             href="/apps"
-            className="my-4 inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition"
+            className="my-4 inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             ← {a.back}
           </Link>
@@ -261,7 +261,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
               type="button"
               disabled={busy || loading}
               onClick={() => void load(cursor && products.length ? cursor : null)}
-              className="mt-3 rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 transition cursor-pointer"
+              className="mt-3 rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
             >
               {a.retry}
             </button>
@@ -269,7 +269,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         )}
 
         {loading && (
-          <p role="status" className="min-h-24 py-6 text-sm font-semibold text-[var(--text-secondary)]">
+          <p role="status" className="py-3 text-sm font-semibold text-[var(--text-secondary)]">
             {t.loadingCatalog}
           </p>
         )}
@@ -277,17 +277,47 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         {!loading && !error && !products.length && (
           <div role="status" className="rounded-2xl border border-dashed border-[#F1E4ED] bg-[#FFF9FC] py-10 px-4 text-center">
             <p className="text-sm sm:text-base font-bold text-[#251D2C]">{filters ? t.searchEmpty : t.emptyCatalog}</p>
+            {filters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setCategory('');
+                  setLoading(true);
+                  setFilters('');
+                  setRevision(n => n + 1);
+                }}
+                className="mt-3 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+              >
+                {a.all}
+              </button>
+            ) : (
+              <p className="mt-1 text-xs sm:text-sm text-[var(--text-secondary)]">{t.commerce.emptyCatalogHint}</p>
+            )}
           </div>
         )}
 
         {!slug && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {loading && !products.length && [0, 1, 2].map(itemKey => (
+              <div
+                key={itemKey}
+                aria-hidden="true"
+                className="min-h-64 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5 motion-safe:animate-pulse"
+              >
+                <div className="h-5 w-24 rounded-lg bg-pink-100/70" />
+                <div className="mt-3 h-6 w-3/4 rounded-lg bg-pink-100/70" />
+                <div className="mt-2.5 h-7 w-1/3 rounded-lg bg-pink-100/70" />
+                <div className="mt-4 h-24 rounded-xl bg-pink-50" />
+                <div className="mt-4 h-10 rounded-xl bg-pink-100/70" />
+              </div>
+            ))}
             {products.map(p => {
               const isReady = ready(p);
               return (
                 <article
                   key={p.id}
-                  className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5 transition hover:border-pink-300 hover:bg-white"
+                  className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC]/60 p-4 sm:p-5 transition-all hover:border-pink-300 hover:bg-white hover:shadow-[var(--shadow-soft)]"
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
@@ -321,7 +351,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   </div>
                   <Link
                     href={`/apps/${encodeURIComponent(p.slug)}`}
-                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
+                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
                   >
                     {a.details}
                   </Link>
@@ -336,7 +366,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
             type="button"
             disabled={loading}
             onClick={() => void load(cursor)}
-            className="mt-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition cursor-pointer"
+            className="mt-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             {t.loadMore}
           </button>
@@ -364,7 +394,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   disabled={busy}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 />
               </label>
               <p className="text-xs sm:text-sm leading-6 text-[var(--text-secondary)]">{product.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.emailHint : a.orderEmailHint}</p>
@@ -381,7 +411,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
               </label>
               <button
                 disabled={busy || !agree || !ready(product)}
-                className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 p-3.5 text-sm font-extrabold text-white disabled:opacity-50 transition cursor-pointer"
+                className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] p-3.5 text-sm font-extrabold text-white disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {busy ? a.processing : t.btnPayNow}
               </button>
@@ -405,10 +435,10 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
               onChange={e => setInvoice(e.target.value)}
               maxLength={191}
               placeholder={t.trackPlaceholder}
-              className="mt-2 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus:outline-none"
+              className="mt-2 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
             />
           </label>
-          <button className="mt-3 rounded-xl border border-[#F1E4ED] bg-pink-50 hover:bg-pink-100 px-5 py-2.5 text-sm font-extrabold text-pink-700 transition cursor-pointer">
+          <button className="mt-3 rounded-xl border border-[#F1E4ED] bg-pink-50 hover:bg-pink-100 active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-pink-700 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
             {t.trackButton}
           </button>
         </form>

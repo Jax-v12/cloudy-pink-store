@@ -25,9 +25,9 @@ type Catalog = {
 
 const panel = 'rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8';
 const input =
-  'mt-2 w-full min-w-0 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-500/10 transition-all';
+  'mt-2 w-full min-w-0 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
 const button =
-  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white enabled:hover:bg-pink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition cursor-pointer';
+  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white enabled:hover:bg-pink-700 enabled:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition cursor-pointer';
 const driftCodes = [
   'PRICE_CHANGED',
   'REGION_CHANGED',
@@ -160,7 +160,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
           onClick={event => {
             if (busy) event.preventDefault();
           }}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 transition"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50/60 hover:text-pink-700 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
         >
           &larr; {t.commerce.backToCatalog}
         </Link>
@@ -234,7 +234,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 {l.openInvoice}
               </Link>
               <button
-                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition cursor-pointer"
+                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 disabled={busy}
                 onClick={() => void choose(true)}
               >
@@ -351,7 +351,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 />
                 <button
                   type="button"
-                  className="mt-2 shrink-0 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 focus-visible:outline-2 focus-visible:outline-pink-600 transition cursor-pointer"
+                  className="mt-2 shrink-0 rounded-2xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-pink-600 transition cursor-pointer"
                   aria-pressed={showPassword}
                   onClick={() => setShowPassword(value => !value)}
                 >
@@ -513,7 +513,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
             <div className="flex flex-wrap gap-3">
               <Link
                 href={base + '?method=LOGIN'}
-                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition"
+                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {l.back}
               </Link>
@@ -570,7 +570,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               <p role="alert" className="text-sm font-semibold text-rose-800">
                 {t.regional.quoteError}{' '}
                 <button
-                  className="underline font-bold"
+                  className="rounded underline font-bold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
                   onClick={() => {
                     quote.retry();
                     setCatalog(null);
@@ -583,7 +583,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
             )}
             <div className="flex flex-wrap gap-3">
               <button
-                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 transition cursor-pointer"
+                className="rounded-xl border border-[#F1E4ED] bg-white px-6 py-3 font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 disabled={busy}
                 onClick={() => router.push(base + '/login/account')}
               >

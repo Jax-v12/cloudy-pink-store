@@ -54,7 +54,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
               key={method}
               className={`group flex min-w-0 flex-col overflow-hidden rounded-3xl border bg-white transition-[border-color,box-shadow] duration-200 ${
                 ready
-                  ? 'border-[#F1E4ED] hover:border-pink-300'
+                  ? 'border-[#F1E4ED] hover:border-pink-300 hover:shadow-[var(--shadow-soft)]'
                   : 'border-[#F1E4ED] bg-white/95 opacity-95'
               }`}
             >
@@ -79,7 +79,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                     <label className="block text-xs font-bold text-[var(--text-secondary)]">
                       {t.commerce.product}
                       <select
-                        className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-2.5 text-sm font-semibold text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-2.5 text-sm font-semibold text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                         value={product?.id}
                         onChange={e => setSelection(old => ({ ...old, [method]: Number(e.target.value) }))}
                       >
@@ -108,7 +108,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                       {ready && product && (
                         <Link
                           href={`/roblox/${product.slug}?method=${method}`}
-                          className="inline-flex items-center gap-2 rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                          className="inline-flex items-center gap-2 rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-4 py-2.5 text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                         >
                           <span>{f.buy}</span>
                           <span aria-hidden="true" className="transition group-hover:translate-x-0.5">
