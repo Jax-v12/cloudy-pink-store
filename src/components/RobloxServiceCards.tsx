@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 import { type RobloxMethodKey } from '@/lib/roblox';
@@ -13,13 +14,25 @@ type Product = {
   variants: { regionalPrices?: RegionalPrice[]; method: string | null; price: number | null; units: number }[];
 };
 
+const METHOD_STICKERS: Record<RobloxMethodKey, { src: string; width: number; height: number }> = {
+  GAMEPASS: { src: '/store/stickers/stiker_07.webp', width: 281, height: 283 },
+  LOGIN: { src: '/store/stickers/stiker_10.webp', width: 261, height: 282 },
+  GIFT_USERNAME: { src: '/store/stickers/stiker_14.webp', width: 285, height: 269 },
+};
+
 function ServiceArt({ method }: { method: RobloxMethodKey }) {
-  const paths = {
-    GAMEPASS: 'M5 5h14v14H5z M10 10h4v4h-4z',
-    LOGIN: 'M8 10V7a4 4 0 0 1 8 0v3 M6 10h12v11H6z M12 14v3',
-    GIFT_USERNAME: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
-  };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true" className="h-9 w-9 shrink-0 text-[var(--text-secondary)]"><path d={paths[method]} /></svg>;
+  const sticker = METHOD_STICKERS[method];
+  return (
+    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 transition-transform duration-200 motion-safe:group-hover:scale-105">
+      <Image
+        src={sticker.src}
+        alt=""
+        width={sticker.width}
+        height={sticker.height}
+        className="h-full w-full object-contain drop-shadow-sm"
+      />
+    </div>
+  );
 }
 
 export default function RobloxServiceCards({ products, region }: { products: Product[]; region: Region | null }) {

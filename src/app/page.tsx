@@ -13,9 +13,9 @@ export default function HomePage() {
   const [invoice, setInvoice] = useState('');
   const router = useRouter();
   const categories = [
-    { href: '/roblox', title: c.ROBLOX, description: c.robloxDescription, badge: 'Gamepass · Username · Login', art: '/store/category-roblox.jpg' },
-    { href: '/apps', title: c.APPS, description: c.appsDescription, badge: t.badge, art: '/store/category-apps.jpg' },
-    { href: '/games', title: c.GAME, description: c.gameDescription, badge: c.gameHeroEyebrow, art: '/store/category-games.jpg' },
+    { href: '/roblox', title: c.ROBLOX, description: c.robloxDescription, badge: 'Gamepass · Username · Login', art: '/store/stickers/stiker_01.webp' },
+    { href: '/apps', title: c.APPS, description: c.appsDescription, badge: t.badge, art: '/store/stickers/stiker_18.webp' },
+    { href: '/games', title: c.GAME, description: c.gameDescription, badge: c.gameHeroEyebrow, art: '/store/stickers/stiker_02.webp' },
   ].filter(item => GAME_TOPUP_PURCHASES_ENABLED || item.href !== '/games');
   const steps = [
     { title: c.step1Title, desc: c.step1Desc },
@@ -38,8 +38,8 @@ export default function HomePage() {
           <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-all hover:border-pink-400 hover:shadow-[var(--shadow-soft)] motion-safe:hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
             <div>
               <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#F1E4ED] bg-white sm:h-18 sm:w-18">
-                  <Image src={item.art} alt="" fill sizes="72px" className="object-cover" style={item.href === '/apps' ? { objectPosition: 'center 55%' } : undefined} />
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-1 sm:h-18 sm:w-18">
+                  <Image src={item.art} alt="" fill sizes="72px" className="object-contain" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{item.badge}</p>
