@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { formatMoney, REGION_CURRENCY, type Region, type RegionalPrice } from '@/lib/regionalPricing';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ const METHOD_STICKERS: Record<RobloxMethodKey, { src: string; width: number; hei
 function ServiceArt({ method }: { method: RobloxMethodKey }) {
   const sticker = METHOD_STICKERS[method];
   return (
-    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 transition-transform duration-200 motion-safe:group-hover:scale-105">
+    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-105">
       <Image
         src={sticker.src}
         alt=""
@@ -39,6 +39,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
   const { t, language } = useLanguage();
   const f = t.robloxFlow;
   const comparison = t.serviceHelp.comparison;
+  const selectId = useId();
   const [selection, setSelection] = useState<Partial<Record<RobloxMethodKey, number>>>({});
   const tag = { GAMEPASS: f.passTag, LOGIN: f.loginTag, GIFT_USERNAME: f.giftTag };
 
@@ -89,10 +90,14 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
               <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5">
                 <div className="space-y-3">
                   {eligible.length > 1 && (
-                    <label className="block text-xs font-bold text-[var(--text-secondary)]">
-                      {t.commerce.product}
+                    <div>
+                      <label htmlFor={`${selectId}-${method}`} className="block text-xs font-bold text-[var(--text-secondary)]">
+                        {t.commerce.product}
+                      </label>
                       <select
-                        className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-2.5 text-sm font-semibold text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                        id={`${selectId}-${method}`}
+                        name={`product-${method}`}
+                        className="mt-1.5 w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] p-2.5 text-sm font-semibold text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                         value={product?.id}
                         onChange={e => setSelection(old => ({ ...old, [method]: Number(e.target.value) }))}
                       >
@@ -102,7 +107,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                           </option>
                         ))}
                       </select>
-                    </label>
+                    </div>
                   )}
 
                   {rate && amount !== null && (
@@ -158,7 +163,7 @@ export default function RobloxServiceCards({ products, region }: { products: Pro
                     <span>{comparison.detailsSummary}</span>
                     <span
                       aria-hidden="true"
-                      className="text-xs text-pink-600 transition-transform duration-200 group-open/details:rotate-180"
+                      className="text-xs text-pink-600 motion-safe:transition-transform motion-safe:duration-200 group-open/details:rotate-180"
                     >
                       ▾
                     </span>

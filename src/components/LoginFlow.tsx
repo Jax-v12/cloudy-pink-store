@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -25,9 +25,9 @@ type Catalog = {
 
 const panel = 'rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-8';
 const input =
-  'mt-2 w-full min-w-0 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
+  'mt-2 w-full min-w-0 rounded-2xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm text-[#251D2C] font-medium focus:border-pink-600 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
 const button =
-  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white enabled:hover:bg-pink-700 enabled:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition cursor-pointer';
+  'rounded-xl bg-pink-600 px-6 py-3 font-extrabold text-white enabled:hover:bg-pink-700 enabled:motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 disabled:bg-[#F1E4ED] disabled:text-[var(--text-secondary)] disabled:cursor-not-allowed transition cursor-pointer';
 const driftCodes = [
   'PRICE_CHANGED',
   'REGION_CHANGED',
@@ -40,6 +40,7 @@ const driftCodes = [
 export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packages' | 'account' | 'summary' }) {
   const { t, language } = useLanguage();
   const l = t.loginFlow;
+  const fieldId = useId();
   const { draft, setDraft, checkout, busy, initialize, openPackage, confirm: submitCheckout, recover } = useLoginDraft();
   const invoice = checkout.attempt?.outcome === 'COMMITTED' ? checkout.attempt.invoice : null;
   const router = useRouter();
@@ -165,7 +166,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
           &larr; {t.commerce.backToCatalog}
         </Link>
 
-        <header>
+        <div>
           <p className="text-sm font-bold text-pink-700">{t.robloxFlow.LOGIN}</p>
           <h1 className="mt-2.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">{l[stage]}</h1>
           <p className="mt-2 text-sm sm:text-base text-[var(--text-secondary)]">
@@ -175,7 +176,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
             {t.serviceHelp.comparison.estimateLabel}: <strong className="text-[#251D2C]">{t.serviceHelp.comparison.estimates.LOGIN}</strong>
             <span className="mt-1 block text-xs leading-relaxed">{t.serviceHelp.comparison.estimateNotice}</span>
           </p>
-        </header>
+        </div>
 
         <CheckoutSteps labels={[l.packages, l.account, l.summary]} current={['packages', 'account', 'summary'].indexOf(stage)} ariaLabel={t.commerce.status} />
 
@@ -276,13 +277,15 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               {variants.map(v => (
                 <label
                   key={v.id}
+                  htmlFor={`${fieldId}-pkg-${v.id}`}
                   className={`min-w-0 rounded-2xl border p-4 sm:p-5 transition focus-within:outline-2 focus-within:outline-pink-700 ${variants.length === 1 ? 'flex flex-wrap items-center justify-between gap-4' : ''} ${
                     v.id === draft.variantId
                       ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 '
-                      : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300'
+                      : 'border-[var(--input-border)] bg-[#FFF9FC] hover:border-pink-400'
                   } ${v.price === null || !region ? 'opacity-60' : 'cursor-pointer'}`}
                 >
                   <input
+                    id={`${fieldId}-pkg-${v.id}`}
                     type="radio"
                     name="package"
                     className="sr-only"
@@ -370,8 +373,8 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 <label htmlFor="login-whatsapp" className="block text-sm font-bold text-[#251D2C]">
                   {l.whatsapp}
                 </label>
-                <div className="mt-2 flex rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] focus-within:border-pink-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-pink-500/10 transition-all">
-                  <div className="relative flex w-28 shrink-0 items-center justify-center border-r border-[#F1E4ED]">
+                <div className="mt-2 flex rounded-2xl border border-[var(--input-border)] bg-[#FFF9FC] focus-within:border-pink-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-pink-500/10 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-pink-600 transition-all">
+                  <div className="relative flex w-28 shrink-0 items-center justify-center border-r border-[var(--input-border)]">
                     <span aria-hidden="true" className="pointer-events-none flex min-w-0 items-center gap-2 px-2 text-sm font-bold text-[#251D2C]">
                       {hasPhoneFlag && (
                         <Image
@@ -423,7 +426,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                   <input
                     id="login-whatsapp"
                     name="whatsapp"
-                    className="min-w-0 flex-1 rounded-r-2xl bg-transparent px-3 py-3 text-[#251D2C] font-medium outline-none"
+                    className="min-w-0 flex-1 rounded-r-2xl bg-transparent px-3 py-3 text-base sm:text-sm text-[#251D2C] font-medium focus:outline-none"
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
@@ -436,20 +439,24 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                 </div>
               </div>
               <div className="min-w-0">
-                <label className="block text-sm font-bold text-[#251D2C]">
+                <label htmlFor={`${fieldId}-email`} className="block text-sm font-bold text-[#251D2C]">
                   {l.email}
-                  <input
-                    name="email"
-                    className={input}
-                    type="email"
-                    autoComplete="email"
-                    maxLength={150}
-                    value={account.email}
-                    onChange={e => updateAccount('email', e.target.value)}
-                    aria-invalid={fieldErrors.email}
-                    aria-describedby="login-email-error"
-                  />
                 </label>
+                <input
+                  id={`${fieldId}-email`}
+                  name="email"
+                  className={input}
+                  type="email"
+                  autoComplete="email"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={150}
+                  value={account.email}
+                  onChange={e => updateAccount('email', e.target.value)}
+                  aria-invalid={fieldErrors.email}
+                  aria-describedby="login-email-error"
+                />
                 {fieldErrors.email && (
                   <p id="login-email-error" role="alert" className="mt-1.5 text-sm font-semibold text-rose-700">
                     {l.invalidEmail}
@@ -471,7 +478,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               <details className="store-disclosure group/guide rounded-2xl border border-[#F1E4ED] bg-white p-3.5 text-sm text-[#251D2C]">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg font-bold text-pink-700 focus-visible:outline-2 focus-visible:outline-pink-800">
                   <span>{l.backupGuideTitle}</span>
-                  <span aria-hidden="true" className="transition-transform duration-200 group-open/guide:rotate-180">▾</span>
+                  <span aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-200 group-open/guide:rotate-180">▾</span>
                 </summary>
                 <ol className="mt-2.5 list-decimal space-y-1.5 pl-5 text-[var(--text-secondary)]">
                   {l.backupGuideSteps.map(step => (
@@ -481,13 +488,17 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               </details>
               <div className="grid gap-3 sm:grid-cols-2">
                 {account.backupCodes.map((code, index) => (
-                  <label key={index} className="block text-sm font-bold text-[#251D2C]">
-                    {l.backupCode} {index + 1}
+                  <div key={index}>
+                    <label htmlFor={`${fieldId}-backup-${index}`} className="block text-sm font-bold text-[#251D2C]">
+                      {l.backupCode} {index + 1}
+                    </label>
                     <input
+                      id={`${fieldId}-backup-${index}`}
                       name={`backupCode${index + 1}`}
                       type="password"
                       className={`${input} bg-white font-mono`}
                       autoComplete="off"
+                      autoCorrect="off"
                       spellCheck={false}
                       autoCapitalize="none"
                       maxLength={64}
@@ -496,7 +507,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                       aria-invalid={fieldErrors.backupCodes}
                       aria-describedby="login-backup-help login-backup-error"
                     />
-                  </label>
+                  </div>
                 ))}
               </div>
               <p id="login-backup-help" className="text-xs sm:text-sm text-[var(--text-secondary)]">
@@ -540,9 +551,13 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
               ))}
             </dl>
             {catalog.paymentMethods.length ? (
-              <label className="block text-sm font-bold text-[#251D2C]">
-                {t.regional.paymentMethod}
+              <div>
+                <label htmlFor={`${fieldId}-payment`} className="block text-sm font-bold text-[#251D2C]">
+                  {t.regional.paymentMethod}
+                </label>
                 <select
+                  id={`${fieldId}-payment`}
+                  name="paymentMethod"
                   className={input}
                   value={payment?.id ?? ''}
                   disabled={busy}
@@ -554,7 +569,7 @@ export default function LoginFlow({ slug, stage }: { slug: string; stage: 'packa
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             ) : (
               <p role="status" className="text-sm font-semibold text-rose-800">
                 {l.paymentUnavailable}

@@ -1,8 +1,14 @@
+import type { Viewport } from "next";
+import { headers } from "next/headers";
 import { Plus_Jakarta_Sans, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { publicPageMetadata } from '@/lib/siteMetadata';
 import AggregateMetrics from '@/components/AggregateMetrics';
+
+export const viewport: Viewport = {
+  colorScheme: 'light',
+};
 
 const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -25,11 +31,12 @@ export const metadata = publicPageMetadata(
   'Aplikasi premium dan isi ulang Robux untuk Indonesia. Periksa paket, ketentuan, pembayaran, dan perkembangan pesanan.',
 );
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await headers();
   return (
     <html
       lang="id"

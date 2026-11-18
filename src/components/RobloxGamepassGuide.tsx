@@ -26,7 +26,11 @@ export default function RobloxGamepassGuide({ price }: { price: number }) {
       <dialog
         ref={dialog}
         aria-labelledby={titleId}
-        className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-[#F1E4ED] p-6 sm:p-7 bg-white text-[#251D2C] shadow-2xl backdrop:bg-[#251D2C]/50 backdrop:backdrop-blur-xs"
+        {...({ closedby: 'any' } as Record<string, string>)}
+        onClick={event => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+        className="store-dialog m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-[#F1E4ED] p-6 sm:p-7 bg-white text-[#251D2C] shadow-2xl backdrop:bg-[#251D2C]/50 backdrop:backdrop-blur-xs"
       >
         <div className="flex justify-between items-start gap-4 border-b border-[#F1E4ED] pb-4">
           <h2 id={titleId} className="text-xl sm:text-2xl font-extrabold text-[#251D2C]">
@@ -36,9 +40,9 @@ export default function RobloxGamepassGuide({ price }: { price: number }) {
             type="button"
             onClick={() => dialog.current?.close()}
             aria-label={r.close}
-            className="rounded-xl border border-[#F1E4ED] px-3 py-1.5 text-sm font-bold text-[#756C7D] hover:bg-pink-50 hover:text-pink-700 transition cursor-pointer"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl border border-[#F1E4ED] px-3 py-1.5 text-sm font-bold text-[#756C7D] hover:bg-pink-50 hover:text-pink-700 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </div>
         <p className="mt-3 text-sm text-[#756C7D] leading-relaxed">{r.guideIntro}</p>

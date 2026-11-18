@@ -7,8 +7,16 @@ type Props = {
 };
 
 export default function CheckoutSteps({ labels, current, ariaLabel, busy = false, onStepChange }: Props) {
+  const cols =
+    labels.length === 5
+      ? 'grid-cols-5'
+      : labels.length === 4
+        ? 'grid-cols-4'
+        : labels.length === 3
+          ? 'grid-cols-3'
+          : 'grid-cols-2';
   return (
-    <ol aria-label={ariaLabel} className="mx-auto grid w-full max-w-2xl" style={{ gridTemplateColumns: `repeat(${labels.length}, minmax(0, 1fr))` }}>
+    <ol aria-label={ariaLabel} className={`mx-auto grid w-full max-w-2xl ${cols}`}>
       {labels.map((label, index) => {
         const content = (
           <>

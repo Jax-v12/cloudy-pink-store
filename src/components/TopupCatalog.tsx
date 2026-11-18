@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,6 +37,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
   const r = t.roblox;
   const f = t.robloxFlow;
   const router = useRouter();
+  const formId = useId();
   const [refresh, setRefresh] = useState(0);
   const refreshLocation = () => setRefresh(n => n + 1);
   const [region, setRegion] = useState<Region | null>(null);
@@ -222,11 +223,11 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
           </Link>
 
           {type === 'ROBLOX' && method ? (
-            <header className="mx-auto max-w-4xl">
+            <div className="mx-auto max-w-4xl">
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C]">
                 {methodTitles[method]}
               </h1>
-            </header>
+            </div>
           ) : type === 'ROBLOX' && !method ? (
             <div className="rounded-3xl border border-amber-200 bg-amber-50/90 p-6 sm:p-8">
               <h2 className="text-lg font-extrabold text-amber-950 mb-2">{r.methodRequired}</h2>
@@ -407,14 +408,16 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                   {available.map(v => (
                     <label
                       key={v.id}
+                      htmlFor={`${formId}-pkg-${v.id}`}
                       className={
                         'relative cursor-pointer rounded-2xl border p-4 transition-all has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-pink-700 ' +
                         (variantId === String(v.id)
                           ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600 '
-                          : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300 hover:bg-pink-50/40')
+                          : 'border-[var(--input-border)] bg-[#FFF9FC] hover:border-pink-400 hover:bg-pink-50/40')
                       }
                     >
                       <input
+                        id={`${formId}-pkg-${v.id}`}
                         type="radio"
                         className="sr-only"
                         name="package"
@@ -442,40 +445,60 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                     {c.userId}
                   </h2>
                   <div className="space-y-4">
-                    <label className="block">
-                      <span className="block font-bold text-sm text-[#251D2C] mb-1.5">{c.userId}</span>
+                    <div>
+                      <label htmlFor={`${formId}-userId`} className="block font-bold text-sm text-[#251D2C] mb-1.5">
+                        {c.userId}
+                      </label>
                       <input
-                        className="w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus:outline-none transition-colors"
+                        id={`${formId}-userId`}
+                        className="w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors"
                         name="userId"
                         maxLength={64}
                         pattern="[A-Za-z0-9_\-]+"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         required
                       />
-                      <span className="block text-xs text-[#756C7D] mt-1.5">{c.userIdHint}</span>
-                    </label>
+                      <span className="block text-xs text-[var(--text-secondary)] mt-1.5">{c.userIdHint}</span>
+                    </div>
                     {variant.requiresZone && (
-                      <label className="block">
-                        <span className="block font-bold text-sm text-[#251D2C] mb-1.5">{c.zoneId}</span>
+                      <div>
+                        <label htmlFor={`${formId}-zoneId`} className="block font-bold text-sm text-[#251D2C] mb-1.5">
+                          {c.zoneId}
+                        </label>
                         <input
-                          className="w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus:outline-none transition-colors"
+                          id={`${formId}-zoneId`}
+                          className="w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors"
                           name="zoneId"
                           maxLength={32}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
                           required
                         />
-                      </label>
+                      </div>
                     )}
-                    <label className="block">
-                      <span className="block font-bold text-sm text-[#251D2C] mb-1.5">{c.email}</span>
+                    <div>
+                      <label htmlFor={`${formId}-email`} className="block font-bold text-sm text-[#251D2C] mb-1.5">
+                        {c.email}
+                      </label>
                       <input
-                        className="w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus:outline-none transition-colors"
+                        id={`${formId}-email`}
+                        className="w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors"
                         type="email"
                         name="email"
                         maxLength={150}
                         autoComplete="email"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         required
                       />
-                      <span className="block text-xs text-[#756C7D] mt-1.5">{c.emailHint}</span>
-                    </label>
+                      <span className="block text-xs text-[var(--text-secondary)] mt-1.5">{c.emailHint}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -509,7 +532,7 @@ function Catalog({ type, slug, initialMethod = null }: { type: 'GAME' | 'ROBLOX'
                 </p>
               )}
               <button
-                className="w-full rounded-2xl bg-pink-600 hover:bg-pink-700 transition-all active:scale-[0.98] text-white py-3.5 font-extrabold disabled:opacity-50 disabled:pointer-events-none mt-4 text-base cursor-pointer"
+                className="w-full rounded-2xl bg-pink-600 hover:bg-pink-700 transition-colors motion-safe:active:scale-[0.98] text-white py-3.5 font-extrabold disabled:opacity-50 disabled:pointer-events-none mt-4 text-base cursor-pointer"
                 disabled={!variant || !product.checkoutEnabled || busy}
               >
                 {busy ? t.btnProcessing : t.btnPayNow}

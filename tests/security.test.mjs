@@ -13,6 +13,13 @@ import { assertSafeDatabaseUrl } from '../src/lib/prisma.ts';
 import { clientKey } from '../src/lib/rateLimit.ts';
 import { verifyCronAuth } from '../src/lib/auth.ts';
 import nextConfig from '../next.config.ts';
+import {
+  buildContentSecurityPolicy,
+  generateCspNonce,
+  resolveReportEndpointUrl,
+  CSP_REPORT_ENDPOINT_NAME,
+} from '../src/lib/csp.ts';
+import * as cspReportRoute from '../src/app/api/csp-report/route.ts';
 
 process.env.ENCRYPTION_KEY = 'isolated-test-encryption-key';
 process.env.MIDTRANS_SERVER_KEY = 'isolated-test-midtrans-key';
@@ -770,5 +777,139 @@ test('P0-A2 order display and download share the environment-pinned QR host poli
   } finally {
     if (priorProd === undefined) delete process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION;
     else process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION = priorProd;
+  }
+});
+
+test('CSP policy builder enforces nonce strict-dynamic, base-uri none, form-action self, and safe reporting URLs', () => {
+  const n1 = generateCspNonce();
+  const n2 = generateCspNonce();
+  assert.notEqual(n1, n2);
+  assert.ok(Buffer.from(n1, 'base64').length === 16);
+
+  const prodPolicy = buildContentSecurityPolicy({
+    nonce: n1,
+    isDev: false,
+    includeReportTo: true,
+  });
+  const scriptSrc = prodPolicy.split('; ').find(d => d.startsWith('script-src '));
+  assert.ok(scriptSrc);
+  assert.match(scriptSrc, new RegExp(`'nonce-${n1.replace(/[+/=]/g, '\\$&')}'`));
+  assert.match(scriptSrc, /'strict-dynamic'/);
+  assert.match(scriptSrc, /'report-sample'/);
+  assert.ok(!scriptSrc.includes("'unsafe-inline'"));
+  assert.ok(!scriptSrc.includes("'unsafe-eval'"));
+  assert.ok(prodPolicy.includes("object-src 'none'"));
+  assert.ok(prodPolicy.includes("base-uri 'none'"));
+  assert.ok(prodPolicy.includes("form-action 'self'"));
+  assert.ok(prodPolicy.includes("frame-ancestors 'none'"));
+  assert.ok(prodPolicy.includes(`report-to ${CSP_REPORT_ENDPOINT_NAME}`));
+
+  const devPolicy = buildContentSecurityPolicy({ isDev: true });
+  assert.ok(devPolicy.includes("'unsafe-eval'"));
+  assert.ok(!devPolicy.includes('report-to'));
+
+  const priorAppOrigin = process.env.APP_ORIGIN;
+  const priorVercelEnv = process.env.VERCEL_ENV;
+  const priorProdUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const priorVercelUrl = process.env.VERCEL_URL;
+  try {
+    delete process.env.APP_ORIGIN;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    delete process.env.VERCEL_URL;
+
+    assert.equal(
+      resolveReportEndpointUrl('http://localhost:3000/', '127.0.0.1:3144'),
+      'http://127.0.0.1:3144/api/csp-report'
+    );
+    assert.equal(
+      resolveReportEndpointUrl('http://localhost:3000/', 'evil.example.com'),
+      'http://localhost:3000/api/csp-report'
+    );
+    assert.equal(resolveReportEndpointUrl('https://store.example.com/', 'evil.example.com'), null);
+
+    process.env.APP_ORIGIN = 'https://store.example.com';
+    assert.equal(
+      resolveReportEndpointUrl('http://localhost:3000/'),
+      'https://store.example.com/api/csp-report'
+    );
+
+    process.env.APP_ORIGIN = 'http://store.example.com';
+    assert.equal(resolveReportEndpointUrl('https://store.example.com/'), null);
+  } finally {
+    if (priorAppOrigin === undefined) delete process.env.APP_ORIGIN;
+    else process.env.APP_ORIGIN = priorAppOrigin;
+    if (priorVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = priorVercelEnv;
+    if (priorProdUrl === undefined) delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    else process.env.VERCEL_PROJECT_PRODUCTION_URL = priorProdUrl;
+    if (priorVercelUrl === undefined) delete process.env.VERCEL_URL;
+    else process.env.VERCEL_URL = priorVercelUrl;
+  }
+});
+
+test('CSP report endpoint enforces media type, size bounds, JSON validation, no-store, and URL sanitization', async () => {
+  const resWrongType = await cspReportRoute.POST(
+    new Request('http://localhost/api/csp-report', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '{}',
+    })
+  );
+  assert.equal(resWrongType.status, 415);
+  assert.equal(resWrongType.headers.get('cache-control'), 'no-store');
+
+  const resTooLarge = await cspReportRoute.POST(
+    new Request('http://localhost/api/csp-report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/csp-report' },
+      body: JSON.stringify({ pad: 'a'.repeat(17_000) }),
+    })
+  );
+  assert.equal(resTooLarge.status, 413);
+  assert.equal(resTooLarge.headers.get('cache-control'), 'no-store');
+
+  const resBadJson = await cspReportRoute.POST(
+    new Request('http://localhost/api/csp-report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{invalid-json',
+    })
+  );
+  assert.equal(resBadJson.status, 400);
+  assert.equal(resBadJson.headers.get('cache-control'), 'no-store');
+
+  const warnings = [];
+  const origWarn = console.warn;
+  const priorNodeEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    console.warn = (...args) => warnings.push(args.join(' '));
+    const resValid = await cspReportRoute.POST(
+      new Request('http://localhost/api/csp-report', {
+        method: 'POST',
+        headers: { 'content-type': 'application/reports+json' },
+        body: JSON.stringify([
+          {
+            type: 'csp-violation',
+            body: {
+              effectiveDirective: 'script-src-elem',
+              blockedURL: 'https://evil.example/evil.js?token=secret#frag',
+              disposition: 'enforce',
+            },
+          },
+        ]),
+      })
+    );
+    assert.equal(resValid.status, 204);
+    assert.equal(resValid.headers.get('cache-control'), 'no-store');
+    assert.equal(warnings.length, 1);
+    assert.ok(warnings[0].includes('https://evil.example/evil.js'));
+    assert.ok(!warnings[0].includes('secret'));
+    assert.ok(!warnings[0].includes('#frag'));
+  } finally {
+    console.warn = origWarn;
+    if (priorNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = priorNodeEnv;
   }
 });

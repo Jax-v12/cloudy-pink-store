@@ -286,9 +286,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   if (loading) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-[#FFF9FC] p-4">
+      <main className="min-h-dvh flex flex-col items-center justify-center bg-[#FFF9FC] p-4">
         {accessNotice}
-        <div role="status" className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs animate-pulse">
+        <div role="status" className="rounded-2xl border border-[#F1E4ED] bg-white px-6 py-4 text-sm font-extrabold text-pink-600 shadow-xs motion-safe:animate-pulse">
           {t.loadingOrder}
         </div>
       </main>
@@ -297,7 +297,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
   if (error || !order) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#FFF9FC]">
+      <main className="min-h-dvh flex flex-col items-center justify-center p-4 bg-[#FFF9FC]">
         {accessNotice}
         <div className="bg-white p-7 rounded-3xl border border-[#F1E4ED] text-center max-w-md shadow-[0_14px_36px_-12px_rgba(157,23,77,0.1)]">
           <p className="text-rose-700 font-bold text-sm sm:text-base mb-5">
@@ -329,7 +329,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const effectiveOtp = order.otp && (!Number.isFinite(otpExpiresAtMs) || now < otpExpiresAtMs) ? order.otp : null;
 
   return (
-    <main className="relative min-h-screen bg-[#FFF9FC] p-4 sm:p-8 md:p-10 font-sans text-[#251D2C] overflow-x-clip">
+    <main className="relative min-h-dvh bg-[#FFF9FC] p-4 sm:p-8 md:p-10 font-sans text-[#251D2C] overflow-x-clip">
       <div className="relative z-10 max-w-2xl mx-auto">
         {accessNotice}
         <Link href="/" className="mb-5 inline-block rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
@@ -397,7 +397,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 order.status === 'PAID'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : order.status === 'PENDING'
-                    ? 'border-amber-200 bg-amber-50 text-amber-800 animate-pulse'
+                    ? 'border-amber-200 bg-amber-50 text-amber-800 motion-safe:animate-pulse'
                     : order.status === 'CANCELLED'
                       ? 'border-rose-200 bg-rose-50 text-rose-700'
                       : 'border-neutral-200 bg-neutral-100 text-neutral-600'
@@ -466,7 +466,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   </button>
                 </div>
 
-                {downloadError && <p className="text-xs text-rose-600 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>}
+                {downloadError && <p role="alert" className="text-xs text-rose-600 font-semibold mt-1 max-w-sm mx-auto">{downloadError}</p>}
 
                 <p className="text-sm text-[var(--text-secondary)] mt-2">{t.autoCheckNotice}</p>
               </div>
@@ -527,7 +527,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           {order.type === 'APPS' && order.status === 'PAID' && order.account && (
             <div className="space-y-4">
               <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 sm:p-5">
-                <h3 className="text-sm sm:text-base font-extrabold text-emerald-900 mb-1">{t.accountReadyTitle}</h3>
+                <h2 className="text-sm sm:text-base font-extrabold text-emerald-900 mb-1">{t.accountReadyTitle}</h2>
                 <p className="text-xs text-emerald-700 mb-3.5">{t.accountReadySubtitle}</p>
 
                 <div className="break-all bg-white rounded-xl p-3.5 border border-emerald-200 space-y-2.5 text-xs font-mono">
@@ -570,7 +570,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
               <div className="bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl p-4 sm:p-5 space-y-3" aria-live="polite">
                 <div>
-                  <h4 className="text-xs sm:text-sm font-extrabold text-[#251D2C]">{t.otpHelpTitle}</h4>
+                  <h2 className="text-xs sm:text-sm font-extrabold text-[#251D2C]">{t.otpHelpTitle}</h2>
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">{t.otpHelpSubtitle}</p>
                   <div className="flex items-center gap-1.5 pt-1.5 text-[11px] font-bold">
                     <span className={isOperational ? 'text-emerald-700' : 'text-amber-700'}>
@@ -596,7 +596,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 )}
 
                 {effectiveOtp?.status === 'REQUESTED' && (
-                  <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded-xl p-3 text-xs font-medium animate-pulse">
+                  <div className="bg-amber-50 border border-amber-300 text-amber-950 rounded-xl p-3 text-xs font-medium motion-safe:animate-pulse">
                     ⏳ {t.otpWaitingNotice}
                   </div>
                 )}
@@ -650,7 +650,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                           <span className="text-sm" aria-hidden="true">
                             🛡️
                           </span>
-                          <h4 className="text-xs font-extrabold text-emerald-900">{t.warrantyBadgeTitle}</h4>
+                          <h2 className="text-xs font-extrabold text-emerald-900">{t.warrantyBadgeTitle}</h2>
                         </div>
                         <p className="text-[11px] text-emerald-700 mt-0.5">
                           {t.warrantyDaysRemaining.replace('{days}', String(warrantyDaysRemaining))}
@@ -667,7 +667,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                           <span className="text-sm" aria-hidden="true">
                             🛡️
                           </span>
-                          <h4 className="text-xs font-extrabold text-neutral-700">{t.warrantyExpiredTitle}</h4>
+                          <h2 className="text-xs font-extrabold text-neutral-700">{t.warrantyExpiredTitle}</h2>
                         </div>
                         <p className="text-[11px] text-neutral-600 mt-0.5">{t.warrantyExpiredBody}</p>
                       </div>
@@ -682,7 +682,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                       <span className="text-sm" aria-hidden="true">
                         🛡️
                       </span>
-                      <h4 className="text-xs font-extrabold text-sky-900">{t.warrantyInfoTitle}</h4>
+                      <h2 className="text-xs font-extrabold text-sky-900">{t.warrantyInfoTitle}</h2>
                     </div>
                     <p className="text-[11px] text-[#251D2C] mt-0.5">{t.warrantyInfoBody}</p>
                   </div>
@@ -691,13 +691,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               {/* FAQ / Panduan Login Accordion */}
               <div className="bg-white border border-[#F1E4ED] rounded-2xl p-4 space-y-3">
                 <h4 className="text-xs font-extrabold text-[#251D2C] flex items-center gap-1.5">
-                  <span>💡</span> {t.faqTitle}
+                  <span aria-hidden="true">💡</span> {t.faqTitle}
                 </h4>
                 <div className="space-y-2 text-xs">
                   <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
-                      <span>📺 {t.faqTvTitle}</span>
-                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
+                      <span><span aria-hidden="true">📺 </span>{t.faqTvTitle}</span>
+                      <span aria-hidden="true" className="text-[var(--text-secondary)] group-open:rotate-180 motion-safe:transition-transform">▾</span>
                     </summary>
                     <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqTvBody}
@@ -706,8 +706,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
                   <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
-                      <span>🏠 {t.faqHouseholdTitle}</span>
-                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
+                      <span><span aria-hidden="true">🏠 </span>{t.faqHouseholdTitle}</span>
+                      <span aria-hidden="true" className="text-[var(--text-secondary)] group-open:rotate-180 motion-safe:transition-transform">▾</span>
                     </summary>
                     <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqHouseholdBody}
@@ -716,8 +716,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
                   <details className="store-disclosure group border border-[#F1E4ED] rounded-xl p-2.5 bg-[#FFF9FC] cursor-pointer">
                     <summary className="font-bold text-[#251D2C] group-open:text-pink-700 list-none flex justify-between items-center select-none rounded-lg focus-visible:outline-2 focus-visible:outline-pink-600">
-                      <span>🔒 {t.faqRulesTitle}</span>
-                      <span className="text-[var(--text-secondary)] group-open:rotate-180 transition-transform">▾</span>
+                      <span><span aria-hidden="true">🔒 </span>{t.faqRulesTitle}</span>
+                      <span aria-hidden="true" className="text-[var(--text-secondary)] group-open:rotate-180 motion-safe:transition-transform">▾</span>
                     </summary>
                     <p className="mt-2 text-[11px] text-[var(--text-secondary)] leading-relaxed border-t border-[#F1E4ED] pt-2">
                       {t.faqRulesBody}

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { REGIONS, REGION_CURRENCY, currencyScale, parseMoney, type RegionalPrice, type Region } from '@/lib/regionalPricing';
 import type { PaymentMethod } from '@/lib/paymentProvider';
@@ -10,6 +10,7 @@ type Variant = { regionalPrices?: RegionalPrice[]; id?: number; name: string; pr
 type Product = { id: number; name: string; slug: string; type: 'GAME' | 'ROBLOX'; active: boolean; updatedAt: string; deletion: { allowed: boolean; reasonCodes: string[] }; variants: Variant[] };
 const empty: Variant = { name: '', price: 0, units: 50, maxUnits: 5000, unitStep: 5, active: false, method: 'GAMEPASS', gamepassPrice: null, providerSku: null, requiresZone: false };
 export default function TopupAdmin() {
+  const fieldId = useId();
   const { t } = useLanguage(); const c = t.commerce;
   const [methods, setMethods] = useState<Record<Region, PaymentMethod[]>>({ ID: [], MY: [], PH: [] });
   const [products, setProducts] = useState<Product[]>([]); const [refresh, setRefresh] = useState(0);
@@ -54,17 +55,17 @@ export default function TopupAdmin() {
       }
     } finally { setBusy(false); }
   }
-  const field = 'block w-full mt-1.5 border-2 border-pink-100 rounded-xl px-4 py-2.5 bg-white focus:border-pink-500 focus:outline-none focus:ring-4 focus:ring-pink-50 transition-all';
+  const field = 'block w-full mt-1.5 border-2 border-[var(--input-border)] rounded-xl px-4 py-2.5 text-base sm:text-sm bg-white focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
   const labelText = 'block text-sm font-bold text-neutral-700';
 
-  return <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+  return <section className="store-step space-y-8">
     <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-pink-100 pb-5">
       <div>
         <h2 className="text-3xl text-pink-800 font-black tracking-tight">{c.catalogAdmin}</h2>
         <p className="text-neutral-500 mt-2 font-medium">{c.adminCatalogIntro}</p>
       </div>
       <button disabled={busy} onClick={() => { setError(''); setRefresh(n => n + 1); }} className="flex items-center gap-2 rounded-xl border-2 border-pink-200 px-4 py-2 text-sm font-bold text-pink-600 hover:bg-pink-50 transition active:scale-95 disabled:opacity-50">
-        <svg className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        <svg aria-hidden="true" className={`h-4 w-4 ${busy ? 'motion-safe:animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
         {c.refresh}
       </button>
     </div>
@@ -77,8 +78,8 @@ export default function TopupAdmin() {
       <p className="mb-5 text-sm text-neutral-600 font-medium">{deleteTarget.deletion.allowed ? c.deleteWarning : c.deleteBlocked}</p>
       {error && <p role="alert" className="mb-4 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-100 font-semibold">{errorLabel(error)}</p>}
       {deleteTarget.deletion.allowed ? <form className="space-y-4" onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); const password = String(f.get('password') || ''); e.currentTarget.reset(); void lifecycle(deleteTarget, true, password); }}>
-        <label className={labelText}>{c.confirmProductName}<input autoFocus required maxLength={100} value={confirmationName} onChange={e => setConfirmationName(e.target.value)} className={field} /></label>
-        <label className={labelText}>{c.adminPassword}<input required type="password" name="password" autoComplete="current-password" maxLength={1024} className={field} /></label>
+        <label htmlFor={`${fieldId}-del-name`} className={labelText}>{c.confirmProductName}<input id={`${fieldId}-del-name`} name="confirmationName" autoFocus required maxLength={100} value={confirmationName} onChange={e => setConfirmationName(e.target.value)} className={field} /></label>
+        <label htmlFor={`${fieldId}-del-pw`} className={labelText}>{c.adminPassword}<input id={`${fieldId}-del-pw`} required type="password" name="password" autoComplete="current-password" maxLength={1024} className={field} /></label>
         <div className="flex flex-wrap gap-3 pt-4"><button disabled={busy || confirmationName !== deleteTarget.name} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl p-3 disabled:opacity-40 shadow-sm transition active:scale-95">{c.reauthDelete}</button><button type="button" disabled={busy} onClick={() => setDeleteTarget(null)} className="flex-1 border-2 border-neutral-200 text-neutral-600 font-bold hover:bg-neutral-50 rounded-xl p-3 transition active:scale-95">{c.cancelAction}</button></div>
       </form> : <div className="space-y-4">
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
@@ -93,10 +94,10 @@ export default function TopupAdmin() {
         <h3 className="font-black text-xl text-neutral-800">{product.id ? c.productDetails : c.newProduct}</h3>
         {product.id && <button type="button" onClick={() => setProduct({ type: 'ROBLOX', active: false })} className="text-sm font-bold text-pink-600 hover:text-pink-700">{c.newProduct}</button>}
       </div>
-      <label className={labelText}>{c.product}<select name="type" defaultValue={product.type} className={field}><option value="ROBLOX">{c.ROBLOX}</option><option value="GAME">{c.GAME}</option></select></label>
-      <label className={labelText}>{c.name}<input name="name" defaultValue={product.name} required maxLength={100} className={field} /></label>
-      <label className={labelText}>{c.slug}<input name="slug" defaultValue={product.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={100} className={field} /></label>
-      <label className="flex gap-3 items-center cursor-pointer select-none mt-2"><input name="active" type="checkbox" defaultChecked={product.active} key={String(product.active)} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.active}</span></label>
+      <label htmlFor={`${fieldId}-prod-type`} className={labelText}>{c.product}<select id={`${fieldId}-prod-type`} name="type" defaultValue={product.type} className={field}><option value="ROBLOX">{c.ROBLOX}</option><option value="GAME">{c.GAME}</option></select></label>
+      <label htmlFor={`${fieldId}-prod-name`} className={labelText}>{c.name}<input id={`${fieldId}-prod-name`} name="name" defaultValue={product.name} required maxLength={100} className={field} /></label>
+      <label htmlFor={`${fieldId}-prod-slug`} className={labelText}>{c.slug}<input id={`${fieldId}-prod-slug`} name="slug" defaultValue={product.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={100} className={field} /></label>
+      <label htmlFor={`${fieldId}-prod-active`} className="flex min-h-11 gap-3 items-center cursor-pointer select-none mt-2"><input id={`${fieldId}-prod-active`} name="active" type="checkbox" defaultChecked={product.active} key={String(product.active)} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.active}</span></label>
 
       <div className="sm:col-span-2 flex gap-3 pt-4 border-t border-pink-50">
         <button disabled={busy} className="bg-pink-600 hover:bg-pink-700 text-white font-black shadow-md shadow-pink-200/50 rounded-xl px-8 py-3 transition active:scale-95">{c.save}</button>
@@ -105,7 +106,7 @@ export default function TopupAdmin() {
 
     <div className="grid lg:grid-cols-2 gap-6">
       {products.map(p => (
-        <article key={p.id} className="bg-white border-2 border-pink-100 shadow-lg shadow-pink-900/5 hover:shadow-2xl hover:shadow-pink-900/10 hover:border-pink-300 hover:-translate-y-1 rounded-[2.5rem] p-6 sm:p-8 transition-all duration-300 group flex flex-col">
+        <article key={p.id} className="bg-white border-2 border-pink-100 shadow-lg shadow-pink-900/5 hover:shadow-2xl hover:shadow-pink-900/10 hover:border-pink-300 motion-safe:hover:-translate-y-1 rounded-[2.5rem] p-6 sm:p-8 transition-colors motion-safe:transition-all motion-safe:duration-300 group flex flex-col">
           <div className="flex justify-between items-start mb-4">
             <div>
               <h3 className="font-black text-xl text-neutral-800 group-hover:text-pink-600 transition-colors">{p.name}</h3>
@@ -117,7 +118,7 @@ export default function TopupAdmin() {
               </div>
             </div>
             <button onClick={() => setProduct(p)} className="p-2 rounded-xl text-pink-600 hover:bg-pink-50 transition" title={c.edit}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </button>
           </div>
 
@@ -170,7 +171,7 @@ export default function TopupAdmin() {
       <AdminDialog title={`${selected.name} / ${variant.id ? c.edit : c.newVariant}`} width="wide" busy={busy} onClose={() => setProductId(0)}>
           <div className="mb-3 flex justify-end">
             <button type="button" disabled={busy} onClick={() => setProductId(0)} className="text-neutral-400 hover:text-neutral-700 p-1 transition disabled:opacity-50" aria-label={c.closeEditor}>
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg aria-hidden="true" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
@@ -182,21 +183,21 @@ export default function TopupAdmin() {
             } catch { setError('INVALID_INPUT'); return; }
             void save({ ...(regionalPrices ? { regionalPrices } : {}), kind: 'variant', productId, id: variant.id, name: f.get('name'), price: Number(f.get('price')), units: Number(f.get('units')), ...(f.has('maxUnits') ? { maxUnits: f.get('maxUnits') ? Number(f.get('maxUnits')) : null, unitStep: Number(f.get('unitStep')) } : {}), method: f.get('method'), providerSku: f.get('sku'), requiresZone: f.has('requiresZone'), active: f.has('active'), capacityConfirmed: f.has('capacity') });
           }}>
-            <label className={labelText}>{c.name}<input name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
-            {selected.type !== 'ROBLOX' && <label className={labelText}>{c.price}<input type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>}
-            <label className={labelText}>{selected.type === 'ROBLOX' && ['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') ? t.robloxFlow.baseUnits : c.units}<input type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
+            <label htmlFor={`${fieldId}-var-name`} className={labelText}>{c.name}<input id={`${fieldId}-var-name`} name="name" defaultValue={variant.name} className={field} maxLength={100} required /></label>
+            {selected.type !== 'ROBLOX' && <label htmlFor={`${fieldId}-var-price`} className={labelText}>{c.price}<input id={`${fieldId}-var-price`} type="number" min={1} max={2147483647} name="price" defaultValue={variant.price} className={field} required /></label>}
+            <label htmlFor={`${fieldId}-var-units`} className={labelText}>{selected.type === 'ROBLOX' && ['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') ? t.robloxFlow.baseUnits : c.units}<input id={`${fieldId}-var-units`} type="number" min={1} max={2147483647} name="units" defaultValue={variant.units} className={field} required /></label>
 
             {selected.type === 'ROBLOX' ? <>
-              <label className={labelText}>{c.method}<select name="method" value={variant.method || 'GAMEPASS'} onChange={e => setVariant(v => ({ ...v, method: e.target.value }))} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
+              <label htmlFor={`${fieldId}-var-method`} className={labelText}>{c.method}<select id={`${fieldId}-var-method`} name="method" value={variant.method || 'GAMEPASS'} onChange={e => setVariant(v => ({ ...v, method: e.target.value }))} className={field}>{(['GAMEPASS','GIFT_USERNAME','LOGIN'] as const).map(m => <option key={m} value={m}>{c[m]}</option>)}</select></label>
               {['GAMEPASS', 'GIFT_USERNAME'].includes(variant.method || '') && <>
-                <label className={labelText}>{t.robloxFlow.maximum}<input type="number" name="maxUnits" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.maxUnits ?? ''} className={field} /></label>
-                <label className={labelText}>{t.robloxFlow.increment}<input type="number" name="unitStep" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.method === 'GAMEPASS' ? Math.max(5, variant.unitStep || 5) : variant.unitStep || 1} className={field} /></label>
+                <label htmlFor={`${fieldId}-var-max`} className={labelText}>{t.robloxFlow.maximum}<input id={`${fieldId}-var-max`} type="number" name="maxUnits" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.maxUnits ?? ''} className={field} /></label>
+                <label htmlFor={`${fieldId}-var-step`} className={labelText}>{t.robloxFlow.increment}<input id={`${fieldId}-var-step`} type="number" name="unitStep" min={variant.method === 'GAMEPASS' ? 5 : 1} max={1000000} step={variant.method === 'GAMEPASS' ? 5 : 1} defaultValue={variant.method === 'GAMEPASS' ? Math.max(5, variant.unitStep || 5) : variant.unitStep || 1} className={field} /></label>
                 <p className="sm:col-span-2 text-sm font-medium text-amber-700 bg-amber-50 p-4 rounded-xl border border-amber-100">{variant.method === 'GAMEPASS' ? <>{t.robloxFlow.adminHint} <br/>{t.roblox.autoPrice}</> : t.usernameFlow.adminHint}</p>
               </>}
-              {(() => { const cap = robloxCapacityStatus(variant.method, variant.capacityCheckedAt); return <label className="flex flex-wrap gap-3 items-center cursor-pointer select-none mt-2"><input name="capacity" type="checkbox" className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.capacity}</span>{cap.state !== 'not_applicable' && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${cap.state === 'expired' ? 'bg-rose-100 text-rose-700' : cap.state === 'expiring_soon' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>{cap.state === 'expired' ? c.capacityExpired : fillTemplate(cap.state === 'expiring_soon' ? c.capacityExpiringSoon : c.capacityActive, { hours: cap.hoursLeft })}</span>}</label>; })()}
+              {(() => { const cap = robloxCapacityStatus(variant.method, variant.capacityCheckedAt); return <label htmlFor={`${fieldId}-var-cap`} className="flex min-h-11 flex-wrap gap-3 items-center cursor-pointer select-none mt-2"><input id={`${fieldId}-var-cap`} name="capacity" type="checkbox" className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.capacity}</span>{cap.state !== 'not_applicable' && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${cap.state === 'expired' ? 'bg-rose-100 text-rose-700' : cap.state === 'expiring_soon' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>{cap.state === 'expired' ? c.capacityExpired : fillTemplate(cap.state === 'expiring_soon' ? c.capacityExpiringSoon : c.capacityActive, { hours: cap.hoursLeft })}</span>}</label>; })()}
             </> : <>
-              <label className={labelText}>{c.sku}<input name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>
-              <label className="flex gap-3 items-center cursor-pointer select-none mt-2"><input name="requiresZone" type="checkbox" defaultChecked={variant.requiresZone} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.requiresZone}</span></label>
+              <label htmlFor={`${fieldId}-var-sku`} className={labelText}>{c.sku}<input id={`${fieldId}-var-sku`} name="sku" defaultValue={variant.providerSku || ''} maxLength={100} className={field} required /></label>
+              <label htmlFor={`${fieldId}-var-zone`} className="flex min-h-11 gap-3 items-center cursor-pointer select-none mt-2"><input id={`${fieldId}-var-zone`} name="requiresZone" type="checkbox" defaultChecked={variant.requiresZone} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.requiresZone}</span></label>
             </>}
 
             {selected.type === 'ROBLOX' && (
@@ -213,10 +214,11 @@ export default function TopupAdmin() {
                         <h5 className="font-black text-pink-700">{t.regional[region]}</h5>
                         <span className="text-xs font-bold bg-pink-100 text-pink-600 px-2 py-0.5 rounded-md">{REGION_CURRENCY[region]}</span>
                       </div>
-                      <label className={labelText}>
-                        <input name={region === 'ID' ? 'price' : 'price-' + region} type="number" min={region === 'ID' ? 1 : 0} step={region === 'ID' ? 1 : '0.01'} max={region === 'ID' ? 2147483647 : 21474836.47} required={region === 'ID'} defaultValue={region === 'ID' ? variant.price : row ? (row.amount / currencyScale(REGION_CURRENCY[region])).toFixed(2) : ''} className={field} placeholder="0" />
+                      <label htmlFor={`${fieldId}-rp-${region}`} className={labelText}>
+                        <span className="sr-only">{t.regional[region]} ({REGION_CURRENCY[region]})</span>
+                        <input id={`${fieldId}-rp-${region}`} name={region === 'ID' ? 'price' : 'price-' + region} type="number" min={region === 'ID' ? 1 : 0} step={region === 'ID' ? 1 : '0.01'} max={region === 'ID' ? 2147483647 : 21474836.47} required={region === 'ID'} defaultValue={region === 'ID' ? variant.price : row ? (row.amount / currencyScale(REGION_CURRENCY[region])).toFixed(2) : ''} className={field} placeholder="0" />
                       </label>
-                      <label className="flex items-center gap-2 mt-3 mb-2 cursor-pointer select-none"><input name={'active-' + region} type="checkbox" defaultChecked={row?.active ?? region === 'ID'} className="w-4 h-4 accent-pink-600 rounded cursor-pointer" /><span className="text-sm font-bold text-neutral-700">{t.regional.enabled}</span></label>
+                      <label htmlFor={`${fieldId}-ra-${region}`} className="flex min-h-11 items-center gap-2 mt-3 mb-2 cursor-pointer select-none"><input id={`${fieldId}-ra-${region}`} name={'active-' + region} type="checkbox" defaultChecked={row?.active ?? region === 'ID'} className="w-4 h-4 accent-pink-600 rounded cursor-pointer" /><span className="text-sm font-bold text-neutral-700">{t.regional.enabled}</span></label>
                       <div className="mt-auto pt-2 border-t border-pink-100">
                         <p className="text-[10px] font-semibold text-neutral-500 leading-tight">
                           {methods[region].length ? t.regional.providerReady + ': ' + methods[region].map(m => m.label).join(', ') : <span className="text-rose-600">{t.regional.providerMissing}</span>}
@@ -230,7 +232,7 @@ export default function TopupAdmin() {
 
             {error && <p role="alert" className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-4 font-semibold text-rose-700">{errorLabel(error)}</p>}
             <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-4 border-t border-pink-100 pt-5 mt-2">
-              <label className="flex gap-3 items-center cursor-pointer select-none"><input name="active" type="checkbox" defaultChecked={variant.active} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.active}</span></label>
+              <label htmlFor={`${fieldId}-var-active`} className="flex min-h-11 gap-3 items-center cursor-pointer select-none"><input id={`${fieldId}-var-active`} name="active" type="checkbox" defaultChecked={variant.active} className="w-5 h-5 accent-pink-600 rounded cursor-pointer" /><span className="font-bold text-neutral-700">{c.active}</span></label>
               <div className="flex gap-3">
                 <button type="button" disabled={busy} onClick={() => setProductId(0)} className="text-neutral-600 font-bold px-6 py-2.5 rounded-xl hover:bg-neutral-100 transition active:scale-95 disabled:opacity-50">{c.cancelAction}</button>
                 <button disabled={busy} className="bg-pink-600 hover:bg-pink-700 text-white font-black shadow-md shadow-pink-200/50 rounded-xl px-8 py-2.5 transition active:scale-95">{c.save}</button>

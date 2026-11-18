@@ -18,7 +18,7 @@ export default function DetectedLocation({ region, loading = false }: { region: 
         <span
           aria-hidden="true"
           className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-            loading ? 'animate-pulse bg-pink-400' : region ? 'bg-emerald-500 ring-4 ring-emerald-500/15' : 'bg-amber-500 ring-4 ring-amber-500/15'
+            loading ? 'motion-safe:animate-pulse bg-pink-400' : region ? 'bg-emerald-500 ring-4 ring-emerald-500/15' : 'bg-amber-500 ring-4 ring-amber-500/15'
           }`}
         />
         {loading ? (

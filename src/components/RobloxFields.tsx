@@ -26,11 +26,12 @@ export default function RobloxFields({
   const [state, setState] = useState<'idle' | 'busy' | 'invalid' | 'missing' | 'unavailable'>('idle');
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
   const hintId = useId();
 
   useEffect(() => () => controller.current?.abort(), []);
   const field =
-    'block w-full mt-1.5 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-500/10 transition-all';
+    'block w-full mt-1.5 rounded-2xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm text-[#251D2C] font-medium focus:border-pink-600 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
 
   async function check() {
     controller.current?.abort();
@@ -63,36 +64,39 @@ export default function RobloxFields({
   return (
     <div className="space-y-5">
       <div>
-        <label className="block text-sm font-bold text-[#251D2C]">
+        <label htmlFor={`${fieldId}-username`} className="block text-sm font-bold text-[#251D2C]">
           {c.username}
-          <input
-            ref={input}
-            className={field}
-            name="username"
-            value={username}
-            minLength={3}
-            maxLength={20}
-            pattern="[A-Za-z0-9_]+"
-            required
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-describedby={hintId}
-            onChange={e => {
-              controller.current?.abort();
-              setUsername(e.target.value.replace(/^@/, ''));
-              onUsernameChange?.(e.target.value.replace(/^@/, ''));
-              setProfile(null);
-              setState('idle');
-              e.target.setCustomValidity('');
-            }}
-          />
         </label>
+        <input
+          ref={input}
+          id={`${fieldId}-username`}
+          className={field}
+          name="username"
+          value={username}
+          minLength={3}
+          maxLength={20}
+          pattern="[A-Za-z0-9_]+"
+          required
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="done"
+          aria-describedby={hintId}
+          onChange={e => {
+            controller.current?.abort();
+            setUsername(e.target.value.replace(/^@/, ''));
+            onUsernameChange?.(e.target.value.replace(/^@/, ''));
+            setProfile(null);
+            setState('idle');
+            e.target.setCustomValidity('');
+          }}
+        />
         <button
           type="button"
           onClick={check}
           disabled={state === 'busy'}
-          className="mt-2.5 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs sm:text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 transition disabled:opacity-50 cursor-pointer"
+          className="mt-2.5 min-h-11 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs sm:text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 transition disabled:opacity-50 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
         >
           {state === 'busy' ? r.checking : r.checkUser}
         </button>
@@ -132,10 +136,21 @@ export default function RobloxFields({
             <p className="text-sm text-amber-900">{r.pendingNotice}</p>
             <RobloxGamepassGuide price={robloxGamepassPrice(units)} />
           </div>
-          <label className="block text-sm font-bold text-[#251D2C]">
+          <label htmlFor={`${fieldId}-gamepass`} className="block text-sm font-bold text-[#251D2C]">
             {c.gamepassUrl}
-            <input className={field} name="gamepassUrl" type="url" maxLength={500} required placeholder="https://www.roblox.com/game-pass/123456789" />
           </label>
+          <input
+            id={`${fieldId}-gamepass`}
+            className={field}
+            name="gamepassUrl"
+            type="url"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={500}
+            required
+            placeholder="https://www.roblox.com/game-pass/123456789"
+          />
         </>
       )}
       {!identityOnly && method === 'GIFT_USERNAME' && (

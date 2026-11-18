@@ -1,6 +1,6 @@
 'use client';
 import { observeCheckout } from './AggregateMetrics';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StoreShell from './StoreShell';
@@ -50,6 +50,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
   const { t, language } = useLanguage();
   const a = t.apps;
   const router = useRouter();
+  const formId = useId();
   const [products, setProducts] = useState<AppsProduct[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [region, setRegion] = useState<'ID' | null>(null);
@@ -206,49 +207,69 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
         {!slug && (
           <>
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{t.catalogSubtitle}</p>
-            <form
-              className="my-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-b border-[#F1E4ED] pb-4 sm:my-6 sm:grid-cols-[1fr_1fr_auto]"
-              onSubmit={event => {
-                event.preventDefault();
-                activeRequest.current?.abort();
-                setLoading(true);
-                setError('');
-                setProducts([]);
-                setCursor(null);
-                setFilters(new URLSearchParams({ q: query.trim(), category: category.trim() }).toString());
-                setRevision(n => n + 1);
-              }}
-            >
-              <label className="col-span-2 text-sm font-bold text-[#251D2C] sm:col-span-1">
-                {t.searchPlaceholder}
-                <input
-                  type="search"
-                  maxLength={100}
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
-                />
-              </label>
-              <label className="min-w-0 text-sm font-bold text-[#251D2C]">
-                {a.category}
-                <input
-                  maxLength={50}
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-3.5 py-2.5 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
-                />
-              </label>
-              <button className="rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
-                {t.searchButton}
-              </button>
-            </form>
+            <search>
+              <form
+                aria-label={t.searchButton}
+                className="my-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-b border-[#F1E4ED] pb-4 sm:my-6 sm:grid-cols-[1fr_1fr_auto]"
+                onSubmit={event => {
+                  event.preventDefault();
+                  activeRequest.current?.abort();
+                  setLoading(true);
+                  setError('');
+                  setProducts([]);
+                  setCursor(null);
+                  setFilters(new URLSearchParams({ q: query.trim(), category: category.trim() }).toString());
+                  setRevision(n => n + 1);
+                }}
+              >
+                <div className="col-span-2 sm:col-span-1">
+                  <label htmlFor={`${formId}-search`} className="block text-sm font-bold text-[#251D2C]">
+                    {t.searchPlaceholder}
+                  </label>
+                  <input
+                    id={`${formId}-search`}
+                    name="q"
+                    type="search"
+                    maxLength={100}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="search"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    className="mt-1.5 w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-white px-3.5 py-2.5 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label htmlFor={`${formId}-category`} className="block text-sm font-bold text-[#251D2C]">
+                    {a.category}
+                  </label>
+                  <input
+                    id={`${formId}-category`}
+                    name="category"
+                    maxLength={50}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="mt-1.5 w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-white px-3.5 py-2.5 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                  />
+                </div>
+                <button type="submit" className="min-h-11 rounded-xl bg-pink-600 hover:bg-pink-700 motion-safe:active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
+                  {t.searchButton}
+                </button>
+              </form>
+            </search>
           </>
         )}
 
         {slug && (
           <Link
             href="/apps"
-            className="my-4 inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+            className="my-4 inline-flex items-center gap-2 rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 motion-safe:active:scale-[0.98] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             ← {a.back}
           </Link>
@@ -261,7 +282,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
               type="button"
               disabled={busy || loading}
               onClick={() => void load(cursor && products.length ? cursor : null)}
-              className="mt-3 rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
+              className="mt-3 rounded-xl border border-rose-300 bg-white px-4 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 motion-safe:active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
             >
               {a.retry}
             </button>
@@ -287,7 +308,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   setFilters('');
                   setRevision(n => n + 1);
                 }}
-                className="mt-3 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                className="mt-3 rounded-xl border border-[#F1E4ED] bg-white px-4 py-2 text-xs font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 motion-safe:active:scale-[0.98] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {a.all}
               </button>
@@ -351,7 +372,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   </div>
                   <Link
                     href={`/apps/${encodeURIComponent(p.slug)}`}
-                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
+                    className="mt-4 block rounded-xl bg-pink-600 hover:bg-pink-700 motion-safe:active:scale-[0.98] px-3 py-2.5 text-center text-xs sm:text-sm font-extrabold text-white transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600"
                   >
                     {a.details}
                   </Link>
@@ -366,7 +387,7 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
             type="button"
             disabled={loading}
             onClick={() => void load(cursor)}
-            className="mt-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+            className="mt-6 rounded-xl border border-[#F1E4ED] bg-white px-5 py-2.5 text-sm font-bold text-[#251D2C] hover:border-pink-300 hover:bg-pink-50 motion-safe:active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
           >
             {t.loadMore}
           </button>
@@ -384,22 +405,32 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                   {availability(product)}
                 </p>
               </div>
-              <label className="block text-sm font-bold text-[#251D2C]">
-                {a.email}
+              <div>
+                <label htmlFor={`${formId}-email`} className="block text-sm font-bold text-[#251D2C]">
+                  {a.email}
+                </label>
                 <input
+                  id={`${formId}-email`}
+                  name="email"
                   type="email"
                   autoComplete="email"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="done"
                   required
                   maxLength={150}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   disabled={busy}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                  className="mt-1.5 w-full min-h-12 rounded-xl border border-[var(--input-border)] bg-white px-4 py-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 />
-              </label>
+              </div>
               <p className="text-xs sm:text-sm leading-6 text-[var(--text-secondary)]">{product.appsConfig?.fulfillmentMode === 'ACTIVATION' ? a.emailHint : a.orderEmailHint}</p>
-              <label className="flex items-start gap-3 text-xs sm:text-sm leading-6 font-medium text-[#251D2C] cursor-pointer">
+              <label htmlFor={`${formId}-agree`} className="flex items-start gap-3 text-xs sm:text-sm leading-6 font-medium text-[#251D2C] cursor-pointer">
                 <input
+                  id={`${formId}-agree`}
+                  name="agree"
                   type="checkbox"
                   required
                   checked={agree}
@@ -410,8 +441,9 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
                 <span>{a.agree}</span>
               </label>
               <button
+                type="submit"
                 disabled={busy || !agree || !ready(product)}
-                className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] p-3.5 text-sm font-extrabold text-white disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                className="w-full min-h-12 rounded-xl bg-pink-600 hover:bg-pink-700 motion-safe:active:scale-[0.98] p-3.5 text-sm font-extrabold text-white disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
               >
                 {busy ? a.processing : t.btnPayNow}
               </button>
@@ -422,23 +454,31 @@ export default function AppsCatalog({ slug }: { slug?: string }) {
 
       {!slug && (
         <form
+          aria-labelledby={`${formId}-track-label`}
           className="mt-6 rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-6"
           onSubmit={event => {
             event.preventDefault();
             if (invoice.trim()) router.push('/order/' + encodeURIComponent(invoice.trim()));
           }}
         >
-          <label className="block text-sm font-extrabold text-[#251D2C]">
+          <label id={`${formId}-track-label`} htmlFor={`${formId}-invoice`} className="block text-sm font-extrabold text-[#251D2C]">
             {t.trackTitle}
-            <input
-              value={invoice}
-              onChange={e => setInvoice(e.target.value)}
-              maxLength={191}
-              placeholder={t.trackPlaceholder}
-              className="mt-2 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
-            />
           </label>
-          <button className="mt-3 rounded-xl border border-[#F1E4ED] bg-pink-50 hover:bg-pink-100 active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-pink-700 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
+          <input
+            id={`${formId}-invoice`}
+            name="invoice"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="search"
+            value={invoice}
+            onChange={e => setInvoice(e.target.value)}
+            maxLength={191}
+            placeholder={t.trackPlaceholder}
+            className="mt-2 w-full min-h-12 rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+          />
+          <button type="submit" className="mt-3 min-h-11 rounded-xl border border-[#F1E4ED] bg-pink-50 hover:bg-pink-100 motion-safe:active:scale-[0.98] px-5 py-2.5 text-sm font-extrabold text-pink-700 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
             {t.trackButton}
           </button>
         </form>

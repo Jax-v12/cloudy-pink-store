@@ -1,6 +1,6 @@
 'use client';
 import { observeCheckout } from './AggregateMetrics';
-import { useEffect, useId, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { fillTemplate, robloxGamepassPrice } from '@/lib/roblox';
@@ -96,7 +96,7 @@ export default function RobloxCheckoutWizard({
     ? [u.description, u.detailsIntro, f.paymentIntro, u.confirmIntro]
     : [f.description, f.detailsIntro, f.passIntro, f.paymentIntro, f.confirmIntro];
   const input =
-    'w-full rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] px-4 py-3.5 text-[#251D2C] font-medium focus:border-pink-500 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
+    'w-full rounded-2xl border border-[var(--input-border)] bg-[#FFF9FC] px-4 py-3.5 text-base sm:text-sm text-[#251D2C] font-medium focus:border-pink-600 focus:bg-white focus:ring-4 focus:ring-pink-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-all';
   const errors: Record<string, string> = {
     REGION_UNVERIFIED: t.regional.locationUnavailable,
     REGION_CHANGED: t.regional.priceChanged,
@@ -220,12 +220,12 @@ export default function RobloxCheckoutWizard({
         className="mt-6 rounded-3xl border border-[#F1E4ED] bg-white px-5 py-6 sm:mt-8 sm:p-8"
       >
         <fieldset key={step} disabled={busy} className="store-step min-w-0">
-          <header className="mx-auto mb-7 max-w-xl text-center">
-            <h2 ref={heading} tabIndex={-1} className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C] outline-none">
+          <div className="mx-auto mb-7 max-w-xl text-center">
+            <h2 ref={heading} tabIndex={-1} className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#251D2C] focus:outline-none">
               {titles[step]}
             </h2>
             <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[var(--text-secondary)]">{intros[step]}</p>
-          </header>
+          </div>
 
           {error && (
             <p role="alert" className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 p-4 text-sm font-semibold">
@@ -236,9 +236,13 @@ export default function RobloxCheckoutWizard({
           {step === 0 && (
             <div className="mx-auto max-w-lg space-y-4">
               {variants.length > 1 && (
-                <label className="block text-sm font-bold text-[#251D2C]">
-                  {f.rate}
+                <div>
+                  <label htmlFor={`${id}-rate`} className="block text-sm font-bold text-[#251D2C]">
+                    {f.rate}
+                  </label>
                   <select
+                    id={`${id}-rate`}
+                    name="rate"
                     value={rate.id}
                     onChange={e => {
                       const next = variants.find(v => v.id === Number(e.target.value))!;
@@ -257,7 +261,7 @@ export default function RobloxCheckoutWizard({
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
               )}
 
               <div className="flex items-center gap-4 rounded-2xl border border-pink-200/80 bg-[#FFF9FC] p-5">
@@ -310,10 +314,13 @@ export default function RobloxCheckoutWizard({
 
               <div className="border-y border-[#F1E4ED] py-5 space-y-5">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3 sm:gap-4">
-                  <label className="text-sm font-bold text-[#251D2C]" htmlFor={`${id}-quantity`}>
-                    {f.quantity}
+                  <div>
+                    <label className="block text-sm font-bold text-[#251D2C]" htmlFor={`${id}-quantity`}>
+                      {f.quantity}
+                    </label>
                     <input
                       id={`${id}-quantity`}
+                      name="quantity"
                       type="number"
                       inputMode="numeric"
                       min={rate.units}
@@ -325,7 +332,7 @@ export default function RobloxCheckoutWizard({
                       aria-describedby={`${id}-hint`}
                       className={`${input} mt-2 bg-white font-extrabold`}
                     />
-                  </label>
+                  </div>
                   <div className="text-sm font-bold text-[#251D2C]">
                     {r.total}
                     <output
@@ -343,6 +350,7 @@ export default function RobloxCheckoutWizard({
                   </label>
                   <input
                     id={`${id}-range`}
+                    name="quantityRange"
                     type="range"
                     min={rate.units}
                     max={maximum}
@@ -353,7 +361,7 @@ export default function RobloxCheckoutWizard({
                     aria-describedby={`${id}-hint`}
                     disabled={maximum === rate.units}
                     className="gamepass-range w-full"
-                    style={{ background: `linear-gradient(to right, #EC4899 ${progress}%, #F1E4ED ${progress}%)` }}
+                    style={{ '--slider-progress': `${progress}%` } as CSSProperties}
                   />
                   <div className="mt-2 flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
                     <span>{rate.units} Robux</span>
@@ -373,18 +381,26 @@ export default function RobloxCheckoutWizard({
                 </div>
               </div>
 
-              <label className="block text-sm font-bold text-[#251D2C]">
-                {c.email}
+              <div>
+                <label htmlFor={`${id}-email`} className="block text-sm font-bold text-[#251D2C]">
+                  {c.email}
+                </label>
                 <input
+                  id={`${id}-email`}
+                  name="email"
                   type="email"
                   autoComplete="email"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   maxLength={150}
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className={`${input} mt-2`}
                 />
-              </label>
+              </div>
 
               <div className="border-l-2 border-pink-300 pl-4">
                 <h3 className="font-extrabold text-[#251D2C]">{f.noteTitle}</h3>
@@ -424,10 +440,18 @@ export default function RobloxCheckoutWizard({
                 <RobloxGamepassGuide price={price} />
               </div>
 
-              <label className="block text-sm font-bold text-[#251D2C]">
-                {c.gamepassUrl}
+              <div>
+                <label htmlFor={`${id}-link`} className="block text-sm font-bold text-[#251D2C]">
+                  {c.gamepassUrl}
+                </label>
                 <input
+                  id={`${id}-link`}
+                  name="gamepassUrl"
                   type="url"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   maxLength={500}
                   required
                   value={link}
@@ -435,7 +459,7 @@ export default function RobloxCheckoutWizard({
                   placeholder="https://www.roblox.com/game-pass/123456789"
                   className={`${input} mt-2`}
                 />
-              </label>
+              </div>
               <p className="text-xs text-[var(--text-secondary)]">{f.linkHelp}</p>
             </div>
           )}
@@ -445,13 +469,15 @@ export default function RobloxCheckoutWizard({
               {methods.map(m => (
                 <label
                   key={m.id}
+                  htmlFor={`${id}-method-${m.id}`}
                   className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 sm:p-5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-pink-700 ${
                     methodValue === m.id
                       ? 'border-pink-600 bg-pink-50/70 ring-1 ring-pink-600'
-                      : 'border-[#F1E4ED] bg-[#FFF9FC] hover:border-pink-300'
+                      : 'border-[var(--input-border)] bg-[#FFF9FC] hover:border-pink-400'
                   }`}
                 >
                   <input
+                    id={`${id}-method-${m.id}`}
                     type="radio"
                     name="payment"
                     value={m.id}

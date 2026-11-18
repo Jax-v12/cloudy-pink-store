@@ -1,25 +1,20 @@
 import type { NextConfig } from "next";
+import { buildContentSecurityPolicy } from "./src/lib/csp";
 
-const isProd = process.env.NODE_ENV === 'production';
-
-const cspDirectives = [
-  "default-src 'self'",
-  isProd
-    ? "script-src 'self' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.rbxcdn.com https://thumbnails.roblox.com https://api.sandbox.midtrans.com https://api.midtrans.com",
-  "font-src 'self' data:",
-  "connect-src 'self' https://api.sandbox.midtrans.com https://api.midtrans.com",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-  "base-uri 'self'",
-];
+const isDev = process.env.NODE_ENV === 'development';
 
 const securityHeaders = [
   {
     key: 'Content-Security-Policy',
-    value: cspDirectives.join('; '),
+    value: buildContentSecurityPolicy({ isDev }),
+  },
+  {
+    key: 'Cross-Origin-Opener-Policy',
+    value: 'same-origin-allow-popups',
+  },
+  {
+    key: 'Cross-Origin-Resource-Policy',
+    value: 'same-origin',
   },
   {
     key: 'X-Frame-Options',

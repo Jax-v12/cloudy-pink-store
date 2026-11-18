@@ -44,7 +44,7 @@ export default function AdminOperationsGuide() {
         <p className="text-sm leading-relaxed text-neutral-700">{copy.intro}</p>
         <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-relaxed text-amber-950">{copy.paymentRule}</p>
         {copy.sections.map(section => <details key={section.title} className={`${styles.section} store-disclosure group rounded-2xl border border-pink-100 bg-white`}>
-          <summary tabIndex={0} className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 font-bold text-[#251D2C] focus-visible:outline-2 focus-visible:outline-pink-700"><span>{section.title}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg></summary>
+          <summary tabIndex={0} className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 font-bold text-[#251D2C] focus-visible:outline-2 focus-visible:outline-pink-700"><span>{section.title}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 shrink-0 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg></summary>
           <ol className="list-decimal space-y-3 px-5 pb-5 pl-10 text-sm leading-relaxed text-neutral-700">{section.steps.map(step => <li key={step}>{step}</li>)}</ol>
         </details>)}
       </div>}

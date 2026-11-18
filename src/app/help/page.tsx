@@ -11,16 +11,16 @@ export default function HelpPage() {
   return (
     <StoreShell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <header className="rounded-3xl border border-[#F1E4ED] bg-white p-6 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] sm:p-8">
+        <section className="rounded-3xl border border-[#F1E4ED] bg-white p-6 shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] sm:p-8">
           <h1 className="text-2xl font-extrabold tracking-tight text-[#251D2C] sm:text-4xl">{copy.title}</h1>
-          <p className="mt-3 text-sm sm:text-base leading-relaxed text-[#756C7D]">{copy.intro}</p>
+          <p className="mt-3 text-sm sm:text-base leading-relaxed text-[var(--text-secondary)]">{copy.intro}</p>
           <a
             href="#terms"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-pink-200 bg-pink-50/70 px-3.5 py-2 text-xs sm:text-sm font-bold text-pink-700 hover:bg-pink-100/80 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-800"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-pink-200 bg-pink-50/70 px-3.5 py-2 text-xs sm:text-sm font-bold text-pink-700 hover:bg-pink-100/80 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-800"
           >
             {copy.terms} &darr;
           </a>
-        </header>
+        </section>
 
         <section
           aria-labelledby="faq-title"
@@ -36,7 +36,7 @@ export default function HelpPage() {
                   <span>{item.question}</span>
                   <span
                     aria-hidden="true"
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#F1E4ED] bg-[#FFF9FC] text-xs text-pink-600 transition-transform duration-200 group-open:rotate-180 group-open:bg-pink-600 group-open:text-white"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#F1E4ED] bg-[#FFF9FC] text-xs text-pink-600 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-180 group-open:bg-pink-600 group-open:text-white"
                   >
                     ▾
                   </span>

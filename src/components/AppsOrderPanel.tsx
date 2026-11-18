@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { appsDeliveryVisible, type AppsConfig, type AppsProduct } from '@/lib/appsProduct';
@@ -28,6 +28,7 @@ export type AppsOrder = {
 
 export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrder; refresh: () => void; now: number }) {
   const { t, language } = useLanguage();
+  const fieldId = useId();
   const a = t.apps;
   const router = useRouter();
   const [reason, setReason] = useState('DELIVERY_HELP');
@@ -193,12 +194,16 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
               }}
               className="space-y-3"
             >
-              <label className="block text-sm font-bold text-[#251D2C]">
-                {a.reason}
+              <div>
+                <label htmlFor={`${fieldId}-reason`} className="block text-sm font-bold text-[#251D2C]">
+                  {a.reason}
+                </label>
                 <select
+                  id={`${fieldId}-reason`}
+                  name="reason"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-white p-3 text-sm font-medium text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                  className="mt-1.5 w-full min-h-11 rounded-xl border border-[var(--input-border)] bg-white p-3 text-base sm:text-sm font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 >
                   {(['DELIVERY_HELP', 'NO_ACCESS', 'STOPPED_WORKING'] as const)
                     .filter(key => key === 'DELIVERY_HELP' || order.appsWarranty?.active)
@@ -208,8 +213,8 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
                       </option>
                     ))}
                 </select>
-              </label>
-              <button disabled={busy} className="rounded-xl bg-pink-600 hover:bg-pink-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
+              </div>
+              <button disabled={busy} className="min-h-11 rounded-xl bg-pink-600 hover:bg-pink-700 motion-safe:active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm font-extrabold text-white transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">
                 {a.request}
               </button>
             </form>
@@ -218,7 +223,7 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
             <button
               disabled={busy}
               onClick={() => void getRenewal()}
-              className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+              className="rounded-xl border border-[#F1E4ED] bg-white px-4 py-2.5 text-sm font-bold text-pink-700 hover:border-pink-300 hover:bg-pink-50 motion-safe:active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
             >
               {a.renew}
             </button>
@@ -243,9 +248,9 @@ export default function AppsOrderPanel({ order, refresh, now }: { order: AppsOrd
               {renewal.name} · {renewal.price === null ? t.regional.unavailable : formatMoney(renewal.price, 'IDR', language)}
             </p>
             <AppsPackageDetails product={renewal} />
-            <label className="flex gap-3 text-sm font-medium text-[#251D2C]">
-              <input type="checkbox" required checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 accent-pink-600" />
-              {a.agree}
+            <label htmlFor={`${fieldId}-agree`} className="flex gap-3 text-sm font-medium text-[#251D2C] cursor-pointer">
+              <input id={`${fieldId}-agree`} name="agree" type="checkbox" required checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 h-4 w-4 accent-pink-600" />
+              <span>{a.agree}</span>
             </label>
             <div className="flex flex-wrap gap-3">
               <button

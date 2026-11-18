@@ -1,13 +1,14 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { normalizeLoginBackupCodes, validLoginPassword, type LoginCredentials } from '@/lib/loginCredentials';
 import AdminDialog from './AdminDialog';
 
 type Access = LoginCredentials & { username: string; displayUntil: string };
-const control = 'mt-2 w-full min-w-0 rounded-xl border-2 border-pink-200 bg-white p-3 text-neutral-900 focus-visible:outline-2 focus-visible:outline-pink-800';
+const control = 'mt-2 w-full min-w-0 rounded-xl border-2 border-[var(--input-border)] bg-white p-3 text-base sm:text-sm text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-800';
 
 export default function LoginAccessPanel({ orderId, invoice, username }: { orderId: number; invoice: string; username: string }) {
+  const fieldId = useId();
   const { t } = useLanguage(); const l = t.loginFlow;
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [reauth, setReauth] = useState(false);
   const [adminPassword, setAdminPassword] = useState(''), [error, setError] = useState('');
@@ -69,12 +70,12 @@ export default function LoginAccessPanel({ orderId, invoice, username }: { order
       {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-3 text-rose-900">{errorMessage}</p>}
       {access ? <div className="space-y-3">
         <p className="break-all font-semibold text-neutral-800">{l.username}: {access.username}</p>
-        <label className="block font-semibold text-neutral-800">{l.password}<input aria-label={l.password} className={control} type={visible ? 'text' : 'password'} value={access.password} readOnly autoComplete="off" spellCheck={false} /></label>
-        {access.backupCodes.map((code, index) => <label key={index} className="block font-semibold text-neutral-800">{l.backupCode} {index + 1}<input aria-label={`${l.backupCode} ${index + 1}`} className={control} type={visible ? 'text' : 'password'} value={code} readOnly autoComplete="off" spellCheck={false} /></label>)}
-        <button type="button" className="rounded-xl border-2 border-pink-300 px-4 py-3 font-bold text-pink-900" aria-pressed={visible} onClick={() => setVisible(value => !value)}>{visible ? l.hide : l.show}</button>
+        <label htmlFor={`${fieldId}-pw`} className="block font-semibold text-neutral-800">{l.password}<input id={`${fieldId}-pw`} className={control} type={visible ? 'text' : 'password'} value={access.password} readOnly autoComplete="off" spellCheck={false} /></label>
+        {access.backupCodes.map((code, index) => <label htmlFor={`${fieldId}-bc-${index}`} key={index} className="block font-semibold text-neutral-800">{l.backupCode} {index + 1}<input id={`${fieldId}-bc-${index}`} className={control} type={visible ? 'text' : 'password'} value={code} readOnly autoComplete="off" spellCheck={false} /></label>)}
+        <button type="button" className="min-h-11 rounded-xl border-2 border-[var(--input-border)] px-4 py-3 font-bold text-pink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-800 cursor-pointer" aria-pressed={visible} onClick={() => setVisible(value => !value)}>{visible ? l.hide : l.show}</button>
         <p role="status" className="text-sm text-neutral-700">{l.accessExpiry}</p>
       </div> : <form autoComplete="off" onSubmit={event => { event.preventDefault(); void unlock(); }}>
-        {reauth && <label className="mb-4 block font-semibold text-neutral-800">{l.reauthLabel}<input autoFocus type="password" autoComplete="off" className={control} value={adminPassword} onChange={event => setAdminPassword(event.target.value)} maxLength={1024} disabled={busy} /></label>}
+        {reauth && <label htmlFor={`${fieldId}-reauth`} className="mb-4 block font-semibold text-neutral-800">{l.reauthLabel}<input id={`${fieldId}-reauth`} autoFocus type="password" autoComplete="off" className={control} value={adminPassword} onChange={event => setAdminPassword(event.target.value)} maxLength={1024} disabled={busy} /></label>}
         <button type="submit" className="rounded-xl bg-pink-800 px-4 py-3 font-bold text-white disabled:opacity-50" disabled={busy || (reauth && !adminPassword)}>{busy ? l.processing : l.revealAccess}</button>
       </form>}
       <button type="button" className="mt-5 rounded-xl border-2 border-pink-300 px-4 py-3 font-bold text-pink-900" onClick={close}>{l.close}</button>

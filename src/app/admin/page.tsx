@@ -6,7 +6,7 @@ import AdminDialog from '@/components/AdminDialog';
 import AdminOperationsGuide from '@/components/AdminOperationsGuide';
 
 import { useLanguage } from '@/context/LanguageContext';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useId, useRef } from 'react';
 import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -121,6 +121,7 @@ interface AnalyticsData {
 }
 
 export default function AdminPage() {
+  const adminFormId = useId();
   const { t, language, setLanguage } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -726,8 +727,8 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center font-sans bg-[#FFF9FC]">
-        <div className="bg-white px-6 py-4 rounded-2xl border border-[#F1E4ED] shadow-xs text-pink-600 font-extrabold animate-pulse text-sm">
+      <main className="min-h-dvh flex items-center justify-center font-sans bg-[#FFF9FC]">
+        <div role="status" className="bg-white px-6 py-4 rounded-2xl border border-[#F1E4ED] shadow-xs text-pink-600 font-extrabold motion-safe:animate-pulse text-sm">
           Memeriksa izin akses admin...
         </div>
       </main>
@@ -736,7 +737,7 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <main className="relative min-h-screen flex items-center justify-center p-4 font-sans bg-[#FFF9FC] text-[#251D2C] overflow-hidden">
+      <main className="relative min-h-dvh flex items-center justify-center p-4 font-sans bg-[#FFF9FC] text-[#251D2C] overflow-hidden">
         <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
           <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/40 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-purple-200/35 blur-3xl" />
@@ -753,26 +754,29 @@ export default function AdminPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-[#251D2C] mb-1.5">Kata Sandi Admin</label>
+              <label htmlFor={`${adminFormId}-login-pw`} className="block text-xs font-bold text-[#251D2C] mb-1.5">Kata Sandi Admin</label>
               <input
+                id={`${adminFormId}-login-pw`}
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 placeholder="••••••••••••"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
-                className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-sm text-[#251D2C] placeholder-[#756C7D]/60 focus:outline-none focus:border-pink-500 focus:bg-white font-mono transition"
+                className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-[#251D2C] placeholder-[#756C7D]/60 focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 focus:bg-white font-mono transition"
               />
             </div>
 
             {loginError && (
-              <div className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-semibold">
+              <div role="alert" className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-semibold">
                 {loginError}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-extrabold rounded-xl text-sm shadow-sm shadow-pink-600/20 transition active:scale-[0.98] cursor-pointer"
+              className="w-full min-h-11 py-3 bg-pink-600 hover:bg-pink-700 text-white font-extrabold rounded-xl text-sm shadow-sm shadow-pink-600/20 transition motion-safe:active:scale-[0.98] cursor-pointer"
             >
               Masuk Dashboard
             </button>
@@ -789,7 +793,13 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="relative min-h-screen p-3 sm:p-6 md:p-8 font-sans bg-[#FFF9FC] text-[#251D2C] pb-24">
+    <div className="relative min-h-dvh p-3 sm:p-6 md:p-8 font-sans bg-[#FFF9FC] text-[#251D2C] pb-24">
+      <a
+        href="#admin-main"
+        className="visually-hidden focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-xl focus:bg-pink-700 focus:px-4 focus:py-2.5 focus:text-sm focus:font-extrabold focus:text-white focus:shadow-lg"
+      >
+        {t.skipToContent}
+      </a>
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
         <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-pink-200/35 blur-3xl" />
         <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-purple-200/25 blur-3xl" />
@@ -797,11 +807,11 @@ export default function AdminPage() {
 
       <div className="relative z-10 max-w-6xl mx-auto space-y-6">
         {/* Top Bar Dashboard */}
-        <div className="bg-white p-4 sm:p-6 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+        <header className="bg-white p-4 sm:p-6 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] flex flex-col lg:flex-row justify-between lg:items-center gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200 uppercase tracking-wide">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span aria-hidden="true" className="w-2 h-2 rounded-full bg-emerald-500 motion-safe:animate-pulse" />
                 Admin Panel Active
               </span>
               <a
@@ -820,24 +830,27 @@ export default function AdminPage() {
             {/* Language switcher */}
             <div className="inline-flex bg-[#FFF9FC] p-1 rounded-xl border border-[#F1E4ED]">
               <button
+                type="button"
                 onClick={() => setLanguage('ID')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`min-h-9 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                   language === 'ID' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 ID
               </button>
               <button
+                type="button"
                 onClick={() => setLanguage('MY')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`min-h-9 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                   language === 'MY' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
                 MY
               </button>
               <button
+                type="button"
                 onClick={() => setLanguage('EN')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`min-h-9 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                   language === 'EN' ? 'bg-pink-600 text-white shadow-2xs' : 'text-[#756C7D] hover:text-[#251D2C]'
                 }`}
               >
@@ -847,31 +860,34 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={toggleSound}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer ${
+              aria-pressed={soundEnabled}
+              aria-label={`${t.adminSoundToggle}: ${soundEnabled ? t.adminSoundOn : t.adminSoundOff}`}
+              className={`min-h-11 px-3 py-2 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 cursor-pointer ${
                 soundEnabled
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-[#FFF9FC] border-[#F1E4ED] text-[#756C7D]'
               }`}
-              title={`${t.adminSoundToggle}: ${soundEnabled ? t.adminSoundOn : t.adminSoundOff}`}
             >
-              <span>{soundEnabled ? '🔔' : '🔕'}</span>
+              <span aria-hidden="true">{soundEnabled ? '🔔' : '🔕'}</span>
               <span className="hidden sm:inline">{soundEnabled ? t.adminSoundOn : t.adminSoundOff}</span>
             </button>
             <Link
               href="/"
-              className="px-3.5 py-2 bg-[#FFF9FC] hover:bg-pink-50 text-[#251D2C] font-bold rounded-xl text-xs transition border border-[#F1E4ED]"
+              className="inline-flex items-center min-h-11 px-3.5 py-2 bg-[#FFF9FC] hover:bg-pink-50 text-[#251D2C] font-bold rounded-xl text-xs transition border border-[#F1E4ED]"
             >
               Lihat Toko
             </Link>
             <button
+              type="button"
               onClick={handleLogout}
-              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition cursor-pointer"
+              className="min-h-11 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition cursor-pointer"
             >
               Keluar (Logout)
             </button>
           </div>
-        </div>
+        </header>
 
+        <main id="admin-main" tabIndex={-1} className="space-y-6 focus-visible:outline-none">
         {/* Main Workspace Card */}
         <div className="bg-white p-5 sm:p-8 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)]">
           {/* Tab Selector */}
@@ -962,7 +978,7 @@ export default function AdminPage() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {analyticsLoading && !analyticsData ? (
-                <div className="text-center py-10 text-[#756C7D] font-semibold animate-pulse">
+                <div role="status" className="text-center py-10 text-[#756C7D] font-semibold motion-safe:animate-pulse">
                   {t.loadingAnalytics || 'Loading analytics...'}
                 </div>
               ) : analyticsData ? (
@@ -972,20 +988,20 @@ export default function AdminPage() {
                       <p className="text-xs font-bold text-pink-100 uppercase tracking-wider mb-1">
                         {t.statTotalRevenue || 'Total Revenue'}
                       </p>
-                      <h3 className="text-2xl sm:text-3xl font-extrabold">{formatRupiah(analyticsData.totalRevenue)}</h3>
+                      <h2 className="text-2xl sm:text-3xl font-extrabold">{formatRupiah(analyticsData.totalRevenue)}</h2>
                     </div>
                     <div className="bg-gradient-to-br from-purple-600 to-indigo-600 p-5 sm:p-6 rounded-2xl shadow-md shadow-purple-500/15 text-white">
                       <p className="text-xs font-bold text-purple-100 uppercase tracking-wider mb-1">
                         {t.statTotalSold || 'Total Sold'}
                       </p>
-                      <h3 className="text-2xl sm:text-3xl font-extrabold">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold">
                         {analyticsData.totalSold} <span className="text-sm font-semibold text-purple-200">Akun</span>
-                      </h3>
+                      </h2>
                     </div>
                   </div>
 
                   <div className="bg-[#FFF9FC] p-4 sm:p-6 rounded-2xl border border-[#F1E4ED]">
-                    <h4 className="text-sm font-extrabold text-[#251D2C] mb-4">{t.chartTitle || 'Last 7 Days Revenue'}</h4>
+                    <h2 className="text-sm font-extrabold text-[#251D2C] mb-4">{t.chartTitle || 'Last 7 Days Revenue'}</h2>
                     <div className="h-[250px] sm:h-[300px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={analyticsData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1061,10 +1077,11 @@ export default function AdminPage() {
                 </div>
                 <select
                   id="single-product-select"
+                  name="productId"
                   value={selectedProductId}
                   onChange={e => setSelectedProductId(e.target.value)}
                   required
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-semibold"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-semibold"
                 >
                   {productOptions.length === 0 && (
                     <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
@@ -1080,59 +1097,78 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminEmail}</label>
+                <label htmlFor={`${adminFormId}-single-email`} className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminEmail}</label>
                 <input
+                  id={`${adminFormId}-single-email`}
+                  name="emailAccount"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   required
                   placeholder="user.netflix@gmail.com"
                   value={emailAccount}
                   onChange={e => setEmailAccount(e.target.value)}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPassword}</label>
+                <label htmlFor={`${adminFormId}-single-pw`} className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPassword}</label>
                 <input
+                  id={`${adminFormId}-single-pw`}
+                  name="passwordAccount"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   required
                   placeholder="PasswordRahasia123!"
                   value={passwordAccount}
                   onChange={e => setPasswordAccount(e.target.value)}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminProfileName}</label>
+                <label htmlFor={`${adminFormId}-single-profile`} className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminProfileName}</label>
                 <input
+                  id={`${adminFormId}-single-profile`}
+                  name="profileName"
                   type="text"
                   placeholder="Contoh: Anya / Profil 1"
                   value={profileName}
                   onChange={e => setProfileName(e.target.value)}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-medium"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPin}</label>
+                <label htmlFor={`${adminFormId}-single-pin`} className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminPin}</label>
                 <input
+                  id={`${adminFormId}-single-pin`}
+                  name="pin"
                   type="text"
+                  autoComplete="off"
                   placeholder="Contoh: 1234"
                   value={pin}
                   onChange={e => setPin(e.target.value)}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-mono"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminNotes}</label>
+                <label htmlFor={`${adminFormId}-single-notes`} className="block text-xs font-bold text-[#251D2C] mb-1">{t.adminNotes}</label>
                 <input
+                  id={`${adminFormId}-single-notes`}
+                  name="additionalInfo"
                   type="text"
                   placeholder="Contoh: Dilarang mengganti password"
                   value={additionalInfo}
                   onChange={e => setAdditionalInfo(e.target.value)}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-medium"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-medium"
                 />
               </div>
 
@@ -1181,10 +1217,11 @@ export default function AdminPage() {
                 </div>
                 <select
                   id="batch-product-select"
+                  name="batchProductId"
                   value={selectedProductId}
                   onChange={e => setSelectedProductId(e.target.value)}
                   required
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-xl px-3.5 py-2.5 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-semibold"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-semibold"
                 >
                   {productOptions.length === 0 && (
                     <option value="">{productsLoading ? t.loadingProducts : t.emptyCatalog}</option>
@@ -1201,7 +1238,7 @@ export default function AdminPage() {
 
               <div>
                 <div className="flex items-start justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-[#251D2C]">{t.batchInstruction}</label>
+                  <label htmlFor={`${adminFormId}-batch-text`} className="block text-xs font-bold text-[#251D2C]">{t.batchInstruction}</label>
                 </div>
                 <div className="mb-2 flex flex-wrap gap-2 items-center">
                   <code className="text-[10px] bg-[#FFF9FC] text-pink-700 px-2.5 py-1 rounded-lg border border-[#F1E4ED] font-mono font-bold">
@@ -1210,12 +1247,14 @@ export default function AdminPage() {
                   <span className="text-[11px] text-[#756C7D]">{t.batchFormatNote}</span>
                 </div>
                 <textarea
+                  id={`${adminFormId}-batch-text`}
+                  name="batchText"
                   required
                   rows={8}
                   value={batchText}
                   onChange={e => setBatchText(e.target.value)}
                   placeholder={t.batchPlaceholder}
-                  className="w-full bg-[#FFF9FC] border border-[#F1E4ED] rounded-2xl px-3.5 py-3 text-xs text-[#251D2C] focus:outline-none focus:border-pink-500 font-mono resize-y placeholder-[#756C7D]/60 leading-relaxed"
+                  className="w-full bg-[#FFF9FC] border border-[var(--input-border)] rounded-2xl px-3.5 py-3 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 font-mono resize-y placeholder-[#756C7D]/60 leading-relaxed"
                 />
                 <p className="text-[11px] text-[#756C7D] mt-1">
                   {batchText.split('\n').filter(l => l.trim()).length} {t.totalData.toLowerCase()} baris
@@ -1356,9 +1395,11 @@ export default function AdminPage() {
                   className="grid gap-4 rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-4 sm:p-5 sm:grid-cols-2"
                 >
                   {(['name', 'slug', 'price', 'category'] as const).map(key => (
-                    <label key={key} className="text-xs font-bold text-[#251D2C]">
+                    <label key={key} htmlFor={`${adminFormId}-prod-${key}`} className="text-xs font-bold text-[#251D2C]">
                       {t.apps[key]}
                       <input
+                        id={`${adminFormId}-prod-${key}`}
+                        name={key}
                         required={key !== 'price'}
                         type={key === 'price' ? 'number' : 'text'}
                         min={0}
@@ -1366,14 +1407,16 @@ export default function AdminPage() {
                         maxLength={key === 'category' ? 50 : 100}
                         value={productDraft[key]}
                         onChange={e => setProductDraft({ ...productDraft, [key]: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                        className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-white px-3 py-2 text-base sm:text-xs font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                       />
                     </label>
                   ))}
                   {APPS_CONFIG_FIELDS.map(key => (
-                    <label key={key} className="text-xs font-bold text-[#251D2C]">
+                    <label key={key} htmlFor={`${adminFormId}-cfg-${key}`} className="text-xs font-bold text-[#251D2C]">
                       {t.apps[key]}
                       <textarea
+                        id={`${adminFormId}-cfg-${key}`}
+                        name={key}
                         rows={2}
                         maxLength={
                           ['usageRules', 'instructions', 'warrantyTerms'].includes(key)
@@ -1389,13 +1432,15 @@ export default function AdminPage() {
                             config: { ...productDraft.config, [key]: e.target.value },
                           })
                         }
-                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-normal text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                        className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-white px-3 py-2 text-base sm:text-xs font-normal text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                       />
                     </label>
                   ))}
-                  <label className="text-xs font-bold text-[#251D2C]">
+                  <label htmlFor={`${adminFormId}-fulfillment`} className="text-xs font-bold text-[#251D2C]">
                     {t.apps.fulfillmentMode}
                     <select
+                      id={`${adminFormId}-fulfillment`}
+                      name="fulfillmentMode"
                       value={productDraft.config.fulfillmentMode || ''}
                       onChange={e =>
                         setProductDraft({
@@ -1403,7 +1448,7 @@ export default function AdminPage() {
                           config: { ...productDraft.config, fulfillmentMode: e.target.value, activationMethod: '' },
                         })
                       }
-                      className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                      className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-white px-3 py-2 text-base sm:text-xs font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                     >
                       <option value="">{t.apps.select}</option>
                       {(['READY_ACCOUNT', 'ACTIVATION'] as const).map(key => (
@@ -1414,9 +1459,11 @@ export default function AdminPage() {
                     </select>
                   </label>
                   {productDraft.config.fulfillmentMode === 'ACTIVATION' && (
-                    <label className="text-xs font-bold text-[#251D2C]">
+                    <label htmlFor={`${adminFormId}-activation`} className="text-xs font-bold text-[#251D2C]">
                       {t.apps.activationMethod}
                       <select
+                        id={`${adminFormId}-activation`}
+                        name="activationMethod"
                         required
                         value={productDraft.config.activationMethod || ''}
                         onChange={e =>
@@ -1425,7 +1472,7 @@ export default function AdminPage() {
                             config: { ...productDraft.config, activationMethod: e.target.value },
                           })
                         }
-                        className="mt-1 w-full rounded-xl border border-[#F1E4ED] bg-white px-3 py-2 text-xs font-medium text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                        className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-white px-3 py-2 text-base sm:text-xs font-medium text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                       >
                         <option value="">{t.apps.select}</option>
                         {(['INVITATION', 'LINK', 'VOUCHER'] as const).map(key => (
@@ -1436,8 +1483,10 @@ export default function AdminPage() {
                       </select>
                     </label>
                   )}
-                  <label className="flex items-center gap-2.5 text-xs font-bold text-[#251D2C] sm:col-span-2">
+                  <label htmlFor={`${adminFormId}-prod-active`} className="flex min-h-11 items-center gap-2.5 text-xs font-bold text-[#251D2C] sm:col-span-2 cursor-pointer">
                     <input
+                      id={`${adminFormId}-prod-active`}
+                      name="active"
                       type="checkbox"
                       checked={productDraft.active}
                       onChange={e => setProductDraft({ ...productDraft, active: e.target.checked })}
@@ -1465,16 +1514,17 @@ export default function AdminPage() {
                 </form>
               )}
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-pink-600 rounded-xl" tabIndex={0} role="region" aria-label={t.tabProducts}>
                 <table className="w-full text-left text-xs">
+                  <caption className="sr-only">{t.tabProducts}</caption>
                   <thead>
                     <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
-                      <th className="py-3 px-3 rounded-l-xl">{t.colProductName}</th>
-                      <th className="py-3 px-3">{t.colProductPrice}</th>
-                      <th className="py-3 px-3">{t.colProductCategory}</th>
-                      <th className="py-3 px-3 text-center">{t.tblStatus}</th>
-                      <th className="py-3 px-3 text-center">{t.colProductStock}</th>
-                      <th className="py-3 px-3 rounded-r-xl text-center">{t.colActions}</th>
+                      <th scope="col" className="py-3 px-3 rounded-l-xl">{t.colProductName}</th>
+                      <th scope="col" className="py-3 px-3">{t.colProductPrice}</th>
+                      <th scope="col" className="py-3 px-3">{t.colProductCategory}</th>
+                      <th scope="col" className="py-3 px-3 text-center">{t.tblStatus}</th>
+                      <th scope="col" className="py-3 px-3 text-center">{t.colProductStock}</th>
+                      <th scope="col" className="py-3 px-3 rounded-r-xl text-center">{t.colActions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F1E4ED]">
@@ -1580,16 +1630,17 @@ export default function AdminPage() {
                   {ordersLoading ? t.loadingOrders : t.btnRefreshTable}
                 </button>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-pink-600 rounded-xl" tabIndex={0} role="region" aria-label={t.tabOrders}>
                 <table className="w-full text-left text-xs">
+                  <caption className="sr-only">{t.tabOrders}</caption>
                   <thead>
                     <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
-                      <th className="py-3 px-3 rounded-l-xl">{t.tblOrderInvoice}</th>
-                      <th className="py-3 px-3">{t.tblOrderDate}</th>
-                      <th className="py-3 px-3">{t.tblOrderCustomer}</th>
-                      <th className="py-3 px-3">{t.tblOrderProduct}</th>
-                      <th className="py-3 px-3">{t.tblOrderTotal}</th>
-                      <th className="py-3 px-3 rounded-r-xl text-center">{t.tblOrderStatus}</th>
+                      <th scope="col" className="py-3 px-3 rounded-l-xl">{t.tblOrderInvoice}</th>
+                      <th scope="col" className="py-3 px-3">{t.tblOrderDate}</th>
+                      <th scope="col" className="py-3 px-3">{t.tblOrderCustomer}</th>
+                      <th scope="col" className="py-3 px-3">{t.tblOrderProduct}</th>
+                      <th scope="col" className="py-3 px-3">{t.tblOrderTotal}</th>
+                      <th scope="col" className="py-3 px-3 rounded-r-xl text-center">{t.tblOrderStatus}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F1E4ED]">
@@ -1650,7 +1701,7 @@ export default function AdminPage() {
                               {order.otp && order.status === 'PAID' && (
                                 <div className="flex flex-col items-center gap-1 pt-1">
                                   {order.otp.status === 'REQUESTED' && (
-                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 motion-safe:animate-pulse">
                                       ⏳ {t.adminOtpRequested}
                                       {order.otp.requestId ? ` #${order.otp.requestId}` : ''}
                                     </span>
@@ -1670,7 +1721,7 @@ export default function AdminPage() {
                                         placeholder={t.adminOtpPlaceholder}
                                         value={otpInputs[otpDraftKey] || ''}
                                         onChange={e => setOtpInputs(prev => ({ ...prev, [otpDraftKey]: e.target.value }))}
-                                        className="w-28 bg-white border border-[#F1E4ED] rounded-lg px-2 py-1 text-[11px] font-mono text-[#251D2C] focus:outline-none focus:border-pink-500"
+                                        className="w-28 bg-white border border-[var(--input-border)] rounded-lg px-2 py-1 text-base sm:text-[11px] font-mono text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                                       />
                                       <button
                                         type="button"
@@ -1715,7 +1766,7 @@ export default function AdminPage() {
         <div className="bg-white p-5 sm:p-8 rounded-3xl border border-[#F1E4ED] shadow-[0_12px_32px_-12px_rgba(157,23,77,0.08)] overflow-hidden">
           <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-[#F1E4ED]">
             <div>
-              <h2 className="text-base sm:text-lg font-extrabold text-[#251D2C]">{t.adminTitle}</h2>
+              <h2 id={`${adminFormId}-stock-heading`} className="text-base sm:text-lg font-extrabold text-[#251D2C]">{t.adminTitle}</h2>
               <p className="text-[11px] text-[#756C7D]">
                 {t.totalData} {stocks.length}
               </p>
@@ -1728,20 +1779,21 @@ export default function AdminPage() {
             <button
               disabled={stocksLoading}
               onClick={() => refreshStocks()}
-              className="text-xs font-bold text-pink-700 hover:bg-pink-50 bg-[#FFF9FC] px-3.5 py-1.5 rounded-xl border border-[#F1E4ED] transition cursor-pointer"
+              className="min-h-11 text-xs font-bold text-pink-700 hover:bg-pink-50 bg-[#FFF9FC] px-3.5 py-1.5 rounded-xl border border-[#F1E4ED] transition cursor-pointer"
             >
               {t.btnRefreshTable}
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-pink-600 rounded-xl" tabIndex={0} role="region" aria-labelledby={`${adminFormId}-stock-heading`}>
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">{t.adminTitle}</caption>
               <thead>
                 <tr className="border-b border-[#F1E4ED] text-[#756C7D] uppercase text-[10px] tracking-wider bg-[#FFF9FC]">
-                  <th className="py-3 px-3 rounded-l-xl">{t.tblProduct}</th>
-                  <th className="py-3 px-3">{t.tblEmail}</th>
-                  <th className="py-3 px-3">{t.tblProfile}</th>
-                  <th className="py-3 px-3 rounded-r-xl text-center">{t.tblStatus}</th>
+                  <th scope="col" className="py-3 px-3 rounded-l-xl">{t.tblProduct}</th>
+                  <th scope="col" className="py-3 px-3">{t.tblEmail}</th>
+                  <th scope="col" className="py-3 px-3">{t.tblProfile}</th>
+                  <th scope="col" className="py-3 px-3 rounded-r-xl text-center">{t.tblStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1E4ED]">
@@ -1766,7 +1818,7 @@ export default function AdminPage() {
                             item.status === 'READY'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : item.status === 'LOCKED'
-                                ? 'bg-amber-50 text-amber-800 border border-amber-200 animate-pulse'
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200 motion-safe:animate-pulse'
                                 : 'bg-neutral-100 text-neutral-500 border border-neutral-200'
                           }`}
                         >
@@ -1791,28 +1843,31 @@ export default function AdminPage() {
             }}
           >
             <form onSubmit={handleReauth} className="space-y-4">
-              <label className="block text-xs font-bold text-[#251D2C]">
+              <label htmlFor={`${adminFormId}-reauth-pw`} className="block text-xs font-bold text-[#251D2C]">
                 {t.apps.password}
                 <input
+                  id={`${adminFormId}-reauth-pw`}
+                  name="password"
                   required
                   type="password"
                   autoComplete="current-password"
                   value={reauthPassword}
                   onChange={e => setReauthPassword(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] px-3 py-2.5 text-xs text-[#251D2C] focus:border-pink-500 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-[var(--input-border)] bg-[#FFF9FC] px-3 py-2.5 text-base sm:text-xs text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 />
               </label>
               <button
                 type="submit"
                 disabled={editLoading}
-                className="rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-extrabold text-white transition cursor-pointer"
+                className="min-h-11 rounded-xl bg-pink-600 hover:bg-pink-700 px-4 py-2.5 text-xs font-extrabold text-white transition cursor-pointer"
               >
                 {t.apps.reauth}
               </button>
             </form>
           </AdminDialog>
         )}
+        </main>
       </div>
-    </main>
+    </div>
   );
 }

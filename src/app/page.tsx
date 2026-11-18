@@ -24,22 +24,27 @@ export default function HomePage() {
   ];
   return (
     <StoreShell>
-      <section className="grid items-center gap-4 py-2 sm:gap-6 sm:py-9 lg:grid-cols-2 lg:gap-10">
-        <div>
-          <p className="mb-2 text-sm font-bold text-pink-700">{c.brand}</p>
-          <h1 className="max-w-xl text-3xl font-extrabold leading-tight tracking-tight text-[#251D2C] sm:text-5xl">{c.portalTitle}</h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">{c.portalSubtitle}</p>
-        </div>
-        <Image src="/banner-logo.png" alt={c.brand} width={1596} height={432} sizes="(max-width: 639px) 256px, (max-width: 1023px) 100vw, 550px" className="mx-auto h-auto w-64 max-w-full rounded-2xl border border-pink-100 sm:w-full sm:rounded-3xl" loading="eager" />
+      <section className="py-1 sm:py-2">
+        <h1 className="sr-only">{c.portalTitle}</h1>
+        <Image
+          src="/store/hero-banner.png"
+          alt={c.brand}
+          width={1030}
+          height={376}
+          sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1152px) calc(100vw - 3rem), 1104px"
+          className="block h-auto w-full"
+          loading="eager"
+          fetchPriority="high"
+        />
       </section>
 
       <section className={`mt-3 grid gap-4 ${GAME_TOPUP_PURCHASES_ENABLED ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         {categories.map(item => (
-          <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-all hover:border-pink-400 hover:shadow-[var(--shadow-soft)] motion-safe:hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
+          <Link key={item.href} href={item.href} className="group flex min-w-0 flex-col justify-between rounded-3xl border border-[#F1E4ED] bg-white p-4 transition-all duration-200 ease-out sm:hover:border-pink-400 sm:hover:shadow-[var(--shadow-soft)] motion-safe:sm:hover:-translate-y-0.5 motion-safe:active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pink-600 sm:p-6">
             <div>
               <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#F1E4ED] bg-[#FFF9FC] p-1 sm:h-18 sm:w-18">
-                  <Image src={item.art} alt="" fill sizes="72px" className="object-contain" />
+                  <Image src={item.art} alt="" fill sizes="72px" className="object-contain motion-safe:transition-transform motion-safe:duration-200 ease-out motion-safe:sm:group-hover:scale-110 motion-safe:sm:group-hover:-rotate-3" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{item.badge}</p>
@@ -48,37 +53,49 @@ export default function HomePage() {
               </div>
               <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{item.description}</p>
             </div>
-            <span className="mt-3 text-sm font-bold text-pink-700 sm:mt-5">{c.exploreCta} <span aria-hidden="true">→</span></span>
+            <span className="mt-3 text-sm font-bold text-pink-700 sm:mt-5">{c.exploreCta} <span aria-hidden="true" className="inline-block motion-safe:transition-transform motion-safe:duration-200 ease-out motion-safe:sm:group-hover:translate-x-0.5">→</span></span>
           </Link>
         ))}
       </section>
 
-      <form className="mt-6 grid items-center gap-4 rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-7 lg:grid-cols-2" onSubmit={event => {
+      <form className="mt-6 grid items-center gap-4 rounded-full border border-[#F1E4ED] bg-white px-9 py-6 sm:px-8 sm:py-5 lg:grid-cols-2" onSubmit={event => {
         event.preventDefault();
         if (invoice.trim()) router.push('/order/' + encodeURIComponent(invoice.trim()));
       }}>
         <div>
-          <label htmlFor="invoice" className="text-xl font-extrabold text-[#251D2C]">{t.trackTitle}</label>
+          <label htmlFor="invoice" className="block text-xl font-extrabold text-[#251D2C]">{t.trackTitle}</label>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.trackSubtitle}</p>
         </div>
-        <div className="flex gap-2">
-          <input id="invoice" className="min-w-0 flex-1 rounded-xl border border-[#F1E4ED] bg-white px-4 py-3 text-sm text-[#251D2C] focus:border-pink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600" value={invoice} onChange={event => setInvoice(event.target.value)} placeholder={t.trackPlaceholder} required />
-          <button type="submit" className="rounded-xl bg-pink-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-pink-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">{t.trackButton}</button>
+        <div className="flex items-center gap-2">
+          <input
+            id="invoice"
+            name="invoice"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="search"
+            className="min-h-12 min-w-0 flex-1 rounded-full border border-[var(--input-border)] bg-[#FFF9FC] px-5 py-2.5 text-base sm:text-sm text-[#251D2C] focus:border-pink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+            value={invoice}
+            onChange={event => setInvoice(event.target.value)}
+            placeholder={t.trackPlaceholder}
+            required
+          />
+          <button type="submit" className="min-h-12 shrink-0 cursor-pointer rounded-full bg-pink-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-pink-700 motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600">{t.trackButton}</button>
         </div>
       </form>
 
       <section aria-labelledby="how-it-works-heading" className="mt-9 sm:mt-12">
         <h2 id="how-it-works-heading" className="text-2xl font-extrabold text-[#251D2C]">{c.howItWorksTitle}</h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">{c.howItWorksSubtitle}</p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <ol className="mt-5 grid gap-4 sm:grid-cols-3">
           {steps.map((step, index) => (
-            <div key={step.title} className="border-t border-[#F1E4ED] py-4 sm:py-5">
+            <li key={step.title} className="rounded-3xl border border-[#F1E4ED] bg-white p-5 sm:p-6">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-pink-600 text-sm font-bold text-white">{index + 1}</span>
               <h3 className="mt-4 text-base font-bold text-[#251D2C]">{step.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{step.desc}</p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
     </StoreShell>
   );

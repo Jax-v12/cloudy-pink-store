@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 type Row = { id: number; orderId: number; daysBefore: number; periodEnd: string; status: string };
 async function readReviews(next?: number, signal?: AbortSignal): Promise<{ data: Row[]; pagination: { nextCursor: number | null } }> {
@@ -7,6 +7,7 @@ async function readReviews(next?: number, signal?: AbortSignal): Promise<{ data:
   const j = await r.json(); if (!r.ok || !j.success || !Array.isArray(j.data)) throw new Error(); return j;
 }
 export default function AppsReminderReview({ onReauth }: { onReauth: () => void }) {
+  const fieldId = useId();
   const { t } = useLanguage(); const a = t.apps;
   const [rows, setRows] = useState<Row[]>([]); const [cursor, setCursor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true); const [error, setError] = useState(false); const [target, setTarget] = useState<Row | null>(null); const [evidence, setEvidence] = useState('');
@@ -25,6 +26,6 @@ export default function AppsReminderReview({ onReauth }: { onReauth: () => void 
     {error && <p role="alert">{a.error}</p>}{loading && <p role="status">{t.loadingCatalog}</p>}{!rows.length && !error && !loading && <p>{a.empty}</p>}
     <ul className="space-y-3">{rows.map(row => <li key={row.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-3"><span>#{row.orderId} · H-{row.daysBefore} · {row.periodEnd.slice(0, 10)} · {row.status === 'UNKNOWN' ? a.reminderUnknown : a.reminderRejected}</span><button disabled={busy} className="rounded-xl border p-3" onClick={() => { setTarget(row); setEvidence(''); }}>{a.reminderResolve}</button></li>)}</ul>
     {cursor && <button disabled={busy} className="rounded-xl border p-3" onClick={() => void load(cursor)}>{t.loadMore}</button>}
-    {target && <form onSubmit={resolve} className="space-y-3 rounded-xl bg-pink-50 p-4"><p>#{target.orderId}</p><label className="block text-sm font-bold">{a.evidence}<input required maxLength={100} pattern="[A-Za-z0-9:_-]+" value={evidence} onChange={e => setEvidence(e.target.value)} className="mt-1 w-full rounded-xl border p-3" /></label><button disabled={busy} className="rounded-xl bg-pink-700 p-3 font-bold text-white">{a.reminderResolve}</button><button disabled={busy} type="button" onClick={() => setTarget(null)} className="ml-3 rounded-xl border p-3">{a.cancel}</button></form>}
+    {target && <form onSubmit={resolve} className="space-y-3 rounded-xl bg-pink-50 p-4"><p>#{target.orderId}</p><label htmlFor={`${fieldId}-evidence`} className="block text-sm font-bold">{a.evidence}<input id={`${fieldId}-evidence`} name="evidence" required maxLength={100} pattern="[A-Za-z0-9:_-]+" value={evidence} onChange={e => setEvidence(e.target.value)} className="mt-1 w-full rounded-xl border border-[var(--input-border)] p-3 text-base sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-700" /></label><button disabled={busy} className="min-h-11 rounded-xl bg-pink-700 p-3 font-bold text-white cursor-pointer">{a.reminderResolve}</button><button disabled={busy} type="button" onClick={() => setTarget(null)} className="ml-3 min-h-11 rounded-xl border border-[var(--input-border)] p-3 cursor-pointer">{a.cancel}</button></form>}
   </section>;
 }
