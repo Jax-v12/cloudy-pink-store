@@ -26,16 +26,19 @@ export default function HomePage() {
     <StoreShell>
       <section className="py-1 sm:py-2">
         <h1 className="sr-only">{c.portalTitle}</h1>
-        <Image
-          src="/store/hero-banner.png"
-          alt={c.brand}
-          width={1030}
-          height={376}
-          sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1152px) calc(100vw - 3rem), 1104px"
-          className="block h-auto w-full"
-          loading="eager"
-          fetchPriority="high"
-        />
+        <div className="drop-shadow-[0_10px_24px_rgba(157,23,77,0.10)]">
+          <Image
+            src="/store/hero-banner.webp"
+            alt={c.brand}
+            width={3044}
+            height={964}
+            quality={95}
+            sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1152px) calc(100vw - 3rem), 1104px"
+            className="block h-auto w-full"
+            loading="eager"
+            fetchPriority="high"
+          />
+        </div>
       </section>
 
       <section className={`mt-3 grid gap-4 ${GAME_TOPUP_PURCHASES_ENABLED ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>

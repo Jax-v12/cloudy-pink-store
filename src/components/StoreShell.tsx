@@ -54,8 +54,16 @@ export default function StoreShell({ children, wide = false }: { children: React
   const links = ([['/apps', c.APPS], ['/games', c.GAME], ['/roblox', c.ROBLOX]] as const)
     .filter(([href]) => GAME_TOPUP_PURCHASES_ENABLED || href !== '/games');
 
+  const showBackgroundDoodles = !pathname.startsWith('/admin');
+
   return (
-    <div className="relative flex min-h-dvh flex-col bg-[#FFF9FC] text-[#251D2C] overflow-x-clip">
+    <div className="store-bg-canvas relative flex min-h-dvh flex-col text-[#251D2C] overflow-x-clip">
+      {showBackgroundDoodles && (
+        <div aria-hidden="true" className="store-bg-doodles pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          <div className="store-bg-doodles-left" />
+          <div className="store-bg-doodles-right" />
+        </div>
+      )}
       <a
         href="#main-content"
         className="visually-hidden fixed left-3 top-3 z-50 rounded-xl bg-pink-700 px-4 py-2.5 text-sm font-bold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-950"

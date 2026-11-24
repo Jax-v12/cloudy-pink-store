@@ -3,7 +3,7 @@
 :root {
   color-scheme: light;
   accent-color: #BE185D;
-  --background: #FFF9FC;
+  --background: #FEEDF6;
   --surface: #FFFFFF;
   --surface-muted: #FDF2F8;
   --foreground: #251D2C;
@@ -29,7 +29,7 @@
 
 @layer base {
   body {
-    background: var(--background);
+    background: linear-gradient(180deg, #feedf6 0%, #fceafa 50%, #f9e8fe 100%);
     color: var(--foreground);
     font-family: var(--font-jakarta), var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     line-height: 1.5;
@@ -203,7 +203,100 @@ html:has(dialog:modal) {
   }
 }
 
+.store-bg-canvas {
+  background-color: #feedf6;
+  background-image:
+    url('/store/bg-canvas.png'),
+    linear-gradient(180deg, #feedf6 0%, #fceafa 50%, #f9e8fe 100%);
+  background-size: cover, 100% 100%;
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
+}
+
+.store-bg-doodles-left,
+.store-bg-doodles-right {
+  position: absolute;
+  top: 5.5rem;
+  bottom: 0;
+  background-repeat: repeat-y;
+  background-position: center top;
+  pointer-events: none;
+  width: 32px;
+  background-size: 32px auto;
+  opacity: 0.28;
+}
+
+.store-bg-doodles-left {
+  left: -4px;
+  background-image: url('/store/bg-doodles-left.webp');
+}
+
+.store-bg-doodles-right {
+  right: -4px;
+  background-image: url('/store/bg-doodles-right.webp');
+}
+
+@media (min-width: 1200px) {
+  .store-bg-doodles-left,
+  .store-bg-doodles-right {
+    width: 58px;
+    background-size: 58px auto;
+    opacity: 0.85;
+  }
+
+  .store-bg-doodles-left {
+    left: 10px;
+  }
+
+  .store-bg-doodles-right {
+    right: 10px;
+  }
+}
+
+@media (min-width: 1360px) {
+  .store-bg-doodles-left,
+  .store-bg-doodles-right {
+    width: 82px;
+    background-size: 82px auto;
+    opacity: 0.95;
+  }
+
+  .store-bg-doodles-left {
+    left: 18px;
+  }
+
+  .store-bg-doodles-right {
+    right: 18px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .store-bg-doodles-left,
+  .store-bg-doodles-right {
+    width: 96px;
+    background-size: 96px auto;
+    opacity: 0.98;
+  }
+
+  .store-bg-doodles-left {
+    left: 26px;
+  }
+
+  .store-bg-doodles-right {
+    right: 26px;
+  }
+}
+
 @media (forced-colors: active) {
+  .store-bg-canvas {
+    background-image: none !important;
+  }
+
+  .store-bg-doodles {
+    display: none !important;
+  }
+
   .gamepass-range::-webkit-slider-runnable-track,
   .gamepass-range::-moz-range-track {
     border: 1px solid CanvasText;

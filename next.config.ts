@@ -39,6 +39,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    qualities: [75, 95],
+  },
   // Izinkan domain ngrok mengakses server development Next.js
   allowedDevOrigins: [
     '*.ngrok-free.dev',
