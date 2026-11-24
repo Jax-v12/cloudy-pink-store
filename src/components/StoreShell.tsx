@@ -71,10 +71,10 @@ export default function StoreShell({ children, wide = false }: { children: React
         {t.skipToContent}
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-[#F1E4ED] bg-white">
+      <header className="sticky top-0 z-30 border-b border-[#F1E4ED] bg-[#FEEDF6]/95 backdrop-blur-md">
         <div className={`mx-auto px-4 sm:px-6 py-2.5 sm:py-3 ${wide ? 'max-w-7xl' : 'max-w-6xl'}`}>
           <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`flex items-center gap-2.5 min-w-0 ${wide ? '-ml-1.5 sm:-ml-3' : '-ml-1.5 sm:-ml-3 lg:-ml-4 xl:-ml-10 2xl:-ml-16'}`}>
               <Link
                 href="/"
                 className="group inline-flex items-center gap-2.5 rounded-xl py-1 pr-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
@@ -84,7 +84,7 @@ export default function StoreShell({ children, wide = false }: { children: React
               {pathname !== '/' && (
                 <Link
                   href="/"
-                  className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-[#F1E4ED] bg-[#FFF9FC] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-pink-300 hover:text-pink-700 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
+                  className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-[#F1E4ED] bg-white/90 px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)] hover:border-pink-300 hover:text-pink-700 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600"
                 >
                   &larr; {c.home}
                 </Link>
@@ -92,7 +92,7 @@ export default function StoreShell({ children, wide = false }: { children: React
             </div>
 
             <nav
-              className="order-3 flex w-full items-center justify-center gap-1.5 overflow-x-auto rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-1 text-xs sm:text-sm font-bold lg:order-none lg:w-auto"
+              className="order-3 flex w-full items-center justify-center gap-1.5 overflow-x-auto rounded-xl border border-[#F1E4ED] bg-white/90 p-1 text-xs sm:text-sm font-bold lg:order-none lg:w-auto"
               aria-label={c.home}
             >
               {pathname !== '/' && (
@@ -149,7 +149,7 @@ export default function StoreShell({ children, wide = false }: { children: React
               <div
                 role="group"
                 aria-label={c.language}
-                className="inline-flex rounded-xl border border-[#F1E4ED] bg-[#FFF9FC] p-0.5 text-xs font-bold"
+                className="inline-flex rounded-xl border border-[#F1E4ED] bg-white/90 p-0.5 text-xs font-bold"
               >
                 {(['ID', 'EN', 'MY'] as const).map(l => (
                   <button
